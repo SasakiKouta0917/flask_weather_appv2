@@ -21,7 +21,6 @@ function escapeHtml(s) {
   }[c]));
 }
 
-// ---- ページ読込後 ----
 document.addEventListener('DOMContentLoaded', ()=>{
   const btn = document.getElementById('theme-toggle');
   if(btn){
