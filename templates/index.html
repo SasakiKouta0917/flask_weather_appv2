@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>天気 × 地図アプリ</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="dark">
+<div class="container">
+  <div class="topbar">
+    <h1>天気 × 地図アプリ</h1>
+    <div class="controls">
+      <button id="theme-toggle" class="theme-btn">ライトテーマ</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="weather-row">
+    <div id="current-weather" class="card">
+      <h3 id="location">--</h3>
+      <p>天気：<span id="weather-main">--</span></p>
+      <p>気温：<span id="temperature">--</span>℃</p>
+      <p>湿度：<span id="humidity">--</span>%</p>
+      <p>降水：<span id="precipitation">--</span> mm</p>
+      <p>気圧：<span id="pressure">--</span> hPa</p>
+      <p>最高気温：<span id="max-temp">--</span>℃</p>
+      <p>最低気温：<span id="min-temp">--</span>℃</p>
+      <button id="update-btn">最新の天気を更新</button>
+    </div>
+
+    <div id="overlay-hourly" class="card">
+      <h3>12時間予報</h3>
+      <div id="overlay-scroll"></div>
+      <div class="chart-wrap">
+        <canvas id="hourly-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>服装の提案</h3>
+    <button id="suggest-btn">提案を取得</button>
+    <div id="suggestions"></div>
+  </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
