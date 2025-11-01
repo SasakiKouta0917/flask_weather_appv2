@@ -21,17 +21,18 @@ function escapeHtml(s) {
   }[c]));
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
+// ---- ページ読込後 ----
+document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('theme-toggle');
-  if(btn){
+  if (btn) {
     btn.textContent = document.body.classList.contains('dark') ? "ライトテーマ" : "ダークテーマ";
   }
 
   initMap();
 
   const updateBtn = document.getElementById('update-btn');
-  if(updateBtn){
-    updateBtn.addEventListener('click', async ()=>{
+  if (updateBtn) {
+    updateBtn.addEventListener('click', async () => {
       marker.setLatLng([INIT_LAT, INIT_LON]);
       map.setView([INIT_LAT, INIT_LON], 13);
       await fetchWeather(INIT_LAT, INIT_LON);
@@ -39,8 +40,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   const sbtn = document.getElementById("suggest-btn");
-  if(sbtn){
-    sbtn.addEventListener('click', async ()=>{
+  if (sbtn) {
+    sbtn.addEventListener('click', async () => {
       const w = {
         weather: document.getElementById("weather-main").textContent,
         temp: document.getElementById("temperature").textContent,
@@ -53,40 +54,52 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
-  if(btn){
-    btn.addEventListener('click', ()=>{
+  if (btn) {
+    btn.addEventListener('click', () => {
       document.body.classList.toggle('dark');
-      btn.textContent = document.body.classList.contains('dark')?'ライトテーマ':'ダークテーマ';
+      btn.textContent = document.body.classList.contains('dark') ? 'ライトテーマ' : 'ダークテーマ';
     });
   }
 });
 
 // === 地図 ===
-function initMap(){
+function initMap() {
   map = L.map('map').setView([INIT_LAT, INIT_LON], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
   marker = L.marker([INIT_LAT, INIT_LON]).addTo(map);
 
   setText('location', '北上コンピュータ・アカデミー');
 
-  map.on('click', async (e)=>{
+  map.on('click', async (e) => {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
     marker.setLatLng([lat, lon]);
     await fetchWeather(lat, lon);
+    showPopup(lat, lon, '現在地の天気を取得しました');
   });
 
   fetchWeather(INIT_LAT, INIT_LON);
 }
 
+// ポップアップを5秒後に閉じる関数
+function showPopup(lat, lon, text) {
+  const pop = L.popup()
+    .setLatLng([lat, lon])
+    .setContent(text)
+    .openOn(map);
+
+  // 5秒後に自動で閉じる
+  setTimeout(() => { map.closePopup(pop); }, 5000);
+}
+
 // ✅ Amedas＋Open-Meteo
-async function fetchWeather(lat, lon){
-  try{
+async function fetchWeather(lat, lon) {
+  try {
     const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
     const j = await res.json();
 
-    if(!j || j.status !== "ok"){
+    if (!j || j.status !== "ok") {
       applyWeatherDummy();
       return;
     }
@@ -100,81 +113,81 @@ async function fetchWeather(lat, lon){
     setText('max-temp', j.temp_max);
     setText('min-temp', j.temp_min);
 
-    if(j.hourly){
+    if (j.hourly) {
       renderHourlyPanel(j.hourly);
       drawTempChartFromHourly(j.hourly);
     }
 
-  }catch(e){
+  } catch (e) {
     applyWeatherDummy();
   }
 }
 
 // ==== 服装提案API ====
-async function fetchSuggest(w){
-  try{
-    const res = await fetch("/api/suggest",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(w)
+async function fetchSuggest(w) {
+  try {
+    const res = await fetch("/api/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(w)
     });
     const j = await res.json();
     const box = document.getElementById("suggestions");
-    if(!box) return;
+    if (!box) return;
 
-    if(!j || j.status!=="ok"){
+    if (!j || j.status !== "ok") {
       box.textContent = "取得エラー（ダミー提案）";
       return;
     }
     box.innerHTML = "";
-    j.data.suggestions.forEach(s=>{
+    j.data.suggestions.forEach(s => {
       const d = document.createElement("div");
       d.textContent = `${s.period}: ${s.any}`;
       box.appendChild(d);
     });
 
-  }catch(e){
+  } catch (e) {
     const box = document.getElementById("suggestions");
-    if(box) box.textContent = "取得に失敗しました";
+    if (box) box.textContent = "取得に失敗しました";
   }
 }
 
 // ---- ダミー表示 ----
-function applyWeatherDummy(){
-  setText('weather-main','晴れ');
-  setText('temperature',18);
-  setText('humidity',55);
-  setText('precipitation',0);
-  setText('pressure',1012);
-  setText('max-temp',22);
-  setText('min-temp',12);
+function applyWeatherDummy() {
+  setText('weather-main', '晴れ');
+  setText('temperature', 18);
+  setText('humidity', 55);
+  setText('precipitation', 0);
+  setText('pressure', 1012);
+  setText('max-temp', 22);
+  setText('min-temp', 12);
 
   const d = makeDummyHourly();
   renderHourlyPanel(d);
   drawTempChartFromHourly(d);
 }
 
-function makeDummyHourly(){
+function makeDummyHourly() {
   const out = [];
   const now = new Date();
-  for(let i=0;i<12;i++){
-    const t = new Date(now.getTime() + (i+1)*3600*1000);
+  for (let i = 0; i < 12; i++) {
+    const t = new Date(now.getTime() + (i + 1) * 3600 * 1000);
     out.push({
       label: `${t.getHours()}:00`,
-      temp: 12 + Math.round(Math.sin(i/2)*6),
-      weather: (i%4===0)?'雨':'晴れ'
+      temp: 12 + Math.round(Math.sin(i / 2) * 6),
+      weather: (i % 4 === 0) ? '雨' : '晴れ'
     });
   }
   return out;
 }
 
 // ---- 12時間 ----
-function renderHourlyPanel(arr){
+function renderHourlyPanel(arr) {
   const sc = document.getElementById('overlay-scroll');
-  if(!sc) return;
+  if (!sc) return;
   sc.innerHTML = '';
-  arr.forEach(h=>{
-    const icon = (h.weather.includes('雨'))?'🌧️':'☀️';
+  arr.forEach(h => {
+    const icon = (h.weather.includes('雨')) ? '🌧️' : '☀️';
     const div = document.createElement('div');
     div.className = 'overlay-hour-tile';
     div.innerHTML = `<div style="font-size:12px;color:#555">${h.label}</div>
@@ -186,15 +199,15 @@ function renderHourlyPanel(arr){
 }
 
 // ---- チャート ----
-function drawTempChartFromHourly(arr){
+function drawTempChartFromHourly(arr) {
   const c = document.getElementById('hourly-chart');
-  if(!c) return;
+  if (!c) return;
 
-  const labels = arr.map(h=>h.label);
-  const data = arr.map(h=>Math.round(h.temp));
+  const labels = arr.map(h => h.label);
+  const data = arr.map(h => Math.round(h.temp));
 
   const ctx = c.getContext('2d');
-  if(hourlyChart) hourlyChart.destroy();
+  if (hourlyChart) hourlyChart.destroy();
   hourlyChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -204,18 +217,18 @@ function drawTempChartFromHourly(arr){
         data,
         borderColor: 'rgba(11,108,255,0.9)',
         backgroundColor: 'rgba(11,108,255,0.08)',
-        tension:0.3,
-        pointRadius:3,
-        borderWidth:2
+        tension: 0.3,
+        pointRadius: 3,
+        borderWidth: 2
       }]
     },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{grid:{display:false}},
-        y:{beginAtZero:false}
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: false }
       },
-      maintainAspectRatio:false
+      maintainAspectRatio: false
     }
   });
 }
