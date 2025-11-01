@@ -5,8 +5,21 @@ const INIT_LON = 141.11956806;
 let map, marker;
 let hourlyChart = null;
 
-function setText(id, v){ const e=document.getElementById(id); if(!e) return; e.textContent = (v===undefined||v===null)? '--' : v; }
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]); }
+function setText(id, v) {
+  const e = document.getElementById(id);
+  if (!e) return;
+  e.textContent = (v === undefined || v === null) ? '--' : v;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+}
 
 // ---- ページ読込後 ----
 document.addEventListener('DOMContentLoaded', ()=>{
