@@ -1,176 +1,234 @@
-from flask import Flask, request, jsonify, render_template
-import requests
-import time
-import json
-import os
-from datetime import datetime
-import traceback
+// === 設定（北上コンピュータ・アカデミー：初期位置） ===
+const INIT_LAT = 39.30506946;
+const INIT_LON = 141.11956806;
 
-from chatgpt_api import suggest_outfit
+let map, marker;
+let hourlyChart = null;
 
-app = Flask(__name__, template_folder='templates', static_folder='static')
+function setText(id, v) {
+  const e = document.getElementById(id);
+  if (!e) return;
+  e.textContent = (v === undefined || v === null) ? '--' : v;
+}
 
-# === キャッシュ ===
-CACHE = {}
-CACHE_TTL = 60
-SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "amedas-weather-app/2.0"})
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+}
 
-# === 観測所一覧 ===
-base = os.path.dirname(os.path.abspath(__file__))
-json_path = os.path.join(base, "amedas_points.json")
-with open(json_path, encoding="utf-8") as f:
-    AMEDAS_POINTS = json.load(f)
+// ---- ページ読込後 ----
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    btn.textContent = document.body.classList.contains('dark') ? "ライトテーマ" : "ダークテーマ";
+  }
 
-# === 最寄り観測所 ===
-def nearest_station(lat, lon):
-    best = None
-    best_dist = 9e9
-    for p in AMEDAS_POINTS:
-        d = (lat - p['lat'])**2 + (lon - p['lon'])**2
-        if d < best_dist:
-            best_dist = d
-            best = p
-    return best
+  initMap();
 
-# === Amedas JSON 現在観測 ===
-def fetch_amedas_json(st_id):
-    key = f"amedas:{st_id}"
-    c = CACHE.get(key)
-    if c and time.time() - c[0] < CACHE_TTL:
-        return c[1]
+  const updateBtn = document.getElementById('update-btn');
+  if (updateBtn) {
+    updateBtn.addEventListener('click', async () => {
+      marker.setLatLng([INIT_LAT, INIT_LON]);
+      map.setView([INIT_LAT, INIT_LON], 13);
+      await fetchWeather(INIT_LAT, INIT_LON);
+    });
+  }
 
-    try:
-        t = SESSION.get(
-            "https://www.jma.go.jp/bosai/amedas/data/latest_time.txt",
-            timeout=6
-        )
-        latest = t.text.strip()
-        day = latest[:8]    # YYYYMMDD
+  const sbtn = document.getElementById("suggest-btn");
+  if (sbtn) {
+    sbtn.addEventListener('click', async () => {
+      const w = {
+        weather: document.getElementById("weather-main").textContent,
+        temp: document.getElementById("temperature").textContent,
+        temp_max: document.getElementById("max-temp").textContent,
+        temp_min: document.getElementById("min-temp").textContent,
+        humidity: document.getElementById("humidity").textContent,
+        precipitation: document.getElementById("precipitation").textContent
+      };
+      await fetchSuggest(w);
+    });
+  }
 
-        url = f"https://www.jma.go.jp/bosai/amedas/data/{day}/{st_id}.json"
-        r = SESSION.get(url, timeout=6)
-        r.raise_for_status()
-        data = r.json()
-    except Exception:
-        return {
-            "weather": "不明",
-            "temperature": None,
-            "humidity": None,
-            "precipitation": None,
-            "pressure": None,
-            "temp_max": None,
-            "temp_min": None
-        }
+  if (btn) {
+    btn.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      btn.textContent = document.body.classList.contains('dark') ? 'ライトテーマ' : 'ダークテーマ';
+    });
+  }
+});
 
-    out = {
-        "weather": "晴れ",        # 現在天気は Amedas で取れない → 仮
-        "temperature": None,
-        "humidity": None,
-        "precipitation": None,
-        "pressure": None,
-        "temp_max": None,
-        "temp_min": None
+// === 地図 ===
+function initMap() {
+  map = L.map('map').setView([INIT_LAT, INIT_LON], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+  marker = L.marker([INIT_LAT, INIT_LON]).addTo(map);
+
+  setText('location', '北上コンピュータ・アカデミー');
+
+  map.on('click', async (e) => {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+    marker.setLatLng([lat, lon]);
+    await fetchWeather(lat, lon);
+    showPopup(lat, lon, '現在地の天気を取得しました');
+  });
+
+  fetchWeather(INIT_LAT, INIT_LON);
+}
+
+// ポップアップを5秒後に閉じる関数
+function showPopup(lat, lon, text) {
+  const pop = L.popup()
+    .setLatLng([lat, lon])
+    .setContent(text)
+    .openOn(map);
+
+  // 5秒後に自動で閉じる
+  setTimeout(() => { map.closePopup(pop); }, 5000);
+}
+
+// ✅ Amedas＋Open-Meteo
+async function fetchWeather(lat, lon) {
+  try {
+    const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
+    const j = await res.json();
+
+    if (!j || j.status !== "ok") {
+      applyWeatherDummy();
+      return;
     }
 
-    if "temp" in data and data["temp"] and data["temp"][-1] is not None:
-        out["temperature"] = data["temp"][-1]
+    setText('location', j.station_name);
+    setText('weather-main', j.weather);
+    setText('temperature', j.temperature);
+    setText('humidity', j.humidity);
+    setText('pressure', j.pressure);
+    setText('precipitation', j.precipitation);
+    setText('max-temp', j.temp_max);
+    setText('min-temp', j.temp_min);
 
-    if "humidity" in data and data["humidity"] and data["humidity"][-1] is not None:
-        out["humidity"] = data["humidity"][-1]
+    if (j.hourly) {
+      renderHourlyPanel(j.hourly);
+      drawTempChartFromHourly(j.hourly);
+    }
 
-    if "precipitation1h" in data and data["precipitation1h"] and data["precipitation1h"][-1] is not None:
-        out["precipitation"] = data["precipitation1h"][-1]
+  } catch (e) {
+    applyWeatherDummy();
+  }
+}
 
-    if "pressure" in data and data["pressure"] and data["pressure"][-1] is not None:
-        out["pressure"] = data["pressure"][-1]
+// ==== 服装提案API ==== 
+async function fetchSuggest(w) {
+  try {
+    const res = await fetch("/api/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(w)
+    });
+    const j = await res.json();
+    const box = document.getElementById("suggestions");
+    if (!box) return;
 
-    CACHE[key] = (time.time(), out)
-    return out
+    if (!j || j.status !== "ok") {
+      box.textContent = "取得エラー（ダミー提案）";
+      return;
+    }
+    box.innerHTML = "";
+    j.data.suggestions.forEach(s => {
+      const d = document.createElement("div");
+      d.textContent = `${s.period}: ${s.any}`;
+      box.appendChild(d);
+    });
 
-# === Open-Meteo（12時間予報） ===
-def fetch_hourly(lat, lon):
-    key = f"om:{round(lat,2)}:{round(lon,2)}"
-    c = CACHE.get(key)
-    if c and time.time() - c[0] < CACHE_TTL:
-        return c[1]
+  } catch (e) {
+    const box = document.getElementById("suggestions");
+    if (box) box.textContent = "取得に失敗しました";
+  }
+}
 
-    try:
-        url = (
-            f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={lat}&longitude={lon}"
-            f"&hourly=temperature_2m,weathercode"
-            f"&timezone=Asia%2FTokyo"
-        )
-        r = SESSION.get(url, timeout=6)
-        r.raise_for_status()
-        j = r.json()
+// ---- ダミー表示 ----
+function applyWeatherDummy() {
+  setText('weather-main', '晴れ');
+  setText('temperature', 18);
+  setText('humidity', 55);
+  setText('precipitation', 0);
+  setText('pressure', 1012);
+  setText('max-temp', 22);
+  setText('min-temp', 12);
 
-        arr = []
-        times = j["hourly"]["time"]
-        temps = j["hourly"]["temperature_2m"]
-        codes = j["hourly"]["weathercode"]
+  const d = makeDummyHourly();
+  renderHourlyPanel(d);
+  drawTempChartFromHourly(d);
+}
 
-        for i in range(min(12, len(times))):
-            t = datetime.fromisoformat(times[i])
-            w = "雨" if codes[i] in [51,61,63,65,80,81,82] else "晴れ"
-            arr.append({
-                "label": f"{t.hour}:00",
-                "temp": temps[i],
-                "weather": w
-            })
+function makeDummyHourly() {
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const t = new Date(now.getTime() + (i + 1) * 3600 * 1000);
+    out.push({
+      label: `${t.getHours()}:00`,
+      temp: 12 + Math.round(Math.sin(i / 2) * 6),
+      weather: (i % 4 === 0) ? '雨' : '晴れ'
+    });
+  }
+  return out;
+}
 
-        CACHE[key] = (time.time(), arr)
-        return arr
+// ---- 12時間 ----
+function renderHourlyPanel(arr) {
+  const sc = document.getElementById('overlay-scroll');
+  if (!sc) return;
+  sc.innerHTML = '';
+  arr.forEach(h => {
+    const icon = (h.weather.includes('雨')) ? '🌧️' : '☀️';
+    const div = document.createElement('div');
+    div.className = 'overlay-hour-tile';
+    div.innerHTML = `<div style="font-size:12px;color:#555">${h.label}</div>
+                     <div style="font-size:20px;margin:6px 0">${icon}</div>
+                     <div style="font-weight:700">${Math.round(h.temp)}℃</div>
+                     <div style="font-size:12px;color:#777">${h.weather}</div>`;
+    sc.appendChild(div);
+  });
+}
 
-    except Exception:
-        return None
+// ---- チャート ----
+function drawTempChartFromHourly(arr) {
+  const c = document.getElementById('hourly-chart');
+  if (!c) return;
 
-# === API: 天気データ ===
-@app.route("/api/weather")
-def api_weather():
-    try:
-        lat = float(request.args.get("lat", 39.30506946))
-        lon = float(request.args.get("lon", 141.11956806))
+  const labels = arr.map(h => h.label);
+  const data = arr.map(h => Math.round(h.temp));
 
-        st = nearest_station(lat, lon)
-        if not st:
-            return jsonify({"status": "error", "message":"観測所なし"})
-
-        obs = fetch_amedas_json(st["id"])
-        hourly = fetch_hourly(lat, lon)
-
-        return jsonify({
-            "status": "ok",
-            "station_name": st["name"],
-            **obs,
-            "hourly": hourly
-        })
-
-    except Exception:
-        traceback.print_exc()
-        return jsonify({"status": "error"})
-
-# === API: 服装提案 ===
-@app.route("/api/suggest", methods=["POST"])
-def api_suggest():
-    try:
-        w = request.json
-        if not w:
-            return jsonify({"status":"error"})
-
-        res = suggest_outfit(w)
-        return jsonify({"status":"ok", "data":res})
-
-    except Exception:
-        traceback.print_exc()
-        return jsonify({"status":"error"})
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-# Render/Heroku用
-if __name__ == "__main__":
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+  const ctx = c.getContext('2d');
+  if (hourlyChart) hourlyChart.destroy();
+  hourlyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '気温 (℃)',
+        data,
+        borderColor: 'rgba(11,108,255,0.9)',
+        backgroundColor: 'rgba(11,108,255,0.08)',
+        tension: 0.3,
+        pointRadius: 3,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: false }
+      },
+      maintainAspectRatio: false
+    }
+  });
+}
