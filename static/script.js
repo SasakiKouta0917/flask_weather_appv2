@@ -123,64 +123,6 @@ async function fetchWeather(lat, lon) {
   }
 }
 
-// ==== 服装提案API ====
-async function fetchSuggest(w) {
-  try {
-    const res = await fetch("/api/suggest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(w)
-    });
-    const j = await res.json();
-    const box = document.getElementById("suggestions");
-    if (!box) return;
-
-    if (!j || j.status !== "ok") {
-      box.textContent = "取得エラー（ダミー提案）";
-      return;
-    }
-    box.innerHTML = "";
-    j.data.suggestions.forEach(s => {
-      const d = document.createElement("div");
-      d.textContent = `${s.period}: ${s.any}`;
-      box.appendChild(d);
-    });
-
-  } catch (e) {
-    const box = document.getElementById("suggestions");
-    if (box) box.textContent = "取得に失敗しました";
-  }
-}
-
-// ---- ダミー表示 ----
-function applyWeatherDummy() {
-  setText('weather-main', '晴れ');
-  setText('temperature', 18);
-  setText('humidity', 55);
-  setText('precipitation', 0);
-  setText('pressure', 1012);
-  setText('max-temp', 22);
-  setText('min-temp', 12);
-
-  const d = makeDummyHourly();
-  renderHourlyPanel(d);
-  drawTempChartFromHourly(d);
-}
-
-function makeDummyHourly() {
-  const out = [];
-  const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const t = new Date(now.getTime() + (i + 1) * 3600 * 1000);
-    out.push({
-      label: `${t.getHours()}:00`,
-      temp: 12 + Math.round(Math.sin(i / 2) * 6),
-      weather: (i % 4 === 0) ? '雨' : '晴れ'
-    });
-  }
-  return out;
-}
-
 // ---- 12時間 ----
 function renderHourlyPanel(arr) {
   const sc = document.getElementById('overlay-scroll');
