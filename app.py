@@ -110,7 +110,7 @@ def fetch_hourly(lat, lon):
         temps = j["hourly"]["temperature_2m"]
         codes = j["hourly"]["weathercode"]
 
-        # === 現在以降のインデックスを特定
+        # === 現在時刻からのインデックスを特定
         now = datetime.now()
         start_index = 0
         for idx, t in enumerate(times):
