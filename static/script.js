@@ -89,8 +89,9 @@ function showPopup(lat, lon, text) {
     .setContent(text)
     .openOn(map);
 
-  // 5秒後に自動で閉じる
-  setTimeout(() => { map.closePopup(pop); }, 5000);
+  setTimeout(() => {
+    map.closePopup(pop);
+  }, 5000);
 }
 
 // ✅ Amedas＋Open-Meteo
@@ -123,7 +124,36 @@ async function fetchWeather(lat, lon) {
   }
 }
 
-// ---- 12時間 ----
+// ダミー表示
+function applyWeatherDummy() {
+  setText('weather-main', '晴れ');
+  setText('temperature', 18);
+  setText('humidity', 55);
+  setText('precipitation', 0);
+  setText('pressure', 1012);
+  setText('max-temp', 22);
+  setText('min-temp', 12);
+
+  const d = makeDummyHourly();
+  renderHourlyPanel(d);
+  drawTempChartFromHourly(d);
+}
+
+function makeDummyHourly() {
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const t = new Date(now.getTime() + (i + 1) * 3600 * 1000);
+    out.push({
+      label: `${t.getHours()}:00`,
+      temp: 12 + Math.round(Math.sin(i / 2) * 6),
+      weather: (i % 4 === 0) ? '雨' : '晴れ'
+    });
+  }
+  return out;
+}
+
+// 12時間予報
 function renderHourlyPanel(arr) {
   const sc = document.getElementById('overlay-scroll');
   if (!sc) return;
@@ -140,7 +170,7 @@ function renderHourlyPanel(arr) {
   });
 }
 
-// ---- チャート ----
+// チャート
 function drawTempChartFromHourly(arr) {
   const c = document.getElementById('hourly-chart');
   if (!c) return;
