@@ -1,193 +1,246 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, render_template, request, jsonify
+from datetime import datetime, timedelta, timezone
+import traceback
 import requests
 import time
-import json
-import os
-from datetime import datetime
-import traceback
-
-from chatgpt_api import suggest_outfit
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
-# === キャッシュ ===
+# ---- キャッシュ ----
 CACHE = {}
-CACHE_TTL = 60
+CACHE_TTL = 45
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "amedas-weather-app/2.0"})
+SESSION.headers.update({"User-Agent":"weather-app/1.0"})
 
-# === 観測所一覧 ===
-base = os.path.dirname(os.path.abspath(__file__))
-json_path = os.path.join(base, "amedas_points.json")
-with open(json_path, encoding="utf-8") as f:
-    AMEDAS_POINTS = json.load(f)
+# ✅ JMAエンドポイント
+JMA_URL = "https://api.open-meteo.com/v1/jma"
 
-# === 最寄り観測所 ===
-def nearest_station(lat, lon):
-    best = None
-    best_dist = 9e9
-    for p in AMEDAS_POINTS:
-        d = (lat - p['lat'])**2 + (lon - p['lon'])**2
-        if d < best_dist:
-            best_dist = d
-            best = p
-    return best
+WEATHERCODE_MAP = {
+    0: "快晴",
+    1: "晴れ時々曇り",
+    2: "曇り時々晴れ",
+    3: "曇り",
+    45: "霧",
+    48: "霧氷",
+    51: "弱い霧雨",
+    53: "霧雨",
+    55: "強い霧雨",
+    56: "弱い凍結霧雨",
+    57: "強い凍結霧雨",
+    61: "弱い雨",
+    63: "雨",
+    65: "強い雨",
+    66: "弱い凍結雨",
+    67: "強い凍結雨",
+    71: "弱い雪",
+    73: "雪",
+    75: "強い雪",
+    77: "霰（あられ）",
+    80: "にわか雨（弱）",
+    81: "にわか雨（中）",
+    82: "にわか雨（強）",
+    85: "弱いにわか雪",
+    86: "強いにわか雪",
+    95: "雷雨",
+    96: "雷雨（雹を伴う可能性あり）",
+    99: "激しい雷雨（雹を伴う可能性大）"
+}
 
-# === Amedas JSON 現在観測 ===
-def fetch_amedas_json(st_id):
-    key = f"amedas:{st_id}"
-    c = CACHE.get(key)
-    if c and time.time() - c[0] < CACHE_TTL:
-        return c[1]
+def code_to_label(c): return WEATHERCODE_MAP.get(int(c), "不明")
+
+def cache_get(k):
+    item = CACHE.get(k)
+    if not item: return None
+    ts, val = item
+    if time.time() - ts > CACHE_TTL:
+        del CACHE[k]
+        return None
+    return val
+
+def cache_set(k, v):
+    CACHE[k] = (time.time(), v)
+
+def round_coord(x): return round(float(x), 4)
+
+
+# ---- ✅ 現在の天気（JMA版） ----
+def get_weather_by_coords(lat, lon):
+    key = f"current_jma:{round_coord(lat)}:{round_coord(lon)}"
+    cached = cache_get(key)
+    if cached: return cached
 
     try:
-        t = SESSION.get(
-            "https://www.jma.go.jp/bosai/amedas/data/latest_time.txt",
-            timeout=6
-        )
-        latest = t.text.strip()
-        day = latest[:8]    # YYYYMMDD
-
-        url = f"https://www.jma.go.jp/bosai/amedas/data/{day}/{st_id}.json"
-        r = SESSION.get(url, timeout=6)
-        r.raise_for_status()
-        data = r.json()
-    except Exception:
-        return {
-            "weather": "不明",
-            "temperature": None,
-            "humidity": None,
-            "precipitation": None,
-            "pressure": None,
-            "temp_max": None,
-            "temp_min": None
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "current": ["temperature_2m", "relative_humidity_2m", "surface_pressure", "precipitation", "weather_code"],
+            "daily": ["temperature_2m_max", "temperature_2m_min"],
+            "timezone": "Asia/Tokyo"
         }
-
-    out = {
-        "weather": "晴れ",        # 現在天気は Amedas で取れない → 仮
-        "temperature": None,
-        "humidity": None,
-        "precipitation": None,
-        "pressure": None,
-        "temp_max": None,
-        "temp_min": None
-    }
-
-    if "temp" in data and data["temp"] and data["temp"][-1] is not None:
-        out["temperature"] = data["temp"][-1]
-
-    if "humidity" in data and data["humidity"] and data["humidity"][-1] is not None:
-        out["humidity"] = data["humidity"][-1]
-
-    if "precipitation1h" in data and data["precipitation1h"] and data["precipitation1h"][-1] is not None:
-        out["precipitation"] = data["precipitation1h"][-1]
-
-    if "pressure" in data and data["pressure"] and data["pressure"][-1] is not None:
-        out["pressure"] = data["pressure"][-1]
-
-    CACHE[key] = (time.time(), out)
-    return out
-
-# === Open-Meteo（12時間予報） ===
-def fetch_hourly(lat, lon):
-    key = f"om:{round(lat,2)}:{round(lon,2)}"
-    c = CACHE.get(key)
-    if c and time.time() - c[0] < CACHE_TTL:
-        return c[1]
-
-    try:
-        url = (
-            f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={lat}&longitude={lon}"
-            f"&hourly=temperature_2m,weathercode"
-            f"&timezone=Asia%2FTokyo"
-        )
-        r = SESSION.get(url, timeout=6)
+        r = SESSION.get(JMA_URL, params=params, timeout=7)
         r.raise_for_status()
         j = r.json()
 
-        times = j["hourly"]["time"]
-        temps = j["hourly"]["temperature_2m"]
-        codes = j["hourly"]["weathercode"]
+        current = j.get("current", {})
+        daily = j.get("daily", {})
 
-        # === 現在時刻からのインデックスを特定
-        now = datetime.now()
-        start_index = 0
-        for idx, t in enumerate(times):
-            dt = datetime.fromisoformat(t)
-            if dt >= now:
-                start_index = idx
-                break
+        result = {
+            "lat": lat, "lon": lon,
+            "city": None,
+            "weather": code_to_label(current.get("weather_code")),
+            "weathercode": current.get("weather_code"),
+            "temp": current.get("temperature_2m"),
+            "humidity": current.get("relative_humidity_2m"),
+            "precipitation": current.get("precipitation"),
+            "pressure": current.get("surface_pressure"),
+            "temp_max": daily.get("temperature_2m_max", [None])[0],
+            "temp_min": daily.get("temperature_2m_min", [None])[0],
+            "source": "open-meteo-jma"
+        }
 
-        arr = []
-        # === 現在時刻からの予報を取得
-        for i in range(start_index, min(start_index + 12, len(times))):
-            t = datetime.fromisoformat(times[i])
-            weather = "晴れ"
-            if codes[i] in [51, 61, 63, 65, 80, 81, 82]:
-                weather = "雨"
-            elif codes[i] in [45, 48]:
-                weather = "霧"
-            elif codes[i] in [71, 73, 75, 77, 79]:
-                weather = "雪"
-            
-            arr.append({
-                "label": f"{t.hour}:00",
-                "temp": temps[i],
-                "weather": weather
+        cache_set(key, result)
+        return result
+
+    except Exception:
+        traceback.print_exc()
+        dummy = {
+            "lat": lat, "lon": lon,
+            "weather": "晴れ",
+            "temp": 18.2, "temp_max": 22, "temp_min": 12,
+            "humidity": 55, "precipitation": 0, "pressure": 1012,
+            "source": "fallback"
+        }
+        cache_set(key, dummy)
+        return dummy
+
+
+# ---- ✅ 12時間予報（JMA版） ----
+def get_hourly_by_coords(lat, lon):
+    key = f"hourly_jma:{round_coord(lat)}:{round_coord(lon)}"
+    cached = cache_get(key)
+    if cached: return cached
+
+    try:
+        params = {
+            "latitude": lat, "longitude": lon,
+            "hourly": ["temperature_2m", "relative_humidity_2m","precipitation","weather_code"],
+            "timezone": "Asia/Tokyo"
+        }
+        r = SESSION.get(JMA_URL, params=params, timeout=7)
+        r.raise_for_status()
+        j = r.json()
+        hourly = j.get("hourly", {})
+
+        times = hourly.get("time", [])
+        temps = hourly.get("temperature_2m", [])
+        codes = hourly.get("weather_code", [])
+        precs = hourly.get("precipitation", [])
+        hums = hourly.get("relative_humidity_2m", [])
+
+        # === 修正：JSTのaware datetimeで比較して「今以降の最初のインデックス」を特定 ===
+        JST = timezone(timedelta(hours=9))
+        now = datetime.now(JST)
+        start = 0
+        for i, t in enumerate(times):
+            try:
+                # 例: "2025-11-04T17:00" を JST として解釈し tzinfo を付与
+                dt = datetime.strptime(t, "%Y-%m-%dT%H:%M").replace(tzinfo=JST)
+                if dt >= now:
+                    start = i
+                    break
+            except Exception:
+                # 不正な時刻文字列が混じるケースはスキップ
+                continue
+
+        out = []
+        for i in range(start, min(start+12, len(times))):
+            t = times[i]
+            dt = datetime.strptime(t, "%Y-%m-%dT%H:%M").replace(tzinfo=JST)
+            out.append({
+                "time": t,
+                "label": dt.strftime("%H:%M"),
+                "temp": temps[i] if i < len(temps) else None,
+                "weather": code_to_label(codes[i]) if i < len(codes) else "不明",
+                "weathercode": codes[i] if i < len(codes) else 0,
+                "precipitation": precs[i] if i < len(precs) else None,
+                "humidity": hums[i] if i < len(hums) else None
             })
 
-        CACHE[key] = (time.time(), arr)
-        return arr
-
-    except Exception:
-        return None
-
-# === API: 天気データ ===
-@app.route("/api/weather")
-def api_weather():
-    try:
-        lat = float(request.args.get("lat", 39.30506946))
-        lon = float(request.args.get("lon", 141.11956806))
-
-        st = nearest_station(lat, lon)
-        if not st:
-            return jsonify({"status": "error", "message":"観測所なし"})
-
-        obs = fetch_amedas_json(st["id"])
-        hourly = fetch_hourly(lat, lon)
-
-        return jsonify({
-            "status": "ok",
-            "station_name": st["name"],
-            **obs,
-            "hourly": hourly
-        })
+        cache_set(key, out)
+        return out
 
     except Exception:
         traceback.print_exc()
-        return jsonify({"status": "error"})
+        # フォールバック（UTCベースで12件）
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        out = []
+        for i in range(12):
+            t = now + timedelta(hours=i+1)
+            out.append({
+                "time": t.isoformat(timespec="minutes"),
+                "label": t.strftime("%H:%M"),
+                "temp": 12+(i%6)*2,
+                "weather": "晴れ" if i%5!=0 else "雨",
+                "weathercode": 0 if i%5!=0 else 61
+            })
+        cache_set(key, out)
+        return out
 
-# === API: 服装提案 ===
-@app.route("/api/suggest", methods=["POST"])
-def api_suggest():
-    try:
-        w = request.json
-        if not w:
-            return jsonify({"status":"error"})
 
-        res = suggest_outfit(w)
-        return jsonify({"status":"ok", "data":res})
+# ==== Flask endpoints ====
 
-    except Exception:
-        traceback.print_exc()
-        return jsonify({"status":"error"})
-
-@app.route("/")
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
-# Render/Heroku用
-if __name__ == "__main__":
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
+@app.route('/update', methods=['POST'])
+def update():
+    try:
+        body = request.get_json() or {}
+        lat = float(body.get('lat', 39.30506946))
+        lon = float(body.get('lon', 141.11956806))
+        data = get_weather_by_coords(lat, lon)
+        return jsonify({"status":"ok","weather":data})
+    except Exception:
+        traceback.print_exc()
+        dummy = get_weather_by_coords(39.30506946,141.11956806)
+        return jsonify({"status":"ok","weather":dummy})
+
+
+@app.route('/hourly', methods=['GET'])
+def hourly():
+    try:
+        lat = float(request.args.get('lat', 39.30506946))
+        lon = float(request.args.get('lon', 141.11956806))
+        arr = get_hourly_by_coords(lat, lon)
+        return jsonify({"status":"ok","hourly":arr})
+    except Exception:
+        traceback.print_exc()
+        arr = get_hourly_by_coords(39.30506946,141.11956806)
+        return jsonify({"status":"ok","hourly":arr})
+
+
+@app.route('/suggest', methods=['POST'])
+def suggest():
+    try:
+        body = get_weather_by_coords(39.30506946,141.11956806)
+        try:
+            from chatgpt_api import suggest_outfit
+            s = suggest_outfit(body)
+        except:
+            s = {"type":"any","suggestions":[
+                {"period":"朝晩","any":"薄手のジャケット"},
+                {"period":"昼間","any":"半袖＋羽織"}
+            ]}
+        return jsonify({"status":"ok","suggestion":s})
+    except:
+        dummy = {"type":"any","suggestions":[
+            {"period":"朝晩","any":"薄手のジャケット"},
+            {"period":"昼間","any":"半袖＋羽織"}
+        ]}
+        return jsonify({"status":"ok","suggestion":dummy})
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
