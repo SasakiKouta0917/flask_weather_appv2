@@ -5,181 +5,155 @@ const INIT_LON = 141.11956806;
 let map, marker;
 let hourlyChart = null;
 
-function setText(id, v) {
+// helper
+function setText(id, v){
   const e = document.getElementById(id);
-  if (!e) return;
+  if(!e) return;
   e.textContent = (v === undefined || v === null) ? '--' : v;
 }
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
 }
 
-// ---- ページ読込後 ----
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('theme-toggle');
-  if (btn) {
-    btn.textContent = document.body.classList.contains('dark') ? "ライトテーマ" : "ダークテーマ";
+// === 逆ジオコーディング ===
+async function fetchPlaceName(lat, lon){
+  try{
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'weather-app' }});
+    if(!res.ok) throw new Error("reverse geocode error");
+    const j = await res.json();
+    return j.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  }catch(e){
+    console.error(e);
+    return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
   }
+}
 
-  initMap();
-
-  const updateBtn = document.getElementById('update-btn');
-  if (updateBtn) {
-    updateBtn.addEventListener('click', async () => {
-      marker.setLatLng([INIT_LAT, INIT_LON]);
-      map.setView([INIT_LAT, INIT_LON], 13);
-      await fetchWeather(INIT_LAT, INIT_LON);
-    });
-  }
-
-  const sbtn = document.getElementById("suggest-btn");
-  if (sbtn) {
-    sbtn.addEventListener('click', async () => {
-      const w = {
-        weather: document.getElementById("weather-main").textContent,
-        temp: document.getElementById("temperature").textContent,
-        temp_max: document.getElementById("max-temp").textContent,
-        temp_min: document.getElementById("min-temp").textContent,
-        humidity: document.getElementById("humidity").textContent,
-        precipitation: document.getElementById("precipitation").textContent
-      };
-      await fetchSuggest(w);
-    });
-  }
-
-  if (btn) {
-    btn.addEventListener('click', () => {
-      document.body.classList.toggle('dark');
-      btn.textContent = document.body.classList.contains('dark') ? 'ライトテーマ' : 'ダークテーマ';
-    });
-  }
-});
-
-// === 地図 ===
-function initMap() {
-  map = L.map('map').setView([INIT_LAT, INIT_LON], 13);
+// === マップ初期化 ===
+function initMap(){
+  map = L.map('map', { zoomControl: true }).setView([INIT_LAT, INIT_LON], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
   marker = L.marker([INIT_LAT, INIT_LON]).addTo(map);
 
+  // 初期表示
   setText('location', '北上コンピュータ・アカデミー');
+  marker.bindPopup('<div>北上コンピュータ・アカデミー</div>').openPopup();
 
+  // クリックでピン移動＋地名取得＋天気更新
   map.on('click', async (e) => {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
+
+    // ピンを移動
     marker.setLatLng([lat, lon]);
+
+    // 地名を取得
+    const name = await fetchPlaceName(lat, lon);
+
+    // 画面の「現在地」更新
+    setText('location', name);
+
+    // ピンの上にポップアップ表示
+    marker.bindPopup(`<div>${escapeHtml(name)}</div>`).openPopup();
+
+    // 天気データ更新
     await fetchWeather(lat, lon);
-    showPopup(lat, lon, '現在地の天気を取得しました');
+    await fetchHourly(lat, lon);
   });
 
+  // 初期ロード
   fetchWeather(INIT_LAT, INIT_LON);
+  fetchHourly(INIT_LAT, INIT_LON);
 }
 
-// ポップアップを5秒後に閉じる関数
-function showPopup(lat, lon, text) {
-  const pop = L.popup()
-    .setLatLng([lat, lon])
-    .setContent(text)
-    .openOn(map);
-
-  setTimeout(() => {
-    map.closePopup(pop);
-  }, 5000);
-}
-
-// ✅ Amedas＋Open-Meteo
-async function fetchWeather(lat, lon) {
-  try {
-    const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
-    const j = await res.json();
-
-    if (!j || j.status !== "ok") {
-      applyWeatherDummy();
-      return;
-    }
-
-    setText('location', j.station_name);
-    setText('weather-main', j.weather);
-    setText('temperature', j.temperature);
-    setText('humidity', j.humidity);
-    setText('pressure', j.pressure);
-    setText('precipitation', j.precipitation);
-    setText('max-temp', j.temp_max);
-    setText('min-temp', j.temp_min);
-
-    if (j.hourly) {
-      renderHourlyPanel(j.hourly);
-      drawTempChartFromHourly(j.hourly);
-    }
-
-  } catch (e) {
-    applyWeatherDummy();
-  }
-}
-
-// ダミー表示
-function applyWeatherDummy() {
-  setText('weather-main', '晴れ');
-  setText('temperature', 18);
-  setText('humidity', 55);
-  setText('precipitation', 0);
-  setText('pressure', 1012);
-  setText('max-temp', 22);
-  setText('min-temp', 12);
-
-  const d = makeDummyHourly();
-  renderHourlyPanel(d);
-  drawTempChartFromHourly(d);
-}
-
-function makeDummyHourly() {
-  const out = [];
-  const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const t = new Date(now.getTime() + (i + 1) * 3600 * 1000);
-    out.push({
-      label: `${t.getHours()}:00`,
-      temp: 12 + Math.round(Math.sin(i / 2) * 6),
-      weather: (i % 4 === 0) ? '雨' : '晴れ'
+// === 現在の天気（Flask /update） ===
+async function fetchWeather(lat, lon){
+  try{
+    const res = await fetch('/update', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ lat, lon })
     });
+    if(!res.ok) throw new Error('update endpoint error');
+    const j = await res.json();
+    if(j.status !== 'ok' || !j.weather) throw new Error('bad weather payload');
+
+    const w = j.weather;
+    setText('weather-main', w.weather);
+    setText('temperature', Math.round(w.temp));
+    setText('humidity', w.humidity);
+    setText('precipitation', w.precipitation); // 単位はHTML側に任せる
+    setText('pressure', Math.round(w.pressure));
+    setText('max-temp', Math.round(w.temp_max));
+    setText('min-temp', Math.round(w.temp_min));
+
+  }catch(err){
+    console.error('fetchWeather error:', err);
   }
-  return out;
 }
 
-// 12時間予報
-function renderHourlyPanel(arr) {
+// === 12時間予報（Flask /hourly） ===
+async function fetchHourly(lat, lon){
+  try{
+    const res = await fetch(`/hourly?lat=${lat}&lon=${lon}`);
+    if(!res.ok) throw new Error('hourly endpoint error');
+    const j = await res.json();
+    if(j.status !== 'ok' || !Array.isArray(j.hourly)) throw new Error('bad hourly payload');
+
+    renderHourlyPanel(j.hourly);
+    drawTempChartFromHourly(j.hourly);
+
+  }catch(err){
+    console.error('fetchHourly error:', err);
+    document.getElementById('overlay-scroll').innerHTML = '';
+    if(hourlyChart){ hourlyChart.destroy(); hourlyChart = null; }
+  }
+}
+
+// === 予報パネル描画 ===
+function renderHourlyPanel(arr){
   const sc = document.getElementById('overlay-scroll');
-  if (!sc) return;
   sc.innerHTML = '';
   arr.forEach(h => {
-    const icon = (h.weather.includes('雨')) ? '🌧️' : '☀️';
+    const temp = (h.temp !== undefined && h.temp !== null) ? Math.round(h.temp) : '--';
+    const icon = weatherEmojiFromCode(h.weathercode);
+
     const div = document.createElement('div');
     div.className = 'overlay-hour-tile';
-    div.innerHTML = `<div style="font-size:12px;color:#555">${h.label}</div>
-                     <div style="font-size:20px;margin:6px 0">${icon}</div>
-                     <div style="font-weight:700">${Math.round(h.temp)}℃</div>
-                     <div style="font-size:12px;color:#777">${h.weather}</div>`;
+    div.innerHTML =
+      `<div style="font-size:12px;color:#555">${escapeHtml(h.label || '')}</div>
+       <div style="font-size:20px;margin:6px 0">${icon}</div>
+       <div style="font-weight:700">${temp}℃</div>
+       <div style="font-size:12px;color:#777">${escapeHtml(h.weather || '')}</div>
+       <div style="font-size:12px;color:#777">${(h.precipitation ?? '--')} mm</div>`;
     sc.appendChild(div);
   });
 }
 
-// チャート
-function drawTempChartFromHourly(arr) {
-  const c = document.getElementById('hourly-chart');
-  if (!c) return;
+// === 天気コード→絵文字 ===
+function weatherEmojiFromCode(code){
+  if(code === 0) return '☀️';
+  if(code >= 1 && code <= 3) return '⛅';
+  if(code >= 61 && code < 70) return '🌧️';
+  if(code >= 71 && code < 80) return '❄️';
+  if(code >= 95) return '⛈️';
+  return '🌤️';
+}
 
-  const labels = arr.map(h => h.label);
-  const data = arr.map(h => Math.round(h.temp));
+// === 気温折れ線グラフ ===
+function drawTempChartFromHourly(arr){
+  const labels = arr.map(h => h.label || '');
+  const data = arr.map(h => {
+    const t = h.temp;
+    return (t === undefined || t === null) ? null : Math.round(t);
+  });
 
-  const ctx = c.getContext('2d');
-  if (hourlyChart) hourlyChart.destroy();
+  const ctx = document.getElementById('hourly-chart').getContext('2d');
+  if(hourlyChart) hourlyChart.destroy();
+
   hourlyChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -191,16 +165,78 @@ function drawTempChartFromHourly(arr) {
         backgroundColor: 'rgba(11,108,255,0.08)',
         tension: 0.3,
         pointRadius: 3,
-        borderWidth: 2
+        borderWidth: 2,
+        spanGaps: true
       }]
     },
     options: {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false } },
-        y: { beginAtZero: false }
+        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
       },
       maintainAspectRatio: false
     }
   });
 }
+
+// === 服装提案 ===
+async function fetchSuggest(){
+  try{
+    const res = await fetch('/suggest', { method:'POST' });
+    if(!res.ok) throw new Error('suggest endpoint error');
+    const j = await res.json();
+
+    const box = document.getElementById('suggestions');
+    box.innerHTML = '';
+
+    if(j && j.status === 'ok' && j.suggestion){
+      const arr = j.suggestion.suggestions || [];
+      arr.forEach(it => {
+        const p = document.createElement('p');
+        const period = it.period || '';
+        const any = it.any || '';
+        p.innerHTML = `<b>${escapeHtml(period)}</b>： ${escapeHtml(any)}`;
+        box.appendChild(p);
+      });
+    } else {
+      box.textContent = '提案が取得できませんでした';
+    }
+  }catch(err){
+    console.error('fetchSuggest error:', err);
+    document.getElementById('suggestions').textContent = '服装提案取得エラー';
+  }
+}
+
+// === 初期化＆イベント ===
+document.addEventListener('DOMContentLoaded', () => {
+  // マップ
+  initMap();
+
+  // テーマボタン初期テキスト
+  const themeBtn = document.getElementById('theme-toggle');
+  themeBtn.textContent = document.body.classList.contains('dark') ? 'ライトテーマ' : 'ダークテーマ';
+
+  // 最新の天気を更新（初期位置へ戻る）
+  document.getElementById('update-btn').addEventListener('click', async () => {
+    marker.setLatLng([INIT_LAT, INIT_LON]);
+    map.setView([INIT_LAT, INIT_LON], 13);
+
+    // 初期位置の地名を再表示（Nominatimで取得してもOK）
+    setText('location', '北上コンピュータ・アカデミー');
+    marker.bindPopup('<div>北上コンピュータ・アカデミー</div>').openPopup();
+
+    await fetchWeather(INIT_LAT, INIT_LON);
+    await fetchHourly(INIT_LAT, INIT_LON);
+  });
+
+  // テーマ切替
+  themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    themeBtn.textContent = document.body.classList.contains('dark') ? 'ライトテーマ' : 'ダークテーマ';
+  });
+
+  // 服装提案
+  document.getElementById('suggest-btn').addEventListener('click', fetchSuggest);
+});
+
