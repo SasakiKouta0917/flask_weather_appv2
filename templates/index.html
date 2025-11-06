@@ -1,54 +1,102 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<title>天気 × 地図アプリ</title>
-<link rel="stylesheet" href="/static/style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>課題研究1S2班</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ===== スマホ専用調整 ===== */
+    @media (max-width: 600px) {
+      /* トップバー：タイトルとボタンを横並びで改行させない */
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+      }
+      .topbar h1 {
+        font-size: 18px;       /* 少し小さめにして改行防止 */
+        white-space: nowrap;   /* 改行禁止 */
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .topbar .theme-btn {
+        white-space: nowrap;   /* ボタン文字も改行禁止 */
+        flex-shrink: 0;
+      }
+
+      /* 服装提案パネルの見出しとボタンも横並びで改行させない */
+      .outfit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+      }
+      .outfit-header h3 {
+        font-size: 15px;       /* 少し小さめに */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .outfit-header button {
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+    }
+  </style>
 </head>
 
 <body class="dark">
-<div class="container">
-  <div class="topbar">
-    <h1>天気 × 地図アプリ</h1>
-    <div class="controls">
-      <button id="theme-toggle" class="theme-btn">ライトテーマ</button>
-    </div>
-  </div>
-
-  <div id="map"></div>
-
-  <div id="weather-row">
-    <div id="current-weather" class="card">
-      <h3 id="location">--</h3>
-      <p>天気：<span id="weather-main">--</span></p>
-      <p>気温：<span id="temperature">--</span>℃</p>
-      <p>湿度：<span id="humidity">--</span>%</p>
-      <p>降水：<span id="precipitation">--</span> mm</p>
-      <p>気圧：<span id="pressure">--</span> hPa</p>
-      <p>最高気温：<span id="max-temp">--</span>℃</p>
-      <p>最低気温：<span id="min-temp">--</span>℃</p>
-      <button id="update-btn">最新の天気を更新</button>
+  <div class="container">
+    <div class="topbar">
+      <h1>天候からAIが服装提案するアプリ(仮)</h1>
+      <div class="controls">
+        <button id="theme-toggle" class="theme-btn">ライトテーマ</button>
+      </div>
     </div>
 
-    <div id="overlay-hourly" class="card">
-      <h3>12時間予報</h3>
-      <div id="overlay-scroll"></div>
-      <div class="chart-wrap">
-        <canvas id="hourly-chart"></canvas>
+    <!-- 地図 -->
+    <div id="map"></div>
+
+    <!-- 服装提案パネル（マップ直下に配置） -->
+    <div id="outfit-panel" class="card">
+      <div class="outfit-header">
+        <h3>服装提案</h3>
+        <button id="suggest-btn">提案を取得</button>
+      </div>
+      <div id="suggestions"></div>
+    </div>
+
+    <!-- 天気情報と推移 -->
+    <div id="weather-row">
+      <div id="current-weather" class="card">
+        <h3 id="location">--</h3>
+        <p>天気：<span id="weather-main">--</span></p>
+        <p>気温：<span id="temperature">--</span>℃</p>
+        <p>湿度：<span id="humidity">--</span>%</p>
+        <p>降水量：<span id="precipitation">--</span> mm</p>
+        <p>気圧：<span id="pressure">--</span> hPa</p>
+        <p>最高気温：<span id="max-temp">--</span>℃</p>
+        <p>最低気温：<span id="min-temp">--</span>℃</p>
+        <button id="update-btn">最新の天気を更新</button>
+      </div>
+
+      <div id="overlay-hourly" class="card">
+        <h3>天候の推移</h3>
+        <div id="overlay-scroll"></div>
+        <div class="chart-wrap">
+          <canvas id="hourly-chart"></canvas>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="card">
-    <h3>服装の提案</h3>
-    <button id="suggest-btn">提案を取得</button>
-    <div id="suggestions"></div>
-  </div>
-</div>
-
-<script src="/static/script.js"></script>
+  <script src="/static/script.js"></script>
 </body>
 </html>
