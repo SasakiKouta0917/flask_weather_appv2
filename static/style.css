@@ -393,15 +393,12 @@ body.dark .full-suggest-btn:hover {
 }
 /* ダークテーマの文字色を明るめに調整 */
 body.dark {
-  --text: #f0f0f0; /* 元の #e0e0e0 より明るく */
+  --text: #ffffff; /* 元の #e0e0e0 より明るく */
 }
 
-/* 現在の天気ラベルを大きく表示 */
 #weather-main {
-  font-size: 20px;
-  font-weight: 700;
-  display: inline-block;
-  margin: 6px 0;
+  font-size: 14px; /* またはデフォルトサイズに戻す */
+  font-weight: 600;
   color: var(--text);
 }
 
