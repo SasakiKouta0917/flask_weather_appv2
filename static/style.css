@@ -347,3 +347,13 @@ h2, h3 {
     min-width: 74px;
   }
 }
+/* カード内のボタンを左下に固定 */
+#current-weather {
+  position: relative; /* ボタンの絶対位置の基準にする */
+}
+
+#update-btn {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+}
