@@ -64,14 +64,20 @@
     <!-- 地図 -->
     <div id="map"></div>
 
-    <!-- 服装提案パネル（マップ直下に配置） -->
-    <div id="outfit-panel" class="card">
-      <div class="outfit-header">
-        <h3>服装提案</h3>
-        <button id="suggest-btn">提案を取得</button>
-      </div>
-      <div id="suggestions"></div>
-    </div>
+    <!-- 旧：服装提案見出し＋ボタン -->
+<!--
+<div class="outfit-header">
+  <h3>服装提案</h3>
+  <button id="suggest-btn">提案を取得</button>
+</div>
+-->
+
+<!-- 新：横長ボタンのみ -->
+<div id="outfit-panel" class="card">
+  <button id="suggest-btn" class="full-suggest-btn">AI服装提案を取得</button>
+  <div id="suggestions" style="margin-top:10px;"></div>
+</div>
+
 
     <!-- 天気情報と推移 -->
     <div id="weather-row">
