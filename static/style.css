@@ -4,15 +4,15 @@
   --text: #222;
   --card: #fafafa;
   --border: rgba(0,0,0,0.08);
-  --accent: #4FC3F7; /* ライト時の水色 */
-  --accent-hover: #29B6F6; /* ライト時のホバー水色 */
+  --accent: #4FC3F7;
+  --accent-hover: #29B6F6;
   --accent-light: rgba(79,195,247,0.15);
 }
 
 /* ===== ダークテーマ変数 ===== */
 body.dark {
   --bg: #0a0a0a;
-  --text: #e0e0e0;
+  --text: #ffffff; /* ✅ 明るく調整 */
   --card: #141414;
   --border: rgba(255,255,255,0.12);
 }
@@ -54,8 +54,7 @@ body {
   color: var(--text);
 }
 
-/* ===== ボタン（ライト／ダークで外観切替）===== */
-/* 共通下地 */
+/* ===== ボタン（共通）===== */
 button, .theme-btn, .outfit-header button {
   padding: 6px 12px;
   border-radius: 6px;
@@ -66,7 +65,7 @@ button, .theme-btn, .outfit-header button {
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
-/* ライトテーマ：水色背景＋白文字 */
+/* ライトテーマボタン */
 body:not(.dark) button,
 body:not(.dark) .theme-btn,
 body:not(.dark) .outfit-header button {
@@ -80,12 +79,12 @@ body:not(.dark) .outfit-header button:hover {
   background: var(--accent-hover);
 }
 
-/* ダークテーマ：淡灰背景＋黒文字（見やすい白系） */
+/* ダークテーマボタン */
 body.dark button,
 body.dark .theme-btn,
 body.dark .outfit-header button {
-  background: #E6E6E8; /* 淡いグレー（眩しくない） */
-  color: #111111;
+  background: #E6E6E8;
+  color: #111;
   border: 1px solid rgba(255,255,255,0.20);
 }
 body.dark button:hover,
@@ -94,7 +93,7 @@ body.dark .outfit-header button:hover {
   background: #DADADC;
 }
 
-/* テーマ切替ボタン（トップバー内）*/
+/* テーマ切替ボタン */
 .theme-btn {
   min-width: 100px;
   padding: 6px 14px;
@@ -119,24 +118,41 @@ body.dark .outfit-header button:hover {
   margin-bottom: 12px;
 }
 
-/* ===== 服装提案パネル（マップ直下）===== */
+/* ===== 服装提案パネル ===== */
 #outfit-panel {
   display: flex;
   flex-direction: column;
-  padding: 10px 12px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  padding: 12px;
 }
-.outfit-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.outfit-header h3 {
-  margin: 0;
-  font-size: 16px;
+
+/* 提案ボタン（統合済み） */
+.full-suggest-btn {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin: 8px 0;
 }
+.full-suggest-btn:hover {
+  background: var(--accent-hover);
+}
+body.dark .full-suggest-btn {
+  background: #E6E6E8;
+  color: #111;
+}
+body.dark .full-suggest-btn:hover {
+  background: #DADADC;
+}
+
+/* 提案テキスト */
 #suggestions p {
   margin: 4px 0;
   font-size: 13px;
@@ -160,8 +176,18 @@ body.dark .outfit-header button:hover {
   padding: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
+#current-weather p {
+  margin: 6px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+}
+#weather-main {
+  font-weight: 600;
+  color: var(--text);
+}
 
-/* ===== 時間ごとの予報（スクロール見栄え調整）===== */
+/* ===== 時間ごとの予報 ===== */
 #overlay-scroll {
   display: flex;
   gap: 8px;
@@ -222,9 +248,8 @@ h2, h3 {
   color: var(--text);
 }
 
-/* ===== スマホ最適化レイアウト ===== */
+/* ===== スマホ最適化 ===== */
 @media (max-width: 600px) {
-  /* コンテナの余白をさらに詰める */
   .container {
     width: 100%;
     margin: 0;
@@ -233,65 +258,58 @@ h2, h3 {
     box-shadow: none;
   }
 
-  /* マップは画面比率で確保しつつ高すぎないよう調整 */
   #map {
-    height: 48vh; /* 画面の約半分。端末に応じて可変 */
+    height: 48vh;
     border-radius: 8px;
     margin-bottom: 10px;
   }
 
-  /* 服装提案：スクロール中もすぐ触れるよう固定（上に余白を確保） */
   #outfit-panel {
     position: sticky;
-    top: 8px;           /* ヘッダー下で追従 */
+    top: 8px;
     z-index: 5;
     border-radius: 8px;
     padding: 10px;
     backdrop-filter: saturate(110%) blur(2px);
   }
-  .outfit-header {
-    gap: 10px;
+
+  .full-suggest-btn {
+    font-size: 16px;
+    padding: 14px;
+    border-radius: 10px;
   }
-  .outfit-header h3 {
-    font-size: 15px;
-  }
-  .outfit-header button {
-    padding: 10px 14px;   /* タッチしやすい高さに */
-    font-size: 14px;
-    border-radius: 8px;
-  }
+
   #suggestions p {
     font-size: 14px;
     line-height: 1.5;
   }
 
-  /* 現在の天気・推移は縦積みで読みやすく */
   #weather-row {
     flex-direction: column;
     gap: 10px;
     margin-bottom: 10px;
   }
+
   #current-weather, #overlay-hourly {
     padding: 10px;
     border-radius: 8px;
   }
 
-  /* ボタンを全幅にして片手で操作しやすく */
   button,
   .theme-btn,
   .outfit-header button {
     width: 100%;
   }
-  /* トップバーのテーマ切替は右寄せアイコン風にするなら最小幅に */
+
   .theme-btn {
     width: auto;
   }
 
-  /* 予報タイルの間隔・幅を最適化 */
-  #overlay-scroll {
+   #overlay-scroll {
     gap: 6px;
     padding: 6px 0;
   }
+
   .overlay-hour-tile {
     min-width: 72px;
     padding: 8px 6px;
@@ -299,18 +317,15 @@ h2, h3 {
     border-radius: 6px;
   }
 
-  /* グラフは高さを少し圧縮 */
   #hourly-chart {
     height: 120px !important;
   }
 
-  /* 見出しの行間・サイズ微調整 */
   h2, h3 {
     font-size: 15px;
     margin: 6px 0;
   }
 
-  /* トップバーのタイトルは折り返しOKに */
   .topbar h1 {
     font-size: 18px;
     line-height: 1.3;
@@ -320,53 +335,15 @@ h2, h3 {
 
 /* ===== タブレット調整 ===== */
 @media (min-width: 601px) and (max-width: 900px) {
-  #map { height: 40vh; }
-  #weather-row { flex-direction: column; }
-  .overlay-hour-tile { min-width: 74px; }
-}
-/* 共通スタイル */
-.full-suggest-btn {
-  width: 100%;
-  padding: 12px 16px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.full-suggest-btn:hover {
-  background: var(--accent-hover);
-}
+  #map {
+    height: 40vh;
+  }
 
-/* ダークテーマ対応 */
-body.dark .full-suggest-btn {
-  background: #E6E6E8;
-  color: #111;
-}
-body.dark .full-suggest-btn:hover {
-  background: #DADADC;
-}
+  #weather-row {
+    flex-direction: column;
+  }
 
-/* スマホ向け調整 */
-@media (max-width: 600px) {
-  .full-suggest-btn {
-    font-size: 16px;
-    padding: 14px;
-    border-radius: 10px;
+  .overlay-hour-tile {
+    min-width: 74px;
   }
 }
-/* 服装提案パネルの余白調整 */
-#outfit-panel {
-  margin-top: 12px;
-  margin-bottom: 12px;
-  padding: 12px;
-}
-
-/* ボタンの上下余白を統一 */
-.full-suggest-btn {
-  margin: 8px 0;
-}
-
