@@ -182,13 +182,16 @@ function drawTempChartFromHourly(arr){
 
 // === 服装提案 ===
 async function fetchSuggest(){
-  try{
+  const btn = document.getElementById('suggest-btn');
+  const box = document.getElementById('suggestions');
+  btn.disabled = true;
+  btn.textContent = '提案を取得中...';
+  box.innerHTML = '';
+
+  try {
     const res = await fetch('/suggest', { method:'POST' });
     if(!res.ok) throw new Error('suggest endpoint error');
     const j = await res.json();
-
-    const box = document.getElementById('suggestions');
-    box.innerHTML = '';
 
     if(j && j.status === 'ok' && j.suggestion){
       const arr = j.suggestion.suggestions || [];
@@ -202,9 +205,16 @@ async function fetchSuggest(){
     } else {
       box.textContent = '提案が取得できませんでした';
     }
-  }catch(err){
+
+    // スクロールして提案欄を見せる
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch(err){
     console.error('fetchSuggest error:', err);
-    document.getElementById('suggestions').textContent = '服装提案取得エラー';
+    box.textContent = '服装提案取得エラー';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'AI服装提案を取得';
   }
 }
 
