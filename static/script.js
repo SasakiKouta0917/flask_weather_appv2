@@ -207,7 +207,7 @@ async function fetchSuggest(){
       box.textContent = '提案が取得できませんでした';
     }
 
-    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // ✅ スクロール操作は削除済み
 
   } catch(err){
     console.error('fetchSuggest error:', err);
@@ -218,6 +218,7 @@ async function fetchSuggest(){
     btn.textContent = hasFetchedSuggestion ? 'AI服装提案を再取得' : 'AI服装提案を取得';
   }
 }
+
 
 
 // === 初期化＆イベント ===
