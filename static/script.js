@@ -3,6 +3,7 @@ const INIT_LAT = 39.30506946;
 const INIT_LON = 141.11956806;
 
 let map, marker;
+let hasFetchedSuggestion = false; // ✅ 初回判定用フラグ
 let hourlyChart = null;
 
 // helper
@@ -213,8 +214,9 @@ async function fetchSuggest(){
     console.error('fetchSuggest error:', err);
     box.textContent = '服装提案取得エラー';
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'AI服装提案を取得';
+  btn.disabled = false;
+  hasFetchedSuggestion = true; // ✅ 初回取得済みフラグを更新
+  btn.textContent = hasFetchedSuggestion ? 'AI服装提案を再取得' : 'AI服装提案を取得';
   }
 }
 
