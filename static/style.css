@@ -391,4 +391,37 @@ body.dark .full-suggest-btn:hover {
     line-height: 1.6;
   }
 }
+/* ダークテーマの文字色を明るめに調整 */
+body.dark {
+  --text: #f0f0f0; /* 元の #e0e0e0 より明るく */
+}
 
+/* 現在の天気ラベルを大きく表示 */
+#weather-main {
+  font-size: 20px;
+  font-weight: 700;
+  display: inline-block;
+  margin: 6px 0;
+  color: var(--text);
+}
+
+/* 現在の天気カード内のテキスト調整 */
+#current-weather p {
+  margin: 6px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* スマホ向け調整 */
+@media (max-width: 600px) {
+  #weather-main {
+    font-size: 22px;
+    margin: 8px 0;
+  }
+
+  #current-weather p {
+    font-size: 16px;
+    margin: 8px 0;
+  }
+}
