@@ -358,3 +358,15 @@ body.dark .full-suggest-btn:hover {
     border-radius: 10px;
   }
 }
+/* 服装提案パネルの余白調整 */
+#outfit-panel {
+  margin-top: 12px;
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+/* ボタンの上下余白を統一 */
+.full-suggest-btn {
+  margin: 8px 0;
+}
+
