@@ -369,4 +369,26 @@ body.dark .full-suggest-btn:hover {
 .full-suggest-btn {
   margin: 8px 0;
 }
+/* 現在の天気情報の見た目調整 */
+#current-weather p {
+  margin: 6px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* ラベル強調 */
+#current-weather p span {
+  font-weight: 600;
+  color: #333;
+}
+
+/* スマホ向け調整 */
+@media (max-width: 600px) {
+  #current-weather p {
+    font-size: 15px;
+    margin: 8px 0;
+    line-height: 1.6;
+  }
+}
 
