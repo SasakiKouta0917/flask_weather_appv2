@@ -391,10 +391,14 @@ body.dark .full-suggest-btn:hover {
     line-height: 1.6;
   }
 }
-/* ダークテーマの文字色を明るめに調整 */
+/* ダークテーマ変数（文字色を白に） */
 body.dark {
-  --text: #ffffff; /* 元の #e0e0e0 より明るく */
+  --bg: #0a0a0a;
+  --text: #ffffff;  /* ← ここを明るく */
+  --card: #141414;
+  --border: rgba(255,255,255,0.12);
 }
+
 
 #weather-main {
   font-size: 14px; /* またはデフォルトサイズに戻す */
