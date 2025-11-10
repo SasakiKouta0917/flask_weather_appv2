@@ -324,3 +324,37 @@ h2, h3 {
   #weather-row { flex-direction: column; }
   .overlay-hour-tile { min-width: 74px; }
 }
+/* 共通スタイル */
+.full-suggest-btn {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.full-suggest-btn:hover {
+  background: var(--accent-hover);
+}
+
+/* ダークテーマ対応 */
+body.dark .full-suggest-btn {
+  background: #E6E6E8;
+  color: #111;
+}
+body.dark .full-suggest-btn:hover {
+  background: #DADADC;
+}
+
+/* スマホ向け調整 */
+@media (max-width: 600px) {
+  .full-suggest-btn {
+    font-size: 16px;
+    padding: 14px;
+    border-radius: 10px;
+  }
+}
