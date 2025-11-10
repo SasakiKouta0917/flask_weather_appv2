@@ -207,18 +207,18 @@ async function fetchSuggest(){
       box.textContent = '提案が取得できませんでした';
     }
 
-    // スクロールして提案欄を見せる
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch(err){
     console.error('fetchSuggest error:', err);
     box.textContent = '服装提案取得エラー';
   } finally {
-  btn.disabled = false;
-  hasFetchedSuggestion = true; // ✅ 初回取得済みフラグを更新
-  btn.textContent = hasFetchedSuggestion ? 'AI服装提案を再取得' : 'AI服装提案を取得';
+    btn.disabled = false;
+    hasFetchedSuggestion = true;
+    btn.textContent = hasFetchedSuggestion ? 'AI服装提案を再取得' : 'AI服装提案を取得';
   }
 }
+
 
 // === 初期化＆イベント ===
 document.addEventListener('DOMContentLoaded', () => {
