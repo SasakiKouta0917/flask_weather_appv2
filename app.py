@@ -4,6 +4,8 @@ import traceback
 import requests
 import time
 
+from chatgpt_api import suggest_outfit  # ✅ Render用に明示的にimport
+
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # ---- キャッシュ ----
@@ -12,38 +14,15 @@ CACHE_TTL = 45
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent":"weather-app/1.0"})
 
-# ✅ JMAエンドポイント
 JMA_URL = "https://api.open-meteo.com/v1/jma"
 
 WEATHERCODE_MAP = {
-    0: "快晴",
-    1: "晴れ時々曇り",
-    2: "曇り時々晴れ",
-    3: "曇り",
-    45: "霧",
-    48: "霧氷",
-    51: "弱い霧雨",
-    53: "霧雨",
-    55: "強い霧雨",
-    56: "弱い凍結霧雨",
-    57: "強い凍結霧雨",
-    61: "弱い雨",
-    63: "雨",
-    65: "強い雨",
-    66: "弱い凍結雨",
-    67: "強い凍結雨",
-    71: "弱い雪",
-    73: "雪",
-    75: "強い雪",
-    77: "霰（あられ）",
-    80: "にわか雨（弱）",
-    81: "にわか雨（中）",
-    82: "にわか雨（強）",
-    85: "弱いにわか雪",
-    86: "強いにわか雪",
-    95: "雷雨",
-    96: "雷雨（雹を伴う可能性あり）",
-    99: "激しい雷雨（雹を伴う可能性大）"
+    0: "快晴", 1: "晴れ時々曇り", 2: "曇り時々晴れ", 3: "曇り",
+    45: "霧", 48: "霧氷", 51: "弱い霧雨", 53: "霧雨", 55: "強い霧雨",
+    56: "弱い凍結霧雨", 57: "強い凍結霧雨", 61: "弱い雨", 63: "雨", 65: "強い雨",
+    66: "弱い凍結雨", 67: "強い凍結雨", 71: "弱い雪", 73: "雪", 75: "強い雪",
+    77: "霰（あられ）", 80: "にわか雨（弱）", 81: "にわか雨（中）", 82: "にわか雨（強）",
+    85: "弱いにわか雪", 86: "強いにわか雪", 95: "雷雨", 96: "雷雨（雹を伴う可能性あり）", 99: "激しい雷雨（雹を伴う可能性大）"
 }
 
 def code_to_label(c): return WEATHERCODE_MAP.get(int(c), "不明")
@@ -62,8 +41,7 @@ def cache_set(k, v):
 
 def round_coord(x): return round(float(x), 4)
 
-
-# ---- ✅ 現在の天気（JMA版） ----
+# ---- 現在の天気 ----
 def get_weather_by_coords(lat, lon):
     key = f"current_jma:{round_coord(lat)}:{round_coord(lon)}"
     cached = cache_get(key)
@@ -112,9 +90,7 @@ def get_weather_by_coords(lat, lon):
         }
         cache_set(key, dummy)
         return dummy
-
-
-# ---- ✅ 12時間予報（JMA版） ----
+# ---- 12時間予報 ----
 def get_hourly_by_coords(lat, lon):
     key = f"hourly_jma:{round_coord(lat)}:{round_coord(lon)}"
     cached = cache_get(key)
@@ -137,19 +113,16 @@ def get_hourly_by_coords(lat, lon):
         precs = hourly.get("precipitation", [])
         hums = hourly.get("relative_humidity_2m", [])
 
-        # === 修正：JSTのaware datetimeで比較して「今以降の最初のインデックス」を特定 ===
         JST = timezone(timedelta(hours=9))
         now = datetime.now(JST)
         start = 0
         for i, t in enumerate(times):
             try:
-                # 例: "2025-11-04T17:00" を JST として解釈し tzinfo を付与
                 dt = datetime.strptime(t, "%Y-%m-%dT%H:%M").replace(tzinfo=JST)
                 if dt >= now:
                     start = i
                     break
             except Exception:
-                # 不正な時刻文字列が混じるケースはスキップ
                 continue
 
         out = []
@@ -171,7 +144,6 @@ def get_hourly_by_coords(lat, lon):
 
     except Exception:
         traceback.print_exc()
-        # フォールバック（UTCベースで12件）
         now = datetime.utcnow().replace(tzinfo=timezone.utc)
         out = []
         for i in range(12):
@@ -186,13 +158,11 @@ def get_hourly_by_coords(lat, lon):
         cache_set(key, out)
         return out
 
-
 # ==== Flask endpoints ====
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/update', methods=['POST'])
 def update():
@@ -207,7 +177,6 @@ def update():
         dummy = get_weather_by_coords(39.30506946,141.11956806)
         return jsonify({"status":"ok","weather":dummy})
 
-
 @app.route('/hourly', methods=['GET'])
 def hourly():
     try:
@@ -220,27 +189,16 @@ def hourly():
         arr = get_hourly_by_coords(39.30506946,141.11956806)
         return jsonify({"status":"ok","hourly":arr})
 
-
 @app.route('/suggest', methods=['POST'])
 def suggest():
     try:
         body = get_weather_by_coords(39.30506946,141.11956806)
-        try:
-            from chatgpt_api import suggest_outfit
-            s = suggest_outfit(body)
-        except:
-            s = {"type":"any","suggestions":[
-                {"period":"朝晩","any":"薄手のジャケット"},
-                {"period":"昼間","any":"半袖＋羽織"}
-            ]}
+        s = suggest_outfit(body)
         return jsonify({"status":"ok","suggestion":s})
-    except:
+    except Exception:
+        traceback.print_exc()
         dummy = {"type":"any","suggestions":[
             {"period":"朝晩","any":"薄手のジャケット"},
             {"period":"昼間","any":"半袖＋羽織"}
         ]}
         return jsonify({"status":"ok","suggestion":dummy})
-
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
