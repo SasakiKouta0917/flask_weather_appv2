@@ -1,56 +1,109 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>課題研究1S2班</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>課題研究1S2班</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ===== スマホ専用調整 ===== */
+    @media (max-width: 600px) {
+      /* トップバー：タイトルとボタンを横並びで改行させない */
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+      }
+      .topbar h1 {
+        font-size: 18px;       /* 少し小さめにして改行防止 */
+        white-space: nowrap;   /* 改行禁止 */
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .topbar .theme-btn {
+        white-space: nowrap;   /* ボタン文字も改行禁止 */
+        flex-shrink: 0;
+      }
+
+      /* 服装提案パネルの見出しとボタンも横並びで改行させない */
+      .outfit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+      }
+      .outfit-header h3 {
+        font-size: 15px;       /* 少し小さめに */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .outfit-header button {
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+    }
+  </style>
 </head>
 
 <body class="dark">
-  <div class="container">
-    <div class="topbar">
-      <h1>天候からAIが服装提案するアプリ(仮)</h1>
-      <div class="controls">
-        <button id="theme-toggle" class="theme-btn">ライトテーマ</button>
-    </div>
-  </div>
+  <div class="container">
+    <div class="topbar">
+      <h1>天候からAIが服装提案するアプリ(仮)</h1>
+      <div class="controls">
+        <button id="theme-toggle" class="theme-btn">ライトテーマ</button>
+      </div>
+    </div>
 
-        <div id="map" class="map-component" data-component="map"></div>
+    <!-- 地図 -->
+    <div id="map"></div>
 
-        <div class="outfit-panel card" data-component="outfit-panel">
-      <button id="suggest-btn" class="full-suggest-btn" data-action="fetch-suggestion">AI服装提案を取得</button>
-      <div id="suggestions" class="outfit-panel__suggestions" data-element="suggestions" style="margin-top:10px;"></div>
-    </div>
+    <!-- 旧：服装提案見出し＋ボタン -->
+<!--
+<div class="outfit-header">
+  <h3>服装提案</h3>
+  <button id="suggest-btn">提案を取得</button>
+</div>
+-->
 
-
-        <div class="weather-row">
-            <div id="current-weather" class="weather-card card" data-component="weather-card">
-        <h3 id="location" class="weather-card__location">--</h3>
-        <p class="weather-card__item"><strong>天気：</strong><span id="weather-main" data-element="main-weather">--</span></p>
-        <p class="weather-card__item"><strong>気温：</strong><span id="temperature" data-element="temperature">--</span>℃</p>
-        <p class="weather-card__item"><strong>湿度：</strong><span id="humidity" data-element="humidity">--</span>%</p>
-        <p class="weather-card__item"><strong>降水量：</strong><span id="precipitation" data-element="precipitation">--</span> mm</p>
-        <p class="weather-card__item"><strong>気圧：</strong><span id="pressure" data-element="pressure">--</span> hPa</p>
-        <p class="weather-card__item"><strong>最高気温：</strong><span id="max-temp" data-element="max-temp">--</span>℃</p>
-        <p class="weather-card__item"><strong>最低気温：</strong><span id="min-temp" data-element="min-temp">--</span>℃</p>
-        <button id="update-btn" class="update-btn" data-action="update-weather">最新の天気を更新</button>
-      </div>
+<!-- 新：横長ボタンのみ -->
+<div id="outfit-panel" class="card">
+  <button id="suggest-btn" class="full-suggest-btn">AI服装提案を取得</button>
+  <div id="suggestions" style="margin-top:10px;"></div>
+</div>
 
 
-            <div id="hourly-forecast" class="hourly-forecast-card card" data-component="hourly-forecast">
-        <h3 class="hourly-forecast-card__title">天候の推移</h3>
-        <div id="overlay-scroll" class="hourly-forecast-card__scroll" data-element="hourly-scroll"></div>
-        <div class="chart-wrap">
-          <canvas id="hourly-chart" data-element="hourly-chart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
+    <!-- 天気情報と推移 -->
+    <div id="weather-row">
+      <div id="current-weather" class="card">
+  <h3 id="location">--</h3>
+  <p><strong>天気：</strong><span id="weather-main">--</span></p>
+  <p><strong>気温：</strong><span id="temperature">--</span>℃</p>
+  <p><strong>湿度：</strong><span id="humidity">--</span>%</p>
+  <p><strong>降水量：</strong><span id="precipitation">--</span> mm</p>
+  <p><strong>気圧：</strong><span id="pressure">--</span> hPa</p>
+  <p><strong>最高気温：</strong><span id="max-temp">--</span>℃</p>
+  <p><strong>最低気温：</strong><span id="min-temp">--</span>℃</p>
+  <button id="update-btn">最新の天気を更新</button>
+      </div>
 
-  <script src="/static/script.js"></script>
+
+      <div id="overlay-hourly" class="card">
+        <h3>天候の推移</h3>
+        <div id="overlay-scroll"></div>
+        <div class="chart-wrap">
+          <canvas id="hourly-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/script.js"></script>
 </body>
 </html>
