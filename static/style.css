@@ -1,404 +1,359 @@
 /* ===== 色変数（ライトテーマ）===== */
 :root {
-  --bg: #ffffff;
-  --text: #222;
-  --card: #fafafa;
-  --border: rgba(0,0,0,0.08);
-  --accent: #4FC3F7;
-  --accent-hover: #29B6F6;
-  --accent-light: rgba(79,195,247,0.15);
+  --bg: #ffffff;
+  --text: #222;
+  --card: #fafafa;
+  --border: rgba(0,0,0,0.08);
+  --accent: #4FC3F7;
+  --accent-hover: #29B6F6;
+  --accent-light: rgba(79,195,247,0.15);
 }
 
 /* ===== ダークテーマ変数 ===== */
 body.dark {
-  --bg: #0a0a0a;
-  --text: #ffffff;
-  --card: #141414;
-  --border: rgba(255,255,255,0.12);
+  --bg: #0a0a0a;
+  --text: #ffffff; /* ✅ 明るく調整 */
+  --card: #141414;
+  --border: rgba(255,255,255,0.12);
 }
 
 /* ===== ベース ===== */
 * { box-sizing: border-box; }
 
 body {
-  margin: 0;
-  font-family: "Helvetica Neue", Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.6;
-  font-size: 14px;
+  margin: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 14px;
 }
 
 /* ===== コンテナ ===== */
 .container {
-  width: 95%;
-  max-width: 1100px;
-  margin: 16px auto;
-  background: var(--card);
-  border-radius: 10px;
-  padding: 16px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  width: 95%;
+  max-width: 1100px;
+  margin: 16px auto;
+  background: var(--card);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
 }
 
 /* ===== トップバー ===== */
 .topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 .topbar h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--text);
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* ===== ボタン（共通）===== */
 button, .theme-btn, .outfit-header button {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 13px;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 /* ライトテーマボタン */
 body:not(.dark) button,
 body:not(.dark) .theme-btn,
 body:not(.dark) .outfit-header button {
-  background: var(--accent);
-  color: #fff;
-  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid transparent;
 }
 body:not(.dark) button:hover,
 body:not(.dark) .theme-btn:hover,
 body:not(.dark) .outfit-header button:hover {
-  background: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 /* ダークテーマボタン */
 body.dark button,
 body.dark .theme-btn,
 body.dark .outfit-header button {
-  background: #E6E6E8;
-  color: #111;
-  border: 1px solid rgba(255,255,255,0.20);
+  background: #E6E6E8;
+  color: #111;
+  border: 1px solid rgba(255,255,255,0.20);
 }
 body.dark button:hover,
 body.dark .theme-btn:hover,
 body.dark .outfit-header button:hover {
-  background: #DADADC;
+  background: #DADADC;
 }
 
 /* テーマ切替ボタン */
 .theme-btn {
-  min-width: 100px;
-  padding: 6px 14px;
+  min-width: 100px;
+  padding: 6px 14px;
 }
 
-/* ===== 地図 (変更点A: ID #map からクラス .map-component へ移行) ===== */
-.map-component {
-  width: 100%;
-  height: 360px;
-  border-radius: 10px;
-  background: #fff;
-  margin-bottom: 12px;
+/* ===== 地図 ===== */
+#map {
+  width: 100%;
+  height: 360px;
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 12px;
 }
 
-/* ===== カード（共通スタイル） ===== */
+/* ===== カード ===== */
 .card {
-  background: var(--card);
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  margin-bottom: 12px;
+  background: var(--card);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom: 12px;
 }
 
-/* ===== 服装提案パネル (変更点B: ID #outfit-panel をクラス .outfit-panel で統一) ===== */
-.outfit-panel {
-  display: flex;
-  flex-direction: column;
-  margin-top: 12px;
-  margin-bottom: 12px;
-  padding: 12px;
+/* ===== 服装提案パネル ===== */
+#outfit-panel {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  padding: 12px;
 }
 
 /* 提案ボタン（統合済み） */
 .full-suggest-btn {
-  width: 100%;
-  padding: 12px 16px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s;
-  margin: 8px 0;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin: 8px 0;
 }
 .full-suggest-btn:hover {
-  background: var(--accent-hover);
+  background: var(--accent-hover);
 }
 body.dark .full-suggest-btn {
-  background: #E6E6E8;
-  color: #111;
+  background: #E6E6E8;
+  color: #111;
 }
 body.dark .full-suggest-btn:hover {
-  background: #DADADC;
+  background: #DADADC;
 }
 
-/* 提案テキスト (BEMによる明確化) */
-.outfit-panel__suggestions p {
-  margin: 4px 0;
-  font-size: 13px;
-  line-height: 1.4;
+/* 提案テキスト */
+#suggestions p {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
-/* ===== 天気情報と推移コンテナ ===== */
-.weather-row {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
+/* ===== 天気情報と推移 ===== */
+#weather-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+#current-weather, #overlay-hourly {
+  flex: 1;
+  min-width: 0;
+}
+#current-weather {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+#current-weather p {
+  margin: 6px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+}
+#weather-main {
+  font-weight: 600;
+  color: var(--text);
 }
 
-/* ===== 現在の天気カード (変更点C: #current-weather から .weather-card へ移行) ===== */
-.weather-card, .hourly-forecast-card { /* カードを横並びにする共通設定 */
-  flex: 1;
-  min-width: 0;
-}
-.weather-card {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  position: relative; /* ボタンの絶対位置の基準にする */
-}
-.weather-card p {
-  margin: 6px 0;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text);
-}
-/* 天気メイン情報 (data属性で特定) */
-[data-element="main-weather"] {
-  font-weight: 600;
-  color: var(--text);
-}
-
-#update-btn { /* ボタンはID指定を維持 (JS依存のため) */
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-}
-
-/* ===== 12時間予報カード (変更点C: #overlay-hourly から .hourly-forecast-card へ移行) ===== */
-/* #overlay-hourly に元々あったスタイルはないため、ここでは共通スタイルを適用 */
-
-
-/* ===== 時間ごとの予報スクロール ===== */
+/* ===== 時間ごとの予報 ===== */
 #overlay-scroll {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 6px 0;
-  white-space: nowrap;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.25) transparent;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 0;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.25) transparent;
 }
 body:not(.dark) #overlay-scroll {
-  scrollbar-color: rgba(0,0,0,0.25) transparent;
+  scrollbar-color: rgba(0,0,0,0.25) transparent;
 }
 #overlay-scroll::-webkit-scrollbar {
-  height: 6px;
+  height: 6px;
 }
 #overlay-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: transparent;
 }
 #overlay-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.25);
-  border-radius: 3px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 3px;
 }
 body:not(.dark) #overlay-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.25);
+  background: rgba(0,0,0,0.25);
 }
 
 /* タイル */
 .overlay-hour-tile {
-  min-width: 80px;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  text-align: center;
-  background: var(--card);
-  font-size: 13px;
-  transition: background 0.2s;
+  min-width: 80px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  text-align: center;
+  background: var(--card);
+  font-size: 13px;
+  transition: background 0.2s;
 }
 .overlay-hour-tile.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 /* ===== グラフ ===== */
 .chart-wrap {
-  margin-top: 8px;
+  margin-top: 8px;
 }
 #hourly-chart {
-  width: 100% !important;
-  height: 140px !important;
+  width: 100% !important;
+  height: 140px !important;
 }
 
 /* ===== 見出し ===== */
 h2, h3 {
-  font-size: 16px;
-  margin: 8px 0;
-  font-weight: 600;
-  color: var(--text);
+  font-size: 16px;
+  margin: 8px 0;
+  font-weight: 600;
+  color: var(--text);
 }
 
-/* ===== スマホ最適化 (元々あったスタイル) ===== */
+/* ===== スマホ最適化 ===== */
 @media (max-width: 600px) {
-  .container {
-    width: 100%;
-    margin: 0;
-    border-radius: 0;
-    padding: 10px 12px;
-    box-shadow: none;
-  }
+  .container {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    padding: 10px 12px;
+    box-shadow: none;
+  }
 
-  .map-component { /* #map から変更 */
-    height: 48vh;
-    border-radius: 8px;
-    margin-bottom: 10px;
-  }
+  #map {
+    height: 48vh;
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
 
-  .outfit-panel { /* #outfit-panel から変更 */
-    position: sticky;
-    top: 8px;
-    z-index: 5;
-    border-radius: 8px;
-    padding: 10px;
-    backdrop-filter: saturate(110%) blur(2px);
-  }
+  #outfit-panel {
+    position: sticky;
+    top: 8px;
+    z-index: 5;
+    border-radius: 8px;
+    padding: 10px;
+    backdrop-filter: saturate(110%) blur(2px);
+  }
 
-  .full-suggest-btn {
-    font-size: 16px;
-    padding: 14px;
-    border-radius: 10px;
-  }
+  .full-suggest-btn {
+    font-size: 16px;
+    padding: 14px;
+    border-radius: 10px;
+  }
 
-  .outfit-panel__suggestions p { /* #suggestions p から変更 */
-    font-size: 14px;
-    line-height: 1.5;
-  }
+  #suggestions p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
 
-  .weather-row { /* #weather-row から変更 */
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
+  #weather-row {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
 
-  .weather-card, .hourly-forecast-card { /* #current-weather, #overlay-hourly から変更 */
-    padding: 10px;
-    border-radius: 8px;
-  }
+  #current-weather, #overlay-hourly {
+    padding: 10px;
+    border-radius: 8px;
+  }
 
-  button,
-  .theme-btn,
-  .outfit-header button {
-    width: 100%;
-  }
+  button,
+  .theme-btn,
+  .outfit-header button {
+    width: 100%;
+  }
 
-  .theme-btn {
-    width: auto;
-  }
+  .theme-btn {
+    width: auto;
+  }
 
-  #overlay-scroll {
-    gap: 6px;
-    padding: 6px 0;
-  }
+   #overlay-scroll {
+    gap: 6px;
+    padding: 6px 0;
+  }
 
-  .overlay-hour-tile {
-    min-width: 72px;
-    padding: 8px 6px;
-    font-size: 12.5px;
-    border-radius: 6px;
-  }
+  .overlay-hour-tile {
+    min-width: 72px;
+    padding: 8px 6px;
+    font-size: 12.5px;
+    border-radius: 6px;
+  }
 
-  #hourly-chart {
-    height: 120px !important;
-  }
+  #hourly-chart {
+    height: 120px !important;
+  }
 
-  h2, h3 {
-    font-size: 15px;
-    margin: 6px 0;
-  }
+  h2, h3 {
+    font-size: 15px;
+    margin: 6px 0;
+  }
 
-  .topbar h1 {
-    font-size: 18px;
-    line-height: 1.3;
-    word-break: keep-all;
-  }
+  .topbar h1 {
+    font-size: 18px;
+    line-height: 1.3;
+    word-break: keep-all;
+  }
 }
 
-/* ===== タブレット調整 (元々あったスタイル) ===== */
+/* ===== タブレット調整 ===== */
 @media (min-width: 601px) and (max-width: 900px) {
-  .map-component { /* #map から変更 */
-    height: 40vh;
-  }
+  #map {
+    height: 40vh;
+  }
 
-  .weather-row { /* #weather-row から変更 */
-    flex-direction: column;
-  }
+  #weather-row {
+    flex-direction: column;
+  }
 
-  .overlay-hour-tile {
-    min-width: 74px;
-  }
+  .overlay-hour-tile {
+    min-width: 74px;
+  }
+}
+/* カード内のボタンを左下に固定 */
+#current-weather {
+  position: relative; /* ボタンの絶対位置の基準にする */
 }
 
-/* ===== HTMLから移動したスマホ専用調整 (一元管理) ===== */
-@media (max-width: 600px) {
-    /* トップバー：タイトルとボタンを横並びで改行させない */
-    .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: nowrap;
-        gap: 8px;
-    }
-    .topbar h1 {
-        font-size: 18px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .topbar .theme-btn {
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    /* 服装提案パネルの見出しとボタンも横並びで改行させない */
-    .outfit-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: nowrap;
-        gap: 8px;
-    }
-    .outfit-header h3 {
-        font-size: 15px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .outfit-header button {
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
+#update-btn {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
 }
