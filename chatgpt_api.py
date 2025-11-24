@@ -6,24 +6,53 @@ openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 def suggest_outfit(weather):
     temp = weather.get("temp")
+    temp_max = weather.get("temp_max")
+    temp_min = weather.get("temp_min")
     weather_desc = weather.get("weather")
     humidity = weather.get("humidity")
     precipitation = weather.get("precipitation")
+    scene = "通学"
 
     prompt = f"""
-あなたは親切で実用的なスタイリストです。
-以下の天気情報をもとに、朝晩と昼間の服装を日本語で簡潔に提案してください。
+以下の天気情報と利用シーンをもとに、その日に適した服装を日本語で提案してください。
 
-- 天気: {weather_desc}
-- 気温: {temp}℃
+# 天気情報
+- 現在の天気: {weather_desc}
+- 現在の気温: {temp}℃
+- 最高気温: {temp_max}℃
+- 最低気温: {temp_min}℃
 - 湿度: {humidity}%
 - 降水量: {precipitation}mm
 
-フォーマットは以下のようにしてください：
+# 利用シーン
+- {scene}
+
+# 条件
+1. 上記の天気情報と利用シーンを考慮して、その日に適した服装を提案してください。
+- 気温が低い場合は、防寒対策を提案してください。
+- 気温が高い場合は、涼しい服装を提案してください。
+- 雨が予想される場合は、雨具や防水対策を提案してください。
+
+2. 提案する服装は以下のカテゴリに分けてください：
+- 上着
+- インナー
+- ボトム
+- アクセサリー（例: 帽子、マフラー、日傘など）
+- 靴
+
+3. 出力形式は以下の通り、**JSON形式**で出力してください：
+
 [
-  {{ "period": "朝晩", "any": "提案内容" }},
-  {{ "period": "昼間", "any": "提案内容" }}
+  {{ "period": "朝晩", "any": "ここに提案内容を記載" }},
+  {{ "period": "昼間", "any": "ここに提案内容を記載" }}
 ]
+
+# 補足
+- 指示の復唱はしないでください。
+- 自己評価はしないでください。
+- 結論やまとめは書かないでください。
+- 最終成果物以外は出力しないでください。
+- 出力結果をダブルクォーテーション("")で囲わないでください。
 """
 
     try:
@@ -44,13 +73,11 @@ def suggest_outfit(weather):
             "suggestions": suggestions
         }
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
+    except Exception:
         return {
             "type": "any",
             "suggestions": [
-                {"period": "朝晩", "any": "長袖シャツと軽い羽織"},
-                {"period": "昼間", "any": "半袖＋日よけ対策"}
+                {"period": "朝晩", "any": "取得できませんでした。"},
+                {"period": "昼間", "any": "取得できませんでした。"}
             ]
         }
