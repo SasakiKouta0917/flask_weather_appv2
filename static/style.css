@@ -369,3 +369,18 @@ h2, h3 {
     border-radius: 8px;
   }
 }
+
+/* ダークテーマ時の推移カード調整 */
+body.dark #overlay-hourly {
+  color: #ffffff;          /* カード内の文字色を白に */
+}
+
+body.dark .overlay-hour-tile {
+  color: #ffffff;          /* タイル内の時間や天気ラベルを白に */
+}
+
+body.dark .overlay-hour-tile.active {
+  background: var(--accent); /* アクティブ時は既存の青を続投 */
+  color: #ffffff;            /* アクティブ時文字色も白 */
+  border-color: var(--accent);
+}
