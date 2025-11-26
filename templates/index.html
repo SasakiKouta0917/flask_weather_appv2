@@ -1,109 +1,132 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>課題研究1S2班</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    /* ===== スマホ専用調整 ===== */
-    @media (max-width: 600px) {
-      /* トップバー：タイトルとボタンを横並びで改行させない */
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: nowrap;
-        gap: 8px;
-      }
-      .topbar h1 {
-        font-size: 18px;       /* 少し小さめにして改行防止 */
-        white-space: nowrap;   /* 改行禁止 */
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .topbar .theme-btn {
-        white-space: nowrap;   /* ボタン文字も改行禁止 */
-        flex-shrink: 0;
-      }
-
-      /* 服装提案パネルの見出しとボタンも横並びで改行させない */
-      .outfit-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: nowrap;
-        gap: 8px;
-      }
-      .outfit-header h3 {
-        font-size: 15px;       /* 少し小さめに */
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .outfit-header button {
-        white-space: nowrap;
-        flex-shrink: 0;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Weather & Outfit Coordinator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
 
-<body class="dark">
-  <div class="container">
-    <div class="topbar">
-      <h1>天候からAIが服装提案するアプリ(仮)</h1>
-      <div class="controls">
-        <button id="theme-toggle" class="theme-btn">ライトテーマ</button>
-      </div>
-    </div>
-
-    <!-- 地図 -->
-    <div id="map"></div>
-
-    <!-- 旧：服装提案見出し＋ボタン -->
-<!--
-<div class="outfit-header">
-  <h3>服装提案</h3>
-  <button id="suggest-btn">提案を取得</button>
-</div>
--->
-
-<!-- 新：横長ボタンのみ -->
-<div id="outfit-panel" class="card">
-  <button id="suggest-btn" class="full-suggest-btn">AI服装提案を取得</button>
-  <div id="suggestions" style="margin-top:10px;"></div>
-</div>
-
-
-    <!-- 天気情報と推移 -->
-    <div id="weather-row">
-      <div id="current-weather" class="card">
-  <h3 id="location">--</h3>
-  <p><strong>天気：</strong><span id="weather-main">--</span></p>
-  <p><strong>気温：</strong><span id="temperature">--</span>℃</p>
-  <p><strong>湿度：</strong><span id="humidity">--</span>%</p>
-  <p><strong>降水量：</strong><span id="precipitation">--</span> mm</p>
-  <p><strong>気圧：</strong><span id="pressure">--</span> hPa</p>
-  <p><strong>最高気温：</strong><span id="max-temp">--</span>℃</p>
-  <p><strong>最低気温：</strong><span id="min-temp">--</span>℃</p>
-  <button id="update-btn">最新の天気を更新</button>
-      </div>
-
-
-      <div id="overlay-hourly" class="card">
-        <h3>天候の推移</h3>
-        <div id="overlay-scroll"></div>
-        <div class="chart-wrap">
-          <canvas id="hourly-chart"></canvas>
+    <!-- Header -->
+    <header class="bg-blue-600 text-white p-4 flex justify-between items-center z-20 relative shadow-md">
+        <h1 class="text-xl font-bold flex items-center gap-2">
+            <i class="fa-solid fa-shirt"></i> AI Weather & Outfit
+        </h1>
+        <div class="text-sm opacity-80">
+            Powered by OpenMeteo & OpenAI
         </div>
-      </div>
-    </div>
-  </div>
+    </header>
 
-  <script src="/static/script.js"></script>
+    <!-- Main Content Grid -->
+    <main class="flex-grow p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+        
+        <!-- Left Column: Map (要素①) -->
+        <section class="lg:col-span-5 flex flex-col gap-4 h-[500px] lg:h-auto bg-white rounded-xl overflow-hidden relative border border-gray-200 fade-in-up">
+            <div id="map" class="w-full h-full z-10"></div>
+            <!-- Loading Overlay for Map -->
+            <div id="map-loading" class="absolute inset-0 bg-white/80 z-20 flex justify-center items-center hidden">
+                <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+            </div>
+            <div class="absolute bottom-4 left-4 z-[500] bg-white/90 p-2 rounded border border-gray-200 text-xs shadow-sm">
+                クリックで地点変更 / 更新ボタンで初期位置へ
+            </div>
+        </section>
+
+        <!-- Right Column: Weather Info & AI (要素②, ③, ④) -->
+        <section class="lg:col-span-7 flex flex-col gap-6 lg:h-full">
+            
+            <!-- Current Weather & Location -->
+            <div class="bg-white p-6 rounded-xl border border-gray-100 border-l-4 border-l-blue-500 fade-in-up delay-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800" id="location-name">地点を選択してください</h2>
+                        <p class="text-gray-500 text-sm" id="coordinates">Lat: - / Lon: -</p>
+                    </div>
+                    <button id="refresh-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg transition border border-gray-200 flex items-center gap-2 transform active:scale-95">
+                        <i class="fa-solid fa-rotate-right"></i> 更新
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center" id="current-weather-box">
+                    <div class="p-3 bg-blue-50 rounded-lg transition hover:bg-blue-100">
+                        <i class="fa-solid fa-temperature-three-quarters text-blue-500 text-xl mb-1"></i>
+                        <p class="text-xs text-gray-500">現在気温</p>
+                        <p class="font-bold text-xl" id="current-temp">--℃</p>
+                    </div>
+                    <div class="p-3 bg-cyan-50 rounded-lg transition hover:bg-cyan-100">
+                        <i class="fa-solid fa-droplet text-cyan-500 text-xl mb-1"></i>
+                        <p class="text-xs text-gray-500">湿度</p>
+                        <p class="font-bold text-xl" id="current-humidity">--%</p>
+                    </div>
+                    <div class="p-3 bg-indigo-50 rounded-lg transition hover:bg-indigo-100">
+                        <i class="fa-solid fa-cloud-rain text-indigo-500 text-xl mb-1"></i>
+                        <p class="text-xs text-gray-500">降水量</p>
+                        <p class="font-bold text-xl" id="current-rain">--mm</p>
+                    </div>
+                    <div class="p-3 bg-orange-50 rounded-lg transition hover:bg-orange-100">
+                        <i class="fa-solid fa-sun text-orange-500 text-xl mb-1"></i>
+                        <p class="text-xs text-gray-500">天気</p>
+                        <p class="font-bold text-sm" id="current-weather-desc">--</p>
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex gap-4 text-sm text-gray-600 justify-center">
+                    <span><i class="fa-solid fa-arrow-up text-red-400"></i> 最高: <span id="temp-max">--</span>℃</span>
+                    <span><i class="fa-solid fa-arrow-down text-blue-400"></i> 最低: <span id="temp-min">--</span>℃</span>
+                </div>
+            </div>
+
+            <!-- 12 Hours Forecast Chart (要素③) -->
+            <div class="bg-white p-6 rounded-xl border border-gray-100 border-l-4 border-l-blue-500 fade-in-up delay-2">
+                <h3 class="font-bold text-lg mb-4 text-gray-700"><i class="fa-solid fa-chart-line text-blue-500"></i> 12時間以内の天候推移</h3>
+                <div class="relative h-48 w-full">
+                    <canvas id="weatherChart"></canvas>
+                </div>
+            </div>
+
+            <!-- AI Outfit Suggestion (要素④) -->
+            <div class="bg-white p-6 rounded-xl border border-gray-100 border-l-4 border-l-purple-500 flex flex-col lg:flex-grow fade-in-up delay-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg text-gray-700"><i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> AI服装提案</h3>
+                    <button id="ai-suggest-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-full font-bold transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg">
+                        <i class="fa-solid fa-robot"></i> AI服装提案を取得
+                    </button>
+                </div>
+
+                <!-- Scene Selector -->
+                <div class="mb-4">
+                    <label class="text-sm text-gray-500 block mb-1">利用シーン:</label>
+                    <select id="scene-select" class="w-full border border-gray-300 rounded p-2 text-sm bg-gray-50 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition">
+                        <option value="通学">通学</option>
+                        <option value="通勤">通勤</option>
+                        <option value="デート">デート</option>
+                        <option value="アウトドア">アウトドア</option>
+                        <option value="散歩">散歩</option>
+                    </select>
+                </div>
+
+                <!-- Result Area -->
+                <div id="ai-result-area" class="space-y-4 flex-grow flex flex-col">
+                    <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-400 h-full flex items-center justify-center flex-grow transition duration-500">
+                        ここにAIからの提案が表示されます
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/main.js"></script>
 </body>
 </html>
