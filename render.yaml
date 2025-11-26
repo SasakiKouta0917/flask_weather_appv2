@@ -1,9 +1,10 @@
 services:
   - type: web
-    name: weather-outfit-app
+    name: ai-weather-outfit
     env: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
-      - key: FLASK_ENV
-        value: production
+      - key: OPENAI_API_KEY
+        sync: false
