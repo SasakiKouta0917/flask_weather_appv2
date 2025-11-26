@@ -1,255 +1,330 @@
-// === 設定（北上コンピュータ・アカデミー：初期位置） ===
-const INIT_LAT = 39.30506946;
-const INIT_LON = 141.11956806;
+// ==========================================
+// Global State & Config
+// ==========================================
+const CONFIG = {
+    // 北上コンピュータ・アカデミーの座標 (岩手県北上市相去町山田2-18付近)
+    defaultLat: 39.297485,
+    defaultLng: 141.080536,
+    wmoCodes: {
+        0: '快晴', 1: '晴れ', 2: '一部曇り', 3: '曇り',
+        45: '霧', 48: '着氷霧',
+        51: '霧雨(弱)', 53: '霧雨(中)', 55: '霧雨(強)',
+        61: '雨(弱)', 63: '雨(中)', 65: '雨(強)',
+        71: '雪(弱)', 73: '雪(中)', 75: '雪(強)',
+        80: 'にわか雨(弱)', 81: 'にわか雨(中)', 82: 'にわか雨(強)',
+        95: '雷雨', 96: '雷雨(雹)', 99: '雷雨(強雹)'
+    }
+};
 
-let map, marker;
-let hasFetchedSuggestion = false; // ✅ 初回判定用フラグ
-let hourlyChart = null;
+let currentWeatherData = null; // AIプロンプト用にデータを保持
+let weatherChartInstance = null;
+let mapInstance = null;
+let markerInstance = null;
 
-// helper
-function setText(id, v){
-  const e = document.getElementById(id);
-  if(!e) return;
-  e.textContent = (v === undefined || v === null) ? '--' : v;
-}
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c => (
-    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
-  ));
-}
+// ==========================================
+// 1. Map Module (Leaflet + RainViewer)
+// ==========================================
+const MapModule = {
+    init: async () => {
+        // マップ初期化
+        mapInstance = L.map('map').setView([CONFIG.defaultLat, CONFIG.defaultLng], 12);
 
-// === 逆ジオコーディング ===
-async function fetchPlaceName(lat, lon){
-  try{
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'weather-app' }});
-    if(!res.ok) throw new Error("reverse geocode error");
-    const j = await res.json();
-    return j.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-  }catch(e){
-    console.error(e);
-    return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-  }
-}
+        // Base Map (OpenStreetMap)
+        const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance);
 
-// === マップ初期化 ===
-function initMap(){
-  map = L.map('map', { zoomControl: true }).setView([INIT_LAT, INIT_LON], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        // RainViewer Layer logic
+        try {
+            const response = await fetch('https://tilecache.rainviewer.com/api/maps.json');
+            const results = await response.json();
+            
+            if (results && results.length > 0) {
+                const time = results[results.length - 1]; // Latest timestamp
+                const rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
+                    opacity: 0.6,
+                    attribution: 'Radar data &copy; <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>'
+                });
 
-  marker = L.marker([INIT_LAT, INIT_LON]).addTo(map);
+                const overlays = {
+                    "RainViewer 雨雲": rainLayer
+                };
+                L.control.layers({"Base Map": baseLayer}, overlays).addTo(mapInstance);
+                rainLayer.addTo(mapInstance); // Enable by default
+            }
+        } catch (e) {
+            console.error("RainViewer fetch failed:", e);
+        }
 
-  // 初期表示
-  setText('location', '北上コンピュータ・アカデミー');
-  marker.bindPopup('<div>北上コンピュータ・アカデミー</div>').openPopup();
+        // Marker Logic (Initial position)
+        markerInstance = L.marker([CONFIG.defaultLat, CONFIG.defaultLng], {draggable: true}).addTo(mapInstance);
+        
+        // Map Click Event
+        mapInstance.on('click', (e) => {
+            MapModule.updateMarker(e.latlng.lat, e.latlng.lng);
+        });
 
-  // クリックでピン移動＋地名取得＋天気更新
-  map.on('click', async (e) => {
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
+        // Marker Drag Event
+        markerInstance.on('dragend', (e) => {
+            const pos = markerInstance.getLatLng();
+            MapModule.handleLocationUpdate(pos.lat, pos.lng);
+        });
 
-    // ピンを移動
-    marker.setLatLng([lat, lon]);
-
-    // 地名を取得
-    const name = await fetchPlaceName(lat, lon);
-
-    // 画面の「現在地」更新
-    setText('location', name);
-
-    // ピンの上にポップアップ表示
-    marker.bindPopup(`<div>${escapeHtml(name)}</div>`).openPopup();
-
-    // 天気データ更新
-    await fetchWeather(lat, lon);
-    await fetchHourly(lat, lon);
-  });
-
-  // 初期ロード
-  fetchWeather(INIT_LAT, INIT_LON);
-  fetchHourly(INIT_LAT, INIT_LON);
-}
-
-// === 現在の天気（Flask /update） ===
-async function fetchWeather(lat, lon){
-  try{
-    const res = await fetch('/update', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ lat, lon })
-    });
-    if(!res.ok) throw new Error('update endpoint error');
-    const j = await res.json();
-    if(j.status !== 'ok' || !j.weather) throw new Error('bad weather payload');
-
-    const w = j.weather;
-    setText('weather-main', w.weather);
-    setText('temperature', Math.round(w.temp));
-    setText('humidity', w.humidity);
-    setText('precipitation', w.precipitation); // 単位はHTML側に任せる
-    setText('pressure', Math.round(w.pressure));
-    setText('max-temp', Math.round(w.temp_max));
-    setText('min-temp', Math.round(w.temp_min));
-
-  }catch(err){
-    console.error('fetchWeather error:', err);
-  }
-}
-
-// === 12時間予報（Flask /hourly） ===
-async function fetchHourly(lat, lon){
-  try{
-    const res = await fetch(`/hourly?lat=${lat}&lon=${lon}`);
-    if(!res.ok) throw new Error('hourly endpoint error');
-    const j = await res.json();
-    if(j.status !== 'ok' || !Array.isArray(j.hourly)) throw new Error('bad hourly payload');
-
-    renderHourlyPanel(j.hourly);
-    drawTempChartFromHourly(j.hourly);
-
-  }catch(err){
-    console.error('fetchHourly error:', err);
-    document.getElementById('overlay-scroll').innerHTML = '';
-    if(hourlyChart){ hourlyChart.destroy(); hourlyChart = null; }
-  }
-}
-
-// === 予報パネル描画 ===
-function renderHourlyPanel(arr){
-  const sc = document.getElementById('overlay-scroll');
-  sc.innerHTML = '';
-  arr.forEach(h => {
-    const temp = (h.temp !== undefined && h.temp !== null) ? Math.round(h.temp) : '--';
-    const icon = weatherEmojiFromCode(h.weathercode);
-
-    const div = document.createElement('div');
-    div.className = 'overlay-hour-tile';
-    div.innerHTML =
-      `<div style="font-size:12px;color:#555">${escapeHtml(h.label || '')}</div>
-       <div style="font-size:20px;margin:6px 0">${icon}</div>
-       <div style="font-weight:700">${temp}℃</div>
-       <div style="font-size:12px;color:#777">${escapeHtml(h.weather || '')}</div>
-       <div style="font-size:12px;color:#777">${(h.precipitation ?? '--')} mm</div>`;
-    sc.appendChild(div);
-  });
-}
-
-// === 天気コード→絵文字 ===
-function weatherEmojiFromCode(code){
-  if(code === 0) return '☀️';
-  if(code >= 1 && code <= 3) return '⛅';
-  if(code >= 61 && code < 70) return '🌧️';
-  if(code >= 71 && code < 80) return '❄️';
-  if(code >= 95) return '⛈️';
-  return '🌤️';
-}
-
-// === 気温折れ線グラフ ===
-function drawTempChartFromHourly(arr){
-  const labels = arr.map(h => h.label || '');
-  const data = arr.map(h => {
-    const t = h.temp;
-    return (t === undefined || t === null) ? null : Math.round(t);
-  });
-
-  const ctx = document.getElementById('hourly-chart').getContext('2d');
-  if(hourlyChart) hourlyChart.destroy();
-
-  hourlyChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: '気温 (℃)',
-        data,
-        borderColor: 'rgba(11,108,255,0.9)',
-        backgroundColor: 'rgba(11,108,255,0.08)',
-        tension: 0.3,
-        pointRadius: 3,
-        borderWidth: 2,
-        spanGaps: true
-      }]
+        // Initial Load
+        MapModule.handleLocationUpdate(CONFIG.defaultLat, CONFIG.defaultLng);
     },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
-      },
-      maintainAspectRatio: false
+
+    updateMarker: (lat, lng) => {
+        markerInstance.setLatLng([lat, lng]);
+        MapModule.handleLocationUpdate(lat, lng);
+    },
+
+    handleLocationUpdate: (lat, lng) => {
+        document.getElementById('coordinates').innerText = `Lat: ${lat.toFixed(4)} / Lon: ${lng.toFixed(4)}`;
+        WeatherModule.fetchData(lat, lng);
     }
-  });
-}
+};
 
-// === 服装提案 ===
-async function fetchSuggest(){
-  const btn = document.getElementById('suggest-btn');
-  const box = document.getElementById('suggestions');
-  btn.disabled = true;
-  btn.textContent = '提案を取得中...';
-  box.innerHTML = '';
+// ==========================================
+// 2. Weather Module (OpenMeteo)
+// ==========================================
+const WeatherModule = {
+    fetchData: async (lat, lng) => {
+        const btn = document.getElementById('refresh-btn');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
+        
+        try {
+            // 2.1 Fetch Weather Data
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,precipitation_probability&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
+            const weatherRes = await fetch(weatherUrl);
+            const weatherData = await weatherRes.json();
 
-  try {
-    const res = await fetch('/suggest', { method:'POST' });
-    if(!res.ok) throw new Error('suggest endpoint error');
-    const j = await res.json();
+            // 2.2 Reverse Geocoding (City Name) - Using OpenStreetMap Nominatim (Free, simple)
+            const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+            const geoRes = await fetch(geoUrl);
+            const geoData = await geoRes.json();
+            
+            const address = geoData.address;
+            const locationName = address.city || address.town || address.village || address.county || "指定地点";
 
-    if(j && j.status === 'ok' && j.suggestion){
-      const arr = j.suggestion.suggestions || [];
-      arr.forEach(it => {
-        const p = document.createElement('p');
-        const period = it.period || '';
-        const any = it.any || '';
-        p.innerHTML = `<b>${escapeHtml(period)}</b>： ${escapeHtml(any)}`;
-        box.appendChild(p);
-      });
-    } else {
-      box.textContent = '提案が取得できませんでした';
+            // Update UI
+            WeatherModule.updateUI(locationName, weatherData);
+            
+        } catch (error) {
+            console.error("Weather fetch error:", error);
+            alert("天気情報の取得に失敗しました。");
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 更新';
+        }
+    },
+
+    updateUI: (locationName, data) => {
+        const current = data.current;
+        const daily = data.daily;
+        
+        // Decode WMO code
+        const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
+
+        // Store global state for AI
+        currentWeatherData = {
+            location: locationName,
+            temp: current.temperature_2m,
+            humidity: current.relative_humidity_2m,
+            precipitation: current.precipitation,
+            weather: weatherDesc,
+            temp_max: daily.temperature_2m_max[0],
+            temp_min: daily.temperature_2m_min[0]
+        };
+
+        // Update DOM text
+        document.getElementById('location-name').innerText = locationName;
+        document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
+        document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
+        document.getElementById('current-rain').innerText = `${current.precipitation}mm`;
+        document.getElementById('current-weather-desc').innerText = weatherDesc;
+        document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
+        document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
+
+        // Update Chart
+        ChartModule.render(data.hourly);
     }
+};
 
-    // ✅ スクロール操作は削除済み
+// ==========================================
+// 3. Chart Module (Chart.js)
+// ==========================================
+const ChartModule = {
+    render: (hourly) => {
+        const ctx = document.getElementById('weatherChart').getContext('2d');
+        
+        // Get current hour index
+        const now = new Date();
+        const currentHourStr = now.toISOString().slice(0, 13) + ":00";
+        let startIndex = hourly.time.findIndex(t => t.startsWith(currentHourStr));
+        if(startIndex === -1) startIndex = 0;
 
-  } catch(err){
-    console.error('fetchSuggest error:', err);
-    box.textContent = '服装提案取得エラー';
-  } finally {
-    btn.disabled = false;
-    hasFetchedSuggestion = true;
-    btn.textContent = hasFetchedSuggestion ? 'AI服装提案を再取得' : 'AI服装提案を取得';
-  }
-}
+        // Slice next 12 hours
+        const labels = hourly.time.slice(startIndex, startIndex + 12).map(t => t.slice(11, 16));
+        const temps = hourly.temperature_2m.slice(startIndex, startIndex + 12);
+        const precipprobs = hourly.precipitation_probability.slice(startIndex, startIndex + 12);
 
+        if (weatherChartInstance) {
+            weatherChartInstance.destroy();
+        }
 
+        weatherChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '気温 (℃)',
+                        data: temps,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        yAxisID: 'y',
+                        tension: 0.4,
+                        animation: {
+                            duration: 1500,
+                            easing: 'easeOutQuart'
+                        }
+                    },
+                    {
+                        label: '降水確率 (%)',
+                        data: precipprobs,
+                        type: 'bar',
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        yAxisID: 'y1',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        ticks: { display: false },
+                        title: { display: false }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        min: 0,
+                        max: 100,
+                        ticks: { display: false },
+                        title: { display: false }
+                    }
+                }
+            }
+        });
+    }
+};
 
-// === 初期化＆イベント ===
+// ==========================================
+// 4. AI Module (Backend Integration)
+// ==========================================
+const AIModule = {
+    suggestOutfit: async () => {
+        const btn = document.getElementById('ai-suggest-btn');
+        const resultArea = document.getElementById('ai-result-area');
+        const scene = document.getElementById('scene-select').value;
+
+        if (!currentWeatherData) {
+            alert("先に地図をクリックして天気情報を取得してください。");
+            return;
+        }
+
+        // Update Button State
+        const originalBtnText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
+
+        try {
+            // Call Python Backend
+            const response = await fetch("/api/suggest_outfit", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    weather_data: currentWeatherData,
+                    scene: scene
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || "Server API Error");
+            }
+
+            const data = await response.json();
+            
+            if (data.type === "error") {
+                AIModule.renderResult(data.suggestions);
+            } else {
+                AIModule.renderResult(data.suggestions);
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-robot"></i> 再取得';
+
+        } catch (error) {
+            console.error("AI Error:", error);
+            resultArea.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded">エラーが発生しました: ${error.message}</div>`;
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 再試行';
+        } finally {
+            btn.disabled = false;
+        }
+    },
+
+    renderResult: (suggestions) => {
+        const resultArea = document.getElementById('ai-result-area');
+        let html = '';
+
+        suggestions.forEach((item, index) => {
+            // アニメーション用に遅延スタイルを追加
+            const delay = index * 0.1;
+            html += `
+                <div class="bg-white border border-purple-200 rounded-lg p-4 hover:border-purple-300 transition shadow-sm hover:shadow-md fade-in-up" style="animation-delay: ${delay}s">
+                    <h4 class="font-bold text-purple-600 mb-2 border-b border-purple-100 pb-1">
+                        <i class="fa-regular fa-clock"></i> ${item.period}
+                    </h4>
+                    <p class="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">${item.any}</p>
+                </div>
+            `;
+        });
+
+        resultArea.innerHTML = `<div class="flex flex-col gap-4 w-full">${html}</div>`;
+    }
+};
+
+// ==========================================
+// Event Listeners
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-  // マップ
-  initMap();
+    MapModule.init();
 
-  // テーマボタン初期テキスト
-  const themeBtn = document.getElementById('theme-toggle');
-  themeBtn.textContent = document.body.classList.contains('dark') ? 'ライトテーマ' : 'ダークテーマ';
+    // 更新ボタン: 初期位置（北上コンピュータ・アカデミー）に戻す機能に変更
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+        // マーカーとマップを初期位置に戻す
+        MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
+        mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 12);
+        
+        // ボタン自体のフィードバックアニメーション (一瞬だけ無効化など)
+        const btn = document.getElementById('refresh-btn');
+        btn.classList.add('bg-gray-200');
+        setTimeout(() => btn.classList.remove('bg-gray-200'), 200);
+    });
 
-  // 最新の天気を更新（初期位置へ戻る）
-  document.getElementById('update-btn').addEventListener('click', async () => {
-    marker.setLatLng([INIT_LAT, INIT_LON]);
-    map.setView([INIT_LAT, INIT_LON], 13);
-
-    // 初期位置の地名を再表示（Nominatimで取得してもOK）
-    setText('location', '北上コンピュータ・アカデミー');
-    marker.bindPopup('<div>北上コンピュータ・アカデミー</div>').openPopup();
-
-    await fetchWeather(INIT_LAT, INIT_LON);
-    await fetchHourly(INIT_LAT, INIT_LON);
-  });
-
-  // テーマ切替
-  themeBtn.addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-    themeBtn.textContent = document.body.classList.contains('dark') ? 'ライトテーマ' : 'ダークテーマ';
-  });
-
-  // 服装提案
-  document.getElementById('suggest-btn').addEventListener('click', fetchSuggest);
+    document.getElementById('ai-suggest-btn').addEventListener('click', () => {
+        AIModule.suggestOutfit();
+    });
 });
-
