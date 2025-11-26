@@ -2,9 +2,9 @@
 // Global State & Config
 // ==========================================
 const CONFIG = {
-    // 北上コンピュータ・アカデミーの座標 (岩手県北上市相去町山田2-18付近)
-    defaultLat: 39.297485,
-    defaultLng: 141.080536,
+    // ユーザー指定: 北上コンピュータ・アカデミーの座標
+    defaultLat: 39.3051,
+    defaultLng: 141.1195,
     wmoCodes: {
         0: '快晴', 1: '晴れ', 2: '一部曇り', 3: '曇り',
         45: '霧', 48: '着氷霧',
@@ -27,7 +27,7 @@ let markerInstance = null;
 const MapModule = {
     init: async () => {
         // マップ初期化
-        mapInstance = L.map('map').setView([CONFIG.defaultLat, CONFIG.defaultLng], 12);
+        mapInstance = L.map('map').setView([CONFIG.defaultLat, CONFIG.defaultLng], 14);
 
         // Base Map (OpenStreetMap)
         const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -99,13 +99,27 @@ const WeatherModule = {
             const weatherRes = await fetch(weatherUrl);
             const weatherData = await weatherRes.json();
 
-            // 2.2 Reverse Geocoding (City Name) - Using OpenStreetMap Nominatim (Free, simple)
-            const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
-            const geoRes = await fetch(geoUrl);
-            const geoData = await geoRes.json();
+            // 2.2 Reverse Geocoding
+            // デフォルト：OpenStreetMap Nominatim
+            let locationName = "指定地点";
             
-            const address = geoData.address;
-            const locationName = address.city || address.town || address.village || address.county || "指定地点";
+            // ★追加: 北上コンピュータ・アカデミーの座標判定 (誤差0.0005度以内なら該当とみなす)
+            const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
+
+            if (isKitakamiAcademy) {
+                locationName = "北上コンピュータ・アカデミー";
+            } else {
+                // 通常の逆ジオコーディング
+                try {
+                    const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+                    const geoRes = await fetch(geoUrl);
+                    const geoData = await geoRes.json();
+                    const address = geoData.address;
+                    locationName = address.city || address.town || address.village || address.county || address.state || "指定地点";
+                } catch (e) {
+                    console.error("Geocoding failed", e);
+                }
+            }
 
             // Update UI
             WeatherModule.updateUI(locationName, weatherData);
@@ -156,7 +170,9 @@ const WeatherModule = {
 const ChartModule = {
     render: (hourly) => {
         const ctx = document.getElementById('weatherChart').getContext('2d');
-        
+        const isDark = document.documentElement.classList.contains('dark');
+        const textColor = isDark ? '#e2e8f0' : '#666'; // ダークモード時の文字色調整
+
         // Get current hour index
         const now = new Date();
         const currentHourStr = now.toISOString().slice(0, 13) + ":00";
@@ -206,6 +222,9 @@ const ChartModule = {
                     intersect: false,
                 },
                 scales: {
+                    x: {
+                        ticks: { color: textColor }
+                    },
                     y: {
                         type: 'linear',
                         display: true,
@@ -222,6 +241,11 @@ const ChartModule = {
                         max: 100,
                         ticks: { display: false },
                         title: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: textColor }
                     }
                 }
             }
@@ -244,7 +268,6 @@ const AIModule = {
         }
 
         // Update Button State
-        const originalBtnText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
 
@@ -290,14 +313,13 @@ const AIModule = {
         let html = '';
 
         suggestions.forEach((item, index) => {
-            // アニメーション用に遅延スタイルを追加
             const delay = index * 0.1;
             html += `
-                <div class="bg-white border border-purple-200 rounded-lg p-4 hover:border-purple-300 transition shadow-sm hover:shadow-md fade-in-up" style="animation-delay: ${delay}s">
-                    <h4 class="font-bold text-purple-600 mb-2 border-b border-purple-100 pb-1">
+                <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-4 hover:border-purple-300 dark:hover:border-purple-500 transition shadow-sm hover:shadow-md fade-in-up" style="animation-delay: ${delay}s">
+                    <h4 class="font-bold text-purple-600 dark:text-purple-400 mb-2 border-b border-purple-100 dark:border-slate-600 pb-1">
                         <i class="fa-regular fa-clock"></i> ${item.period}
                     </h4>
-                    <p class="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">${item.any}</p>
+                    <p class="text-gray-700 dark:text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">${item.any}</p>
                 </div>
             `;
         });
@@ -307,21 +329,54 @@ const AIModule = {
 };
 
 // ==========================================
+// 5. Theme Module
+// ==========================================
+const ThemeModule = {
+    init: () => {
+        const toggleBtn = document.getElementById('theme-toggle-btn');
+        const btnText = document.getElementById('theme-btn-text');
+        
+        toggleBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // ボタンテキストの切り替え
+            btnText.innerText = isDark ? 'ライト' : 'ダーク';
+            
+            // グラフの色再描画
+            if(weatherChartInstance) {
+                // データそのままで再レンダリング（色設定を反映させるため）
+                // 簡易的にupdateを呼ぶか、ChartModule.renderを呼び直す
+                // データを保持していないので、現在のChartからデータを抜いて再描画等は複雑になる。
+                // updateUIが呼ばれたわけではないので、現在のデータで再描画が理想だが、
+                // 今回はシンプルに、テーマ変更直後は色が変わらない制限を許容するか、
+                // リロードなしで変えるならChartModuleのオプション更新が必要。
+                // -> Chart.jsはupdate()でオプション変更反映可能。
+                
+                const textColor = isDark ? '#e2e8f0' : '#666';
+                weatherChartInstance.options.scales.x.ticks.color = textColor;
+                weatherChartInstance.options.plugins.legend.labels.color = textColor;
+                weatherChartInstance.update();
+            }
+        });
+    }
+};
+
+// ==========================================
 // Event Listeners
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     MapModule.init();
+    ThemeModule.init();
 
-    // 更新ボタン: 初期位置（北上コンピュータ・アカデミー）に戻す機能に変更
+    // 更新ボタン: 初期位置（北上コンピュータ・アカデミー）に戻す機能
     document.getElementById('refresh-btn').addEventListener('click', () => {
-        // マーカーとマップを初期位置に戻す
         MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
-        mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 12);
+        mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 14);
         
-        // ボタン自体のフィードバックアニメーション (一瞬だけ無効化など)
         const btn = document.getElementById('refresh-btn');
-        btn.classList.add('bg-gray-200');
-        setTimeout(() => btn.classList.remove('bg-gray-200'), 200);
+        btn.classList.add('bg-gray-200', 'dark:bg-slate-600');
+        setTimeout(() => btn.classList.remove('bg-gray-200', 'dark:bg-slate-600'), 200);
     });
 
     document.getElementById('ai-suggest-btn').addEventListener('click', () => {
