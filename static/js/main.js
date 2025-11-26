@@ -103,7 +103,7 @@ const WeatherModule = {
             // デフォルト：OpenStreetMap Nominatim
             let locationName = "指定地点";
             
-            // ★追加: 北上コンピュータ・アカデミーの座標判定 (誤差0.0005度以内なら該当とみなす)
+            // 北上コンピュータ・アカデミーの座標判定 (誤差0.0005度以内なら該当とみなす)
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
 
             if (isKitakamiAcademy) {
@@ -171,12 +171,18 @@ const ChartModule = {
     render: (hourly) => {
         const ctx = document.getElementById('weatherChart').getContext('2d');
         const isDark = document.documentElement.classList.contains('dark');
-        const textColor = isDark ? '#e2e8f0' : '#666'; // ダークモード時の文字色調整
+        const textColor = isDark ? '#e2e8f0' : '#666';
 
-        // Get current hour index
+        // 修正: 現在時刻（時）のインデックスを取得するロジック
+        // UTC変換(toISOString)を使わず、ローカル時間(new Date)で比較する
         const now = new Date();
-        const currentHourStr = now.toISOString().slice(0, 13) + ":00";
-        let startIndex = hourly.time.findIndex(t => t.startsWith(currentHourStr));
+        now.setMinutes(0, 0, 0); // 分以下を切り捨てて現在の「時」に合わせる
+
+        let startIndex = hourly.time.findIndex(t => {
+            const dataTime = new Date(t);
+            return dataTime.getTime() >= now.getTime();
+        });
+        
         if(startIndex === -1) startIndex = 0;
 
         // Slice next 12 hours
@@ -345,14 +351,6 @@ const ThemeModule = {
             
             // グラフの色再描画
             if(weatherChartInstance) {
-                // データそのままで再レンダリング（色設定を反映させるため）
-                // 簡易的にupdateを呼ぶか、ChartModule.renderを呼び直す
-                // データを保持していないので、現在のChartからデータを抜いて再描画等は複雑になる。
-                // updateUIが呼ばれたわけではないので、現在のデータで再描画が理想だが、
-                // 今回はシンプルに、テーマ変更直後は色が変わらない制限を許容するか、
-                // リロードなしで変えるならChartModuleのオプション更新が必要。
-                // -> Chart.jsはupdate()でオプション変更反映可能。
-                
                 const textColor = isDark ? '#e2e8f0' : '#666';
                 weatherChartInstance.options.scales.x.ticks.color = textColor;
                 weatherChartInstance.options.plugins.legend.labels.color = textColor;
