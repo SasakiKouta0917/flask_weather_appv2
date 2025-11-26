@@ -2,16 +2,19 @@ import os
 import openai
 import json
 
+# APIキーの設定（環境変数から読み込み）
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
-def suggest_outfit(weather):
+def suggest_outfit(weather, scene="通学"):
+    # ユーザーから渡された天気情報を展開
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
     temp_min = weather.get("temp_min")
     weather_desc = weather.get("weather")
     humidity = weather.get("humidity")
     precipitation = weather.get("precipitation")
-    scene = "通学"
+    
+    # sceneは引数から受け取るように変更（デフォルトは"通学"）
 
     prompt = f"""
 以下の天気情報と利用シーンをもとに、その日に適した服装を日本語で提案してください。
@@ -66,16 +69,19 @@ def suggest_outfit(weather):
         )
 
         content = response.choices[0].message.content.strip()
-        suggestions = json.loads(content)
+        # 万が一Markdown記法が含まれていた場合のクリーンアップ
+        clean_json = content.replace("```json", "").replace("```", "").strip()
+        suggestions = json.loads(clean_json)
 
         return {
             "type": "any",
             "suggestions": suggestions
         }
 
-    except Exception:
+    except Exception as e:
+        print(f"Error in chatgpt_api: {e}")
         return {
-            "type": "any",
+            "type": "error",
             "suggestions": [
                 {"period": "朝晩", "any": "取得できませんでした。"},
                 {"period": "昼間", "any": "取得できませんでした。"}
