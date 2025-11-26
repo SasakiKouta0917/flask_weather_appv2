@@ -14,9 +14,32 @@
     background: #555; 
 }
 
+/* ダークモード時のスクロールバー */
+.dark ::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
 .leaflet-popup-content-wrapper {
     border-radius: 8px;
     font-family: 'Helvetica', 'Arial', sans-serif;
+}
+
+/* ダークモード時に地図の明るさを落とす */
+.dark .leaflet-layer,
+.dark .leaflet-control-zoom-in,
+.dark .leaflet-control-zoom-out,
+.dark .leaflet-control-attribution {
+    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+/* 雨雲レーダーなどは色反転させない（見にくくなるため） */
+.dark .leaflet-overlay-pane {
+    filter: invert(100%) hue-rotate(180deg); /* 親の反転を打ち消す */
 }
 
 /* アニメーション定義: 下からふわっと浮き上がる */
