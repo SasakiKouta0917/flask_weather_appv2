@@ -1,204 +1,106 @@
+import os
 from flask import Flask, render_template, request, jsonify
-from datetime import datetime, timedelta, timezone
-import traceback
-import requests
-import time
+import openai
+import json
 
-from chatgpt_api import suggest_outfit  # ✅ Render用に明示的にimport
+app = Flask(__name__)
 
-app = Flask(__name__, template_folder='templates', static_folder='static')
-
-# ---- キャッシュ ----
-CACHE = {}
-CACHE_TTL = 45
-SESSION = requests.Session()
-SESSION.headers.update({"User-Agent":"weather-app/1.0"})
-
-JMA_URL = "https://api.open-meteo.com/v1/jma"
-
-WEATHERCODE_MAP = {
-    0: "晴れ", 1: "晴れ時々曇り", 2: "曇り時々晴れ", 3: "曇り",
-    45: "霧", 48: "霧氷", 51: "霧雨(弱)", 53: "霧雨", 55: "霧雨(強)",
-    56: "凍雨(弱)", 57: "凍雨", 61: "小雨", 63: "雨", 65: "強雨",
-    66: "凍雨(弱)", 67: "凍雨(強)", 71: "降雪(弱)", 73: "降雪", 75: "降雪(強)",
-    77: "霰（あられ）", 80: "にわか雨（弱）", 81: "にわか雨", 82: "にわか雨（強）",
-    85: "にわか雪(弱)", 86: "にわか雪", 95: "雷雨", 96: "雷雨（雹を伴う可能性あり）", 99: "激しい雷雨（雹を伴う可能性大）"
-}
-
-def code_to_label(c): return WEATHERCODE_MAP.get(int(c), "不明")
-
-def cache_get(k):
-    item = CACHE.get(k)
-    if not item: return None
-    ts, val = item
-    if time.time() - ts > CACHE_TTL:
-        del CACHE[k]
-        return None
-    return val
-
-def cache_set(k, v):
-    CACHE[k] = (time.time(), v)
-
-def round_coord(x): return round(float(x), 4)
-
-# ---- 現在の天気 ----
-def get_weather_by_coords(lat, lon):
-    key = f"current_jma:{round_coord(lat)}:{round_coord(lon)}"
-    cached = cache_get(key)
-    if cached: return cached
-
-    try:
-        params = {
-            "latitude": lat,
-            "longitude": lon,
-            "current": ["temperature_2m", "relative_humidity_2m", "surface_pressure", "precipitation", "weather_code"],
-            "daily": ["temperature_2m_max", "temperature_2m_min"],
-            "timezone": "Asia/Tokyo"
-        }
-        r = SESSION.get(JMA_URL, params=params, timeout=7)
-        r.raise_for_status()
-        j = r.json()
-
-        current = j.get("current", {})
-        daily = j.get("daily", {})
-
-        result = {
-            "lat": lat, "lon": lon,
-            "city": None,
-            "weather": code_to_label(current.get("weather_code")),
-            "weathercode": current.get("weather_code"),
-            "temp": current.get("temperature_2m"),
-            "humidity": current.get("relative_humidity_2m"),
-            "precipitation": current.get("precipitation"),
-            "pressure": current.get("surface_pressure"),
-            "temp_max": daily.get("temperature_2m_max", [None])[0],
-            "temp_min": daily.get("temperature_2m_min", [None])[0],
-            "source": "open-meteo-jma"
-        }
-
-        cache_set(key, result)
-        return result
-
-    except Exception:
-        traceback.print_exc()
-        dummy = {
-            "lat": lat, "lon": lon,
-            "weather": "晴れ",
-            "temp": 18.2, "temp_max": 22, "temp_min": 12,
-            "humidity": 55, "precipitation": 0, "pressure": 1012,
-            "source": "fallback"
-        }
-        cache_set(key, dummy)
-        return dummy
-# ---- 12時間予報 ----
-def get_hourly_by_coords(lat, lon):
-    key = f"hourly_jma:{round_coord(lat)}:{round_coord(lon)}"
-    cached = cache_get(key)
-    if cached: return cached
-
-    try:
-        params = {
-            "latitude": lat, "longitude": lon,
-            "hourly": ["temperature_2m", "relative_humidity_2m","precipitation","weather_code"],
-            "timezone": "Asia/Tokyo"
-        }
-        r = SESSION.get(JMA_URL, params=params, timeout=7)
-        r.raise_for_status()
-        j = r.json()
-        hourly = j.get("hourly", {})
-
-        times = hourly.get("time", [])
-        temps = hourly.get("temperature_2m", [])
-        codes = hourly.get("weather_code", [])
-        precs = hourly.get("precipitation", [])
-        hums = hourly.get("relative_humidity_2m", [])
-
-        JST = timezone(timedelta(hours=9))
-        now = datetime.now(JST)
-        start = 0
-        for i, t in enumerate(times):
-            try:
-                dt = datetime.strptime(t, "%Y-%m-%dT%H:%M").replace(tzinfo=JST)
-                if dt >= now:
-                    start = i
-                    break
-            except Exception:
-                continue
-
-        out = []
-        for i in range(start, min(start+12, len(times))):
-            t = times[i]
-            dt = datetime.strptime(t, "%Y-%m-%dT%H:%M").replace(tzinfo=JST)
-            out.append({
-                "time": t,
-                "label": dt.strftime("%H:%M"),
-                "temp": temps[i] if i < len(temps) else None,
-                "weather": code_to_label(codes[i]) if i < len(codes) else "不明",
-                "weathercode": codes[i] if i < len(codes) else 0,
-                "precipitation": precs[i] if i < len(precs) else None,
-                "humidity": hums[i] if i < len(hums) else None
-            })
-
-        cache_set(key, out)
-        return out
-
-    except Exception:
-        traceback.print_exc()
-        now = datetime.utcnow().replace(tzinfo=timezone.utc)
-        out = []
-        for i in range(12):
-            t = now + timedelta(hours=i+1)
-            out.append({
-                "time": t.isoformat(timespec="minutes"),
-                "label": t.strftime("%H:%M"),
-                "temp": 12+(i%6)*2,
-                "weather": "晴れ" if i%5!=0 else "雨",
-                "weathercode": 0 if i%5!=0 else 61
-            })
-        cache_set(key, out)
-        return out
-
-# ==== Flask endpoints ====
+# Renderの環境変数からAPIキーを取得
+openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/update', methods=['POST'])
-def update():
-    try:
-        body = request.get_json() or {}
-        lat = float(body.get('lat', 39.30506946))
-        lon = float(body.get('lon', 141.11956806))
-        data = get_weather_by_coords(lat, lon)
-        return jsonify({"status":"ok","weather":data})
-    except Exception:
-        traceback.print_exc()
-        dummy = get_weather_by_coords(39.30506946,141.11956806)
-        return jsonify({"status":"ok","weather":dummy})
+@app.route('/api/suggest_outfit', methods=['POST'])
+def suggest_outfit_api():
+    # フロントエンドから天気情報とシーンを受け取る
+    data = request.json
+    weather = data.get('weather_data')
+    scene = data.get('scene', '通学')
 
-@app.route('/hourly', methods=['GET'])
-def hourly():
-    try:
-        lat = float(request.args.get('lat', 39.30506946))
-        lon = float(request.args.get('lon', 141.11956806))
-        arr = get_hourly_by_coords(lat, lon)
-        return jsonify({"status":"ok","hourly":arr})
-    except Exception:
-        traceback.print_exc()
-        arr = get_hourly_by_coords(39.30506946,141.11956806)
-        return jsonify({"status":"ok","hourly":arr})
+    if not weather:
+        return jsonify({"error": "No weather data provided"}), 400
 
-@app.route('/suggest', methods=['POST'])
-def suggest():
+    # 提供されたロジックに基づく実装
+    temp = weather.get("temp")
+    temp_max = weather.get("temp_max")
+    temp_min = weather.get("temp_min")
+    weather_desc = weather.get("weather")
+    humidity = weather.get("humidity")
+    precipitation = weather.get("precipitation")
+
+    prompt = f"""
+以下の天気情報と利用シーンをもとに、その日に適した服装を日本語で提案してください。
+
+# 天気情報
+- 現在の天気: {weather_desc}
+- 現在の気温: {temp}℃
+- 最高気温: {temp_max}℃
+- 最低気温: {temp_min}℃
+- 湿度: {humidity}%
+- 降水量: {precipitation}mm
+
+# 利用シーン
+- {scene}
+
+# 条件
+1. 上記の天気情報と利用シーンを考慮して、その日に適した服装を提案してください。
+- 気温が低い場合は、防寒対策を提案してください。
+- 気温が高い場合は、涼しい服装を提案してください。
+- 雨が予想される場合は、雨具や防水対策を提案してください。
+
+2. 提案する服装は以下のカテゴリに分けてください：
+- 上着
+- インナー
+- ボトム
+- アクセサリー（例: 帽子、マフラー、日傘など）
+- 靴
+
+3. 出力形式は以下の通り、**JSON形式**で出力してください：
+
+[
+  {{ "period": "朝晩", "any": "ここに提案内容を記載" }},
+  {{ "period": "昼間", "any": "ここに提案内容を記載" }}
+]
+
+# 補足
+- 指示の復唱はしないでください。
+- 自己評価はしないでください。
+- 結論やまとめは書かないでください。
+- 最終成果物以外は出力しないでください。
+- 出力結果をダブルクォーテーション("")で囲わないでください。
+"""
+
     try:
-        body = get_weather_by_coords(39.30506946,141.11956806)
-        s = suggest_outfit(body)
-        return jsonify({"status":"ok","suggestion":s})
-    except Exception:
-        traceback.print_exc()
-        dummy = {"type":"any","suggestions":[
-            {"period":"朝晩","any":"薄手のジャケット"},
-            {"period":"昼間","any":"半袖＋羽織"}
-        ]}
-        return jsonify({"status":"ok","suggestion":dummy})
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "あなたは天気に応じた服装を提案するアシスタントです。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+
+        content = response.choices[0].message.content.strip()
+        # 万が一Markdown記法が含まれていた場合のクリーンアップ
+        clean_json = content.replace("```json", "").replace("```", "").strip()
+        suggestions = json.loads(clean_json)
+
+        return jsonify({
+            "type": "any",
+            "suggestions": suggestions
+        })
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({
+            "type": "error",
+            "suggestions": [
+                {"period": "朝晩", "any": "取得できませんでした。"},
+                {"period": "昼間", "any": "取得できませんでした。"}
+            ]
+        }), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
