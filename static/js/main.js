@@ -13,6 +13,14 @@ const CONFIG = {
         71: '雪(弱)', 73: '雪(中)', 75: '雪(強)',
         80: 'にわか雨(弱)', 81: 'にわか雨(中)', 82: 'にわか雨(強)',
         95: '雷雨', 96: '雷雨(雹)', 99: '雷雨(強雹)'
+    },
+    // 天気ごとの色定義
+    weatherColors: {
+        sunny: 'rgb(255, 159, 64)', // Orange
+        cloudy: 'rgb(156, 163, 175)', // Gray
+        rain: 'rgb(59, 130, 246)',    // Blue
+        snow: 'rgb(6, 182, 212)',     // Cyan
+        thunder: 'rgb(168, 85, 247)'  // Purple
     }
 };
 
@@ -20,6 +28,16 @@ let currentWeatherData = null; // AIプロンプト用にデータを保持
 let weatherChartInstance = null;
 let mapInstance = null;
 let markerInstance = null;
+
+// Helper: 天気コードから色を取得
+function getWeatherColor(code) {
+    if ([0, 1].includes(code)) return CONFIG.weatherColors.sunny;
+    if ([2, 3, 45, 48].includes(code)) return CONFIG.weatherColors.cloudy;
+    if ([71, 73, 75].includes(code)) return CONFIG.weatherColors.snow;
+    if ([95, 96, 99].includes(code)) return CONFIG.weatherColors.thunder;
+    // その他は雨とみなす
+    return CONFIG.weatherColors.rain;
+}
 
 // ==========================================
 // 1. Map Module (Leaflet + RainViewer)
@@ -95,21 +113,18 @@ const WeatherModule = {
         
         try {
             // 2.1 Fetch Weather Data
-            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,precipitation_probability&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
+            // NOTE: hourlyにweather_codeを追加して取得
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
             const weatherRes = await fetch(weatherUrl);
             const weatherData = await weatherRes.json();
 
             // 2.2 Reverse Geocoding
-            // デフォルト：OpenStreetMap Nominatim
             let locationName = "指定地点";
-            
-            // 北上コンピュータ・アカデミーの座標判定 (誤差0.0005度以内なら該当とみなす)
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
 
             if (isKitakamiAcademy) {
                 locationName = "北上コンピュータ・アカデミー";
             } else {
-                // 通常の逆ジオコーディング
                 try {
                     const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
                     const geoRes = await fetch(geoUrl);
@@ -136,10 +151,8 @@ const WeatherModule = {
         const current = data.current;
         const daily = data.daily;
         
-        // Decode WMO code
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
-        // Store global state for AI
         currentWeatherData = {
             location: locationName,
             temp: current.temperature_2m,
@@ -150,7 +163,6 @@ const WeatherModule = {
             temp_min: daily.temperature_2m_min[0]
         };
 
-        // Update DOM text
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
@@ -159,7 +171,6 @@ const WeatherModule = {
         document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
         document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
 
-        // Update Chart
         ChartModule.render(data.hourly);
     }
 };
@@ -173,10 +184,9 @@ const ChartModule = {
         const isDark = document.documentElement.classList.contains('dark');
         const textColor = isDark ? '#e2e8f0' : '#666';
 
-        // 修正: 現在時刻（時）のインデックスを取得するロジック
-        // UTC変換(toISOString)を使わず、ローカル時間(new Date)で比較する
+        // 現在時刻（時）のインデックスを取得
         const now = new Date();
-        now.setMinutes(0, 0, 0); // 分以下を切り捨てて現在の「時」に合わせる
+        now.setMinutes(0, 0, 0); 
 
         let startIndex = hourly.time.findIndex(t => {
             const dataTime = new Date(t);
@@ -185,23 +195,39 @@ const ChartModule = {
         
         if(startIndex === -1) startIndex = 0;
 
-        // Slice next 12 hours
-        const labels = hourly.time.slice(startIndex, startIndex + 12).map(t => t.slice(11, 16));
-        const temps = hourly.temperature_2m.slice(startIndex, startIndex + 12);
-        const precipprobs = hourly.precipitation_probability.slice(startIndex, startIndex + 12);
+        // 次の12時間をスライス
+        const sliceEnd = startIndex + 12;
+        const labels = hourly.time.slice(startIndex, sliceEnd).map(t => t.slice(11, 16));
+        const temps = hourly.temperature_2m.slice(startIndex, sliceEnd);
+        const precipprobs = hourly.precipitation_probability.slice(startIndex, sliceEnd);
+        const weatherCodes = hourly.weather_code.slice(startIndex, sliceEnd);
 
         if (weatherChartInstance) {
             weatherChartInstance.destroy();
         }
 
+        // ChartDataLabelsプラグインの登録（CDNで読み込んだ場合、グローバルにある場合もあるが明示的に）
+        // Chart.js 3+ では plugins 配列で指定可能
+        
         weatherChartInstance = new Chart(ctx, {
             type: 'line',
+            plugins: [ChartDataLabels], // プラグインを有効化
             data: {
                 labels: labels,
                 datasets: [
                     {
                         label: '気温 (℃)',
                         data: temps,
+                        // 線の色: セグメントごとに変更
+                        segment: {
+                            borderColor: ctx => {
+                                // セグメントの終点の天気で色を決める
+                                const index = ctx.p1DataIndex;
+                                const code = weatherCodes[index];
+                                return getWeatherColor(code);
+                            }
+                        },
+                        // デフォルト色（フォールバック）
                         borderColor: 'rgb(255, 99, 132)',
                         backgroundColor: 'rgba(255, 99, 132, 0.2)',
                         yAxisID: 'y',
@@ -209,6 +235,29 @@ const ChartModule = {
                         animation: {
                             duration: 1500,
                             easing: 'easeOutQuart'
+                        },
+                        // データラベル（天候テキスト）の設定
+                        datalabels: {
+                            align: 'top',
+                            anchor: 'end',
+                            offset: 4,
+                            color: textColor,
+                            font: {
+                                size: 10,
+                                weight: 'bold'
+                            },
+                            formatter: (value, context) => {
+                                const index = context.dataIndex;
+                                // 最初(現在)は必ず表示
+                                if (index === 0) {
+                                    return CONFIG.wmoCodes[weatherCodes[index]];
+                                }
+                                // 天気が変わった時だけ表示
+                                if (weatherCodes[index] !== weatherCodes[index - 1]) {
+                                    return CONFIG.wmoCodes[weatherCodes[index]];
+                                }
+                                return null; // 表示しない
+                            }
                         }
                     },
                     {
@@ -217,6 +266,9 @@ const ChartModule = {
                         type: 'bar',
                         backgroundColor: 'rgba(54, 162, 235, 0.5)',
                         yAxisID: 'y1',
+                        datalabels: {
+                            display: false // 棒グラフにはラベルを表示しない
+                        }
                     }
                 ]
             },
@@ -235,7 +287,11 @@ const ChartModule = {
                         type: 'linear',
                         display: true,
                         position: 'left',
-                        ticks: { display: false },
+                        // 修正: 縦軸ラベルを表示する
+                        ticks: { 
+                            display: true,
+                            color: textColor 
+                        },
                         title: { display: false }
                     },
                     y1: {
@@ -245,7 +301,9 @@ const ChartModule = {
                         grid: { drawOnChartArea: false },
                         min: 0,
                         max: 100,
-                        ticks: { display: false },
+                        ticks: { 
+                            display: false // 降水確率は縦軸なしのまま（見やすさ優先）
+                        }, 
                         title: { display: false }
                     }
                 },
@@ -353,7 +411,9 @@ const ThemeModule = {
             if(weatherChartInstance) {
                 const textColor = isDark ? '#e2e8f0' : '#666';
                 weatherChartInstance.options.scales.x.ticks.color = textColor;
+                weatherChartInstance.options.scales.y.ticks.color = textColor; // Y軸も更新
                 weatherChartInstance.options.plugins.legend.labels.color = textColor;
+                weatherChartInstance.data.datasets[0].datalabels.color = textColor; // データラベルの色も更新
                 weatherChartInstance.update();
             }
         });
