@@ -14,8 +14,6 @@ def suggest_outfit(weather, scene="通学"):
     humidity = weather.get("humidity")
     precipitation = weather.get("precipitation")
     
-    # sceneは引数から受け取るように変更（デフォルトは"通学"）
-
     prompt = f"""
 以下の天気情報と利用シーンをもとに、その日に適した服装を日本語で提案してください。
 
@@ -80,10 +78,19 @@ def suggest_outfit(weather, scene="通学"):
 
     except Exception as e:
         print(f"Error in chatgpt_api: {e}")
+        # エラー時はダミーデータを返す
+        # NOTE: app.pyは type="error" の時だけ500エラーを返す仕様のため、
+        # ここでは "dummy" として正常応答(200 OK)扱いにし、フロントエンドに表示させる
         return {
-            "type": "error",
+            "type": "dummy",
             "suggestions": [
-                {"period": "朝晩", "any": "取得できませんでした。"},
-                {"period": "昼間", "any": "取得できませんでした。"}
+                {
+                    "period": "朝晩", 
+                    "any": "通信エラーが発生したため、標準的な提案を表示します。体温調整しやすい羽織りものがあると安心です。(ダミーデータ表示中)"
+                },
+                {
+                    "period": "昼間", 
+                    "any": "通信エラーが発生したため、標準的な提案を表示します。動きやすく、過ごしやすい服装でお出かけください。(ダミーデータ表示中)"
+                }
             ]
         }
