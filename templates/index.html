@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課題研究1S2班</title>
+    <title>AI Weather & Outfit Coordinator</title>
     <!-- Tailwind CSS with Config -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -28,13 +28,12 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<!-- 背景色を bg-slate-50 から bg-sky-50 (薄い水色) に変更 -->
 <body class="bg-sky-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
 
     <!-- Header -->
     <header class="bg-blue-600 dark:bg-blue-900 text-white p-3 md:p-4 flex justify-between items-center z-20 relative shadow-md transition-colors duration-300">
         <h1 class="text-lg md:text-xl font-bold flex items-center gap-2">
-            <i class="fa-solid fa-shirt"></i> 天候からAIが服装提案するアプリ(仮)
+            <i class="fa-solid fa-shirt"></i> AI Weather & Outfit
         </h1>
         <div class="text-xs md:text-sm opacity-80">
             Powered by OpenMeteo & OpenAI
@@ -60,7 +59,6 @@
         <section class="lg:col-span-7 flex flex-col gap-4 md:gap-6 lg:h-full">
             
             <!-- Current Weather & Location -->
-            <!-- ボーダー色修正: dark:border-l-blue-600 を追加 -->
             <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-600 fade-in-up delay-1 transition-colors duration-300">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
                     <div>
@@ -70,14 +68,11 @@
                     
                     <!-- Buttons Wrapper -->
                     <div class="flex gap-2 self-end sm:self-auto">
-                        <!-- Theme Toggle Button -->
                         <button id="theme-toggle-btn" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg transition border border-gray-300 dark:border-slate-600 flex items-center gap-2 transform active:scale-95 shadow-sm">
                             <i class="fa-solid fa-moon dark:hidden"></i>
                             <i class="fa-solid fa-sun hidden dark:inline"></i>
                             <span id="theme-btn-text" class="whitespace-nowrap">ダーク</span>
                         </button>
-
-                        <!-- Refresh Button -->
                         <button id="refresh-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg transition border border-gray-200 dark:border-slate-600 flex items-center gap-2 transform active:scale-95 shadow-sm">
                             <i class="fa-solid fa-rotate-right"></i> <span class="whitespace-nowrap">更新</span>
                         </button>
@@ -85,26 +80,91 @@
                 </div>
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-center" id="current-weather-box">
-                    <div class="p-2 md:p-3 bg-blue-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-blue-100 dark:hover:bg-slate-700">
-                        <i class="fa-solid fa-temperature-three-quarters text-blue-500 dark:text-blue-400 text-lg md:text-xl mb-1"></i>
-                        <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">現在気温</p>
-                        <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-temp">--℃</p>
+                    
+                    <!-- 1. 現在気温カード (Interactive) -->
+                    <div id="temp-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-blue-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-blue-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
+                        <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
+                            <i class="fa-solid fa-temperature-three-quarters text-blue-500 dark:text-blue-400 text-lg md:text-xl"></i>
+                        </div>
+                        <!-- Front -->
+                        <div class="view-front absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center transition-all duration-500 transform translate-x-0 opacity-100">
+                            <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">現在気温</p>
+                            <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-temp">--℃</p>
+                        </div>
+                        <!-- Back (Min/Max) -->
+                        <div class="view-back absolute inset-0 flex items-end pb-2 md:pb-3 justify-between px-2 md:px-3 transition-all duration-500 transform translate-x-full opacity-0">
+                            <div class="flex flex-col items-start">
+                                <span class="text-[9px] md:text-[10px] text-red-500 dark:text-red-400 font-bold mb-0.5">最高</span>
+                                <span class="font-bold text-sm md:text-base text-gray-700 dark:text-slate-100" id="card-temp-max">--</span>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="text-[9px] md:text-[10px] text-blue-500 dark:text-blue-400 font-bold mb-0.5">最低</span>
+                                <span class="font-bold text-sm md:text-base text-gray-700 dark:text-slate-100" id="card-temp-min">--</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="p-2 md:p-3 bg-cyan-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-cyan-100 dark:hover:bg-slate-700">
-                        <i class="fa-solid fa-droplet text-cyan-500 dark:text-cyan-400 text-lg md:text-xl mb-1"></i>
-                        <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">湿度</p>
-                        <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-humidity">--%</p>
+
+                    <!-- 2. 湿度カード (Interactive) -->
+                    <div id="humid-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-cyan-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-cyan-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
+                        <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
+                            <i class="fa-solid fa-droplet text-cyan-500 dark:text-cyan-400 text-lg md:text-xl"></i>
+                        </div>
+                        <!-- Front -->
+                        <div class="view-front absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center transition-all duration-500 transform translate-x-0 opacity-100">
+                            <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">湿度</p>
+                            <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-humidity">--%</p>
+                        </div>
+                        <!-- Back (Min/Max Humidity) -->
+                        <div class="view-back absolute inset-0 flex items-end pb-2 md:pb-3 justify-between px-2 md:px-3 transition-all duration-500 transform translate-x-full opacity-0">
+                            <div class="flex flex-col items-start">
+                                <span class="text-[9px] md:text-[10px] text-cyan-600 dark:text-cyan-300 font-bold mb-0.5">最高</span>
+                                <span class="font-bold text-sm md:text-base text-gray-700 dark:text-slate-100" id="card-humid-max">--</span>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="text-[9px] md:text-[10px] text-cyan-400 dark:text-cyan-500 font-bold mb-0.5">最低</span>
+                                <span class="font-bold text-sm md:text-base text-gray-700 dark:text-slate-100" id="card-humid-min">--</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="p-2 md:p-3 bg-indigo-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-slate-700">
-                        <i class="fa-solid fa-cloud-rain text-indigo-500 dark:text-indigo-400 text-lg md:text-xl mb-1"></i>
-                        <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">降水量</p>
-                        <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-rain">--mm</p>
+
+                    <!-- 3. 降水量カード (Interactive) -->
+                    <div id="rain-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-indigo-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
+                        <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
+                            <i class="fa-solid fa-cloud-rain text-indigo-500 dark:text-indigo-400 text-lg md:text-xl"></i>
+                        </div>
+                        <!-- Front -->
+                        <div class="view-front absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center transition-all duration-500 transform translate-x-0 opacity-100">
+                            <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">降水量</p>
+                            <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-rain">--mm</p>
+                        </div>
+                        <!-- Back (Max Rain) -->
+                        <div class="view-back absolute inset-0 flex items-end pb-2 md:pb-3 justify-center px-2 md:px-3 transition-all duration-500 transform translate-x-full opacity-0">
+                            <div class="flex flex-col items-center">
+                                <span class="text-[9px] md:text-[10px] text-indigo-500 dark:text-indigo-300 font-bold mb-0.5">最大</span>
+                                <span class="font-bold text-sm md:text-base text-gray-700 dark:text-slate-100" id="card-rain-max">--</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="p-2 md:p-3 bg-orange-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-orange-100 dark:hover:bg-slate-700">
-                        <i class="fa-solid fa-sun text-orange-500 dark:text-orange-400 text-lg md:text-xl mb-1"></i>
-                        <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">天気</p>
-                        <p class="font-bold text-xs md:text-sm dark:text-slate-100 mt-1" id="current-weather-desc">--</p>
+
+                    <!-- 4. 天気カード (Interactive) -->
+                    <div id="weather-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-orange-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-orange-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
+                        <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
+                            <i class="fa-solid fa-sun text-orange-500 dark:text-orange-400 text-lg md:text-xl"></i>
+                        </div>
+                        <!-- Front -->
+                        <div class="view-front absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center transition-all duration-500 transform translate-x-0 opacity-100">
+                            <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">天気</p>
+                            <p class="font-bold text-xs md:text-sm dark:text-slate-100 mt-1 line-clamp-2" id="current-weather-desc">--</p>
+                        </div>
+                        <!-- Back (Next Change) -->
+                        <div class="view-back absolute inset-0 flex items-end pb-2 md:pb-3 justify-center px-2 md:px-3 transition-all duration-500 transform translate-x-full opacity-0">
+                            <div class="flex flex-col items-center">
+                                <span class="text-[9px] md:text-[10px] text-orange-600 dark:text-orange-300 font-bold mb-0.5" id="card-weather-time">--</span>
+                                <span class="font-bold text-sm md:text-base text-gray-700 dark:text-slate-100 line-clamp-1" id="card-weather-val">--</span>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
                 
                 <div class="mt-4 flex gap-4 text-xs md:text-sm text-gray-600 dark:text-slate-400 justify-center">
@@ -114,16 +174,14 @@
             </div>
 
             <!-- 12 Hours Forecast Chart (要素③) -->
-            <!-- ボーダー色修正: dark:border-l-blue-600 を追加 -->
             <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-600 fade-in-up delay-2 transition-colors duration-300">
-                <h3 class="font-bold text-base md:text-lg mb-4 text-gray-700 dark:text-slate-200"><i class="fa-solid fa-chart-line text-blue-500"></i> 今後の天候推移</h3>
+                <h3 class="font-bold text-base md:text-lg mb-4 text-gray-700 dark:text-slate-200"><i class="fa-solid fa-chart-line text-blue-500"></i> 12時間以内の天候推移</h3>
                 <div class="relative h-40 md:h-48 w-full">
                     <canvas id="weatherChart"></canvas>
                 </div>
             </div>
 
             <!-- AI Outfit Suggestion (要素④) -->
-            <!-- ボーダー色修正: dark:border-l-purple-600 を追加 -->
             <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-purple-500 dark:border-l-purple-600 flex flex-col lg:flex-grow fade-in-up delay-3 transition-colors duration-300">
                 <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3 sm:gap-0">
                     <h3 class="font-bold text-base md:text-lg text-gray-700 dark:text-slate-200 w-full sm:w-auto"><i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> AI服装提案</h3>
