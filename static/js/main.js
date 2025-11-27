@@ -2,7 +2,6 @@
 // Global State & Config
 // ==========================================
 const CONFIG = {
-    // ユーザー指定: 北上コンピュータ・アカデミーの座標
     defaultLat: 39.3051,
     defaultLng: 141.1195,
     wmoCodes: {
@@ -14,81 +13,69 @@ const CONFIG = {
         80: 'にわか雨(弱)', 81: 'にわか雨(中)', 82: 'にわか雨(強)',
         95: '雷雨', 96: '雷雨(雹)', 99: '雷雨(強雹)'
     },
-    // 天気ごとの色定義
     weatherColors: {
-        sunny: 'rgb(255, 159, 64)', // Orange
-        cloudy: 'rgb(156, 163, 175)', // Gray
-        rain: 'rgb(59, 130, 246)',    // Blue
-        snow: 'rgb(6, 182, 212)',     // Cyan
-        thunder: 'rgb(168, 85, 247)'  // Purple
+        sunny: 'rgb(255, 159, 64)',
+        cloudy: 'rgb(156, 163, 175)',
+        rain: 'rgb(59, 130, 246)',
+        snow: 'rgb(6, 182, 212)',
+        thunder: 'rgb(168, 85, 247)'
     }
 };
 
-let currentWeatherData = null; // AIプロンプト用にデータを保持
+let currentWeatherData = null;
 let weatherChartInstance = null;
 let mapInstance = null;
 let markerInstance = null;
 
-// Helper: 天気コードから色を取得
 function getWeatherColor(code) {
     if ([0, 1].includes(code)) return CONFIG.weatherColors.sunny;
     if ([2, 3, 45, 48].includes(code)) return CONFIG.weatherColors.cloudy;
     if ([71, 73, 75].includes(code)) return CONFIG.weatherColors.snow;
     if ([95, 96, 99].includes(code)) return CONFIG.weatherColors.thunder;
-    // その他は雨とみなす
     return CONFIG.weatherColors.rain;
 }
 
 // ==========================================
-// 1. Map Module (Leaflet + RainViewer)
+// 1. Map Module
 // ==========================================
 const MapModule = {
     init: async () => {
-        // マップ初期化
-        mapInstance = L.map('map').setView([CONFIG.defaultLat, CONFIG.defaultLng], 14);
+        mapInstance = L.map('map').setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
 
-        // Base Map (OpenStreetMap)
         const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(mapInstance);
 
-        // RainViewer Layer logic
         try {
             const response = await fetch('https://tilecache.rainviewer.com/api/maps.json');
             const results = await response.json();
             
             if (results && results.length > 0) {
-                const time = results[results.length - 1]; // Latest timestamp
+                const time = results[results.length - 1];
                 const rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
                     opacity: 0.6,
                     attribution: 'Radar data &copy; <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>'
                 });
 
-                const overlays = {
-                    "RainViewer 雨雲": rainLayer
-                };
+                const overlays = { "RainViewer 雨雲": rainLayer };
                 L.control.layers({"Base Map": baseLayer}, overlays).addTo(mapInstance);
-                rainLayer.addTo(mapInstance); // Enable by default
+                rainLayer.addTo(mapInstance);
             }
         } catch (e) {
             console.error("RainViewer fetch failed:", e);
         }
 
-        // Marker Logic (Initial position)
         markerInstance = L.marker([CONFIG.defaultLat, CONFIG.defaultLng], {draggable: true}).addTo(mapInstance);
         
-        // Map Click Event
         mapInstance.on('click', (e) => {
             MapModule.updateMarker(e.latlng.lat, e.latlng.lng);
         });
 
-        // Marker Drag Event
         markerInstance.on('dragend', (e) => {
             const pos = markerInstance.getLatLng();
             MapModule.handleLocationUpdate(pos.lat, pos.lng);
         });
 
-        // Initial Load
         MapModule.handleLocationUpdate(CONFIG.defaultLat, CONFIG.defaultLng);
     },
 
@@ -104,7 +91,7 @@ const MapModule = {
 };
 
 // ==========================================
-// 2. Weather Module (OpenMeteo)
+// 2. Weather Module
 // ==========================================
 const WeatherModule = {
     fetchData: async (lat, lng) => {
@@ -112,13 +99,11 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            // 2.1 Fetch Weather Data
-            // NOTE: hourlyにweather_codeを追加して取得
-            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
+            // NOTE: hourlyに relative_humidity_2m, precipitation を追加
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
             const weatherRes = await fetch(weatherUrl);
             const weatherData = await weatherRes.json();
 
-            // 2.2 Reverse Geocoding
             let locationName = "指定地点";
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
 
@@ -136,7 +121,6 @@ const WeatherModule = {
                 }
             }
 
-            // Update UI
             WeatherModule.updateUI(locationName, weatherData);
             
         } catch (error) {
@@ -150,6 +134,7 @@ const WeatherModule = {
     updateUI: (locationName, data) => {
         const current = data.current;
         const daily = data.daily;
+        const hourly = data.hourly;
         
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
@@ -163,20 +148,75 @@ const WeatherModule = {
             temp_min: daily.temperature_2m_min[0]
         };
 
+        // --- 基本情報の更新 ---
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
         document.getElementById('current-rain').innerText = `${current.precipitation}mm`;
         document.getElementById('current-weather-desc').innerText = weatherDesc;
+        
         document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
         document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
+
+        // --- 詳細カード情報の算出 (12時間推移から) ---
+        
+        // 現在時刻のインデックスを取得
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
+        if(startIndex === -1) startIndex = 0;
+        
+        // 12時間分スライス
+        const endIndex = startIndex + 12;
+        const next12hTemps = hourly.temperature_2m.slice(startIndex, endIndex); // 気温(未使用だが参照用)
+        const next12hHumid = hourly.relative_humidity_2m.slice(startIndex, endIndex);
+        const next12hPrecip = hourly.precipitation.slice(startIndex, endIndex);
+        const next12hCodes = hourly.weather_code.slice(startIndex, endIndex);
+
+        // 1. 気温詳細 (最高/最低)
+        document.getElementById('card-temp-max').innerText = `${daily.temperature_2m_max[0]}℃`;
+        document.getElementById('card-temp-min').innerText = `${daily.temperature_2m_min[0]}℃`;
+
+        // 2. 湿度詳細 (最高/最低) - 12時間以内から算出
+        const maxHumid = Math.max(...next12hHumid);
+        const minHumid = Math.min(...next12hHumid);
+        document.getElementById('card-humid-max').innerText = `${maxHumid}%`;
+        document.getElementById('card-humid-min').innerText = `${minHumid}%`;
+
+        // 3. 降水量詳細 (最大) - 12時間以内から算出
+        const maxPrecip = Math.max(...next12hPrecip);
+        document.getElementById('card-rain-max').innerText = `${maxPrecip}mm`;
+
+        // 4. 天気詳細 (変化予測)
+        const currentCode = current.weather_code;
+        let changeIndex = -1;
+        
+        // 現在と違う天気になる最初の時間を探す
+        for(let i = 0; i < next12hCodes.length; i++) {
+            if(next12hCodes[i] !== currentCode) {
+                changeIndex = i;
+                break;
+            }
+        }
+
+        if(changeIndex !== -1) {
+            // 変化あり
+            const nextCode = next12hCodes[changeIndex];
+            const nextWeather = CONFIG.wmoCodes[nextCode] || '-';
+            document.getElementById('card-weather-time').innerText = `${changeIndex}時間後`;
+            document.getElementById('card-weather-val').innerText = nextWeather;
+        } else {
+            // 変化なし
+            document.getElementById('card-weather-time').innerText = `当面`;
+            document.getElementById('card-weather-val').innerText = `変化なし`;
+        }
 
         ChartModule.render(data.hourly);
     }
 };
 
 // ==========================================
-// 3. Chart Module (Chart.js)
+// 3. Chart Module
 // ==========================================
 const ChartModule = {
     render: (hourly) => {
@@ -184,18 +224,12 @@ const ChartModule = {
         const isDark = document.documentElement.classList.contains('dark');
         const textColor = isDark ? '#e2e8f0' : '#666';
 
-        // 現在時刻（時）のインデックスを取得
         const now = new Date();
         now.setMinutes(0, 0, 0); 
 
-        let startIndex = hourly.time.findIndex(t => {
-            const dataTime = new Date(t);
-            return dataTime.getTime() >= now.getTime();
-        });
-        
+        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
         if(startIndex === -1) startIndex = 0;
 
-        // 次の12時間をスライス
         const sliceEnd = startIndex + 12;
         const labels = hourly.time.slice(startIndex, sliceEnd).map(t => t.slice(11, 16));
         const temps = hourly.temperature_2m.slice(startIndex, sliceEnd);
@@ -206,28 +240,22 @@ const ChartModule = {
             weatherChartInstance.destroy();
         }
 
-        // ChartDataLabelsプラグインの登録（CDNで読み込んだ場合、グローバルにある場合もあるが明示的に）
-        // Chart.js 3+ では plugins 配列で指定可能
-        
         weatherChartInstance = new Chart(ctx, {
             type: 'line',
-            plugins: [ChartDataLabels], // プラグインを有効化
+            plugins: [ChartDataLabels],
             data: {
                 labels: labels,
                 datasets: [
                     {
                         label: '気温 (℃)',
                         data: temps,
-                        // 線の色: セグメントごとに変更
                         segment: {
                             borderColor: ctx => {
-                                // セグメントの終点の天気で色を決める
                                 const index = ctx.p1DataIndex;
                                 const code = weatherCodes[index];
                                 return getWeatherColor(code);
                             }
                         },
-                        // デフォルト色（フォールバック）
                         borderColor: 'rgb(255, 99, 132)',
                         backgroundColor: 'rgba(255, 99, 132, 0.2)',
                         yAxisID: 'y',
@@ -236,7 +264,6 @@ const ChartModule = {
                             duration: 1500,
                             easing: 'easeOutQuart'
                         },
-                        // データラベル（天候テキスト）の設定
                         datalabels: {
                             align: 'top',
                             anchor: 'end',
@@ -248,15 +275,9 @@ const ChartModule = {
                             },
                             formatter: (value, context) => {
                                 const index = context.dataIndex;
-                                // 最初(現在)は必ず表示
-                                if (index === 0) {
-                                    return CONFIG.wmoCodes[weatherCodes[index]];
-                                }
-                                // 天気が変わった時だけ表示
-                                if (weatherCodes[index] !== weatherCodes[index - 1]) {
-                                    return CONFIG.wmoCodes[weatherCodes[index]];
-                                }
-                                return null; // 表示しない
+                                if (index === 0) return CONFIG.wmoCodes[weatherCodes[index]];
+                                if (weatherCodes[index] !== weatherCodes[index - 1]) return CONFIG.wmoCodes[weatherCodes[index]];
+                                return null;
                             }
                         }
                     },
@@ -266,9 +287,7 @@ const ChartModule = {
                         type: 'bar',
                         backgroundColor: 'rgba(54, 162, 235, 0.5)',
                         yAxisID: 'y1',
-                        datalabels: {
-                            display: false // 棒グラフにはラベルを表示しない
-                        }
+                        datalabels: { display: false }
                     }
                 ]
             },
@@ -280,18 +299,12 @@ const ChartModule = {
                     intersect: false,
                 },
                 scales: {
-                    x: {
-                        ticks: { color: textColor }
-                    },
+                    x: { ticks: { color: textColor } },
                     y: {
                         type: 'linear',
                         display: true,
                         position: 'left',
-                        // 修正: 縦軸ラベルを表示する
-                        ticks: { 
-                            display: true,
-                            color: textColor 
-                        },
+                        ticks: { display: true, color: textColor },
                         title: { display: false }
                     },
                     y1: {
@@ -299,18 +312,13 @@ const ChartModule = {
                         display: true,
                         position: 'right',
                         grid: { drawOnChartArea: false },
-                        min: 0,
-                        max: 100,
-                        ticks: { 
-                            display: false // 降水確率は縦軸なしのまま（見やすさ優先）
-                        }, 
+                        min: 0, max: 100,
+                        ticks: { display: false }, 
                         title: { display: false }
                     }
                 },
                 plugins: {
-                    legend: {
-                        labels: { color: textColor }
-                    }
+                    legend: { labels: { color: textColor } }
                 }
             }
         });
@@ -318,12 +326,11 @@ const ChartModule = {
 };
 
 // ==========================================
-// 4. AI Module (Backend Integration)
+// 4. AI Module
 // ==========================================
 const AIModule = {
     suggestOutfit: async () => {
         const btn = document.getElementById('ai-suggest-btn');
-        const resultArea = document.getElementById('ai-result-area');
         const scene = document.getElementById('scene-select').value;
 
         if (!currentWeatherData) {
@@ -331,17 +338,13 @@ const AIModule = {
             return;
         }
 
-        // Update Button State
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
 
         try {
-            // Call Python Backend
             const response = await fetch("/api/suggest_outfit", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     weather_data: currentWeatherData,
                     scene: scene
@@ -354,18 +357,12 @@ const AIModule = {
             }
 
             const data = await response.json();
-            
-            if (data.type === "error") {
-                AIModule.renderResult(data.suggestions);
-            } else {
-                AIModule.renderResult(data.suggestions);
-            }
-
+            AIModule.renderResult(data.suggestions);
             btn.innerHTML = '<i class="fa-solid fa-robot"></i> 再取得';
 
         } catch (error) {
             console.error("AI Error:", error);
-            resultArea.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded">エラーが発生しました: ${error.message}</div>`;
+            alert(`エラーが発生しました: ${error.message}`);
             btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 再試行';
         } finally {
             btn.disabled = false;
@@ -387,13 +384,12 @@ const AIModule = {
                 </div>
             `;
         });
-
         resultArea.innerHTML = `<div class="flex flex-col gap-4 w-full">${html}</div>`;
     }
 };
 
 // ==========================================
-// 5. Theme Module
+// 5. Theme & Interaction Module
 // ==========================================
 const ThemeModule = {
     init: () => {
@@ -403,34 +399,36 @@ const ThemeModule = {
         toggleBtn.addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
             const isDark = document.documentElement.classList.contains('dark');
-            
-            // ボタンテキストの切り替え
             btnText.innerText = isDark ? 'ライト' : 'ダーク';
             
-            // グラフの色再描画
             if(weatherChartInstance) {
                 const textColor = isDark ? '#e2e8f0' : '#666';
                 weatherChartInstance.options.scales.x.ticks.color = textColor;
-                weatherChartInstance.options.scales.y.ticks.color = textColor; // Y軸も更新
+                weatherChartInstance.options.scales.y.ticks.color = textColor;
                 weatherChartInstance.options.plugins.legend.labels.color = textColor;
-                weatherChartInstance.data.datasets[0].datalabels.color = textColor; // データラベルの色も更新
+                weatherChartInstance.data.datasets[0].datalabels.color = textColor;
                 weatherChartInstance.update();
             }
+        });
+
+        // 4つのカード全てにインタラクションを追加
+        // interactive-cardクラスを持つ要素を全て取得
+        const cards = document.querySelectorAll('.interactive-card');
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                card.classList.toggle('show-detail');
+            });
         });
     }
 };
 
-// ==========================================
-// Event Listeners
-// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     MapModule.init();
     ThemeModule.init();
 
-    // 更新ボタン: 初期位置（北上コンピュータ・アカデミー）に戻す機能
     document.getElementById('refresh-btn').addEventListener('click', () => {
         MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
-        mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 14);
+        mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
         
         const btn = document.getElementById('refresh-btn');
         btn.classList.add('bg-gray-200', 'dark:bg-slate-600');
