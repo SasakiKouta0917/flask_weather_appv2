@@ -37,9 +37,9 @@
 .dark .leaflet-control-attribution {
     filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
-/* 雨雲レーダーなどは色反転させない（見にくくなるため） */
+/* 雨雲レーダーなどは色反転させない */
 .dark .leaflet-overlay-pane {
-    filter: invert(100%) hue-rotate(180deg); /* 親の反転を打ち消す */
+    filter: invert(100%) hue-rotate(180deg);
 }
 
 /* アニメーション定義: 下からふわっと浮き上がる */
@@ -60,7 +60,7 @@
     opacity: 0; /* 初期状態は透明 */
 }
 
-/* 遅延設定 (順番に表示させるため) */
+/* 遅延設定 */
 .delay-1 {
     animation-delay: 0.1s;
 }
@@ -69,4 +69,33 @@
 }
 .delay-3 {
     animation-delay: 0.3s;
+}
+
+/* ==========================================
+   Interactive Card Animation Styles (汎用化)
+   ========================================== */
+
+/* 1. 表面レイヤー: 左へフェードアウト */
+.show-detail .view-front {
+    opacity: 0;
+    transform: translateX(-100%);
+}
+
+/* 2. 裏面レイヤー: 右からフェードイン */
+.show-detail .view-back {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* PC: ホバー時にも同じアニメーションを適用 (.interactive-cardクラスを持つ要素に対して) */
+@media (hover: hover) {
+    .interactive-card:hover .view-front {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+    
+    .interactive-card:hover .view-back {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
