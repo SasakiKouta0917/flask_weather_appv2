@@ -62,10 +62,7 @@ const MapModule = {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(mapInstance);
 
-        // レイヤーコントロールの初期化
         MapModule.layerControl = L.control.layers({"Base Map": baseLayer}, {}).addTo(mapInstance);
-
-        // 雨雲レーダー初期取得
         await MapModule.updateRadar();
 
         markerInstance = L.marker([CONFIG.defaultLat, CONFIG.defaultLng], {draggable: true}).addTo(mapInstance);
@@ -83,7 +80,6 @@ const MapModule = {
     },
 
     updateRadar: async () => {
-        // 既存の雨雲レイヤーがあれば削除
         if (MapModule.rainLayer) {
             mapInstance.removeLayer(MapModule.rainLayer);
             MapModule.layerControl.removeLayer(MapModule.rainLayer);
@@ -91,19 +87,15 @@ const MapModule = {
         }
 
         try {
-            // 新しいデータを取得
             const response = await fetch('https://tilecache.rainviewer.com/api/maps.json');
             const results = await response.json();
             
             if (results && results.length > 0) {
-                const time = results[results.length - 1]; // 最新のタイムスタンプ
-                
+                const time = results[results.length - 1]; 
                 MapModule.rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
                     opacity: 0.6,
                     attribution: 'Radar data &copy; <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>'
                 });
-
-                // マップとコントロールに追加
                 MapModule.rainLayer.addTo(mapInstance);
                 MapModule.layerControl.addOverlay(MapModule.rainLayer, "RainViewer 雨雲");
             }
@@ -132,10 +124,17 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
-            const weatherRes = await fetch(weatherUrl);
-            const weatherData = await weatherRes.json();
+            // 1. Dynamic Fetch: Selected Location (Current & Hourly)
+            const dynamicUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
+            const dynamicRes = await fetch(dynamicUrl);
+            const dynamicData = await dynamicRes.json();
 
+            // 2. Fixed Fetch: Kitakami Computer Academy (Daily/Weekly)
+            const fixedUrl = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.defaultLat}&longitude=${CONFIG.defaultLng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
+            const fixedRes = await fetch(fixedUrl);
+            const fixedData = await fixedRes.json();
+
+            // Geocoding (Dynamic)
             let locationName = "指定地点";
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
 
@@ -153,7 +152,7 @@ const WeatherModule = {
                 }
             }
 
-            WeatherModule.updateUI(locationName, weatherData);
+            WeatherModule.updateUI(locationName, dynamicData, fixedData);
             
         } catch (error) {
             console.error("Weather fetch error:", error);
@@ -163,11 +162,14 @@ const WeatherModule = {
         }
     },
 
-    updateUI: (locationName, data) => {
-        const current = data.current;
-        const daily = data.daily;
-        const hourly = data.hourly;
+    updateUI: (locationName, dynamicData, fixedData) => {
+        const current = dynamicData.current;
+        const hourly = dynamicData.hourly;
+        const dailyCurrent = dynamicData.daily; // Selected location's daily data (for max/min temp of current day)
         
+        // Fixed Weekly Data
+        const weeklyDaily = fixedData.daily;
+
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
         currentWeatherData = {
@@ -176,22 +178,22 @@ const WeatherModule = {
             humidity: current.relative_humidity_2m,
             precipitation: current.precipitation,
             weather: weatherDesc,
-            temp_max: daily.temperature_2m_max[0],
-            temp_min: daily.temperature_2m_min[0],
+            temp_max: dailyCurrent.temperature_2m_max[0],
+            temp_min: dailyCurrent.temperature_2m_min[0],
             pressure: current.surface_pressure
         };
 
-        // 基本情報更新
+        // Basic Info Update
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
         document.getElementById('current-rain').innerText = `${current.precipitation}mm`;
         document.getElementById('current-weather-desc').innerText = weatherDesc;
         
-        document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
-        document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
+        document.getElementById('temp-max').innerText = dailyCurrent.temperature_2m_max[0];
+        document.getElementById('temp-min').innerText = dailyCurrent.temperature_2m_min[0];
 
-        // 詳細カード情報更新
+        // Detailed Card Info
         document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
 
         const now = new Date();
@@ -231,8 +233,11 @@ const WeatherModule = {
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
-        WeatherModule.renderWeeklyForecast(daily);
-        ChartModule.render(data.hourly);
+        // Render Weekly Forecast (Using fixed Kitakami data)
+        WeatherModule.renderWeeklyForecast(weeklyDaily);
+        
+        // Render Chart (Using dynamic selected location data)
+        ChartModule.render(hourly);
     },
 
     renderWeeklyForecast: (daily) => {
@@ -254,23 +259,27 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
-            // 修正: p-2 -> py-1 px-2 で高さを削減
+            // Layout matches the header labels
             html += `
-                <div class="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
-                    <div class="w-20 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
+                <div class="grid grid-cols-4 gap-2 items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
+                    <!-- Date -->
+                    <div class="text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
                         ${isToday ? '今日' : displayDate}
                     </div>
                     
-                    <div class="flex items-center gap-2 flex-1 justify-center">
-                        <i class="fa-solid ${iconClass} text-lg w-6 text-center"></i>
-                        <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:block w-16 truncate">${weatherName}</span>
+                    <!-- Weather -->
+                    <div class="flex items-center gap-1 justify-center">
+                        <i class="fa-solid ${iconClass} text-lg"></i>
+                        <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:block truncate ml-1">${weatherName}</span>
                     </div>
 
-                    <div class="w-12 text-center">
+                    <!-- Precip -->
+                    <div class="text-center">
                         <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
                     </div>
 
-                    <div class="w-24 flex items-center justify-end gap-2 text-sm">
+                    <!-- Temp -->
+                    <div class="flex items-center justify-end gap-1 text-sm">
                         <span class="text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
                         <span class="text-gray-300 dark:text-slate-600">/</span>
                         <span class="text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
@@ -511,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
         MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
         mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
         
-        // ★修正: 更新時に雨雲レーダーも更新する
+        // 雨雲レーダーも更新
         MapModule.updateRadar();
         
         const btn = document.getElementById('refresh-btn');
