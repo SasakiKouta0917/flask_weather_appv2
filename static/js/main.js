@@ -249,19 +249,27 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
+            // HTML Structure updated for Flexbox layout
             html += `
-                <div class="grid grid-cols-4 gap-2 items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
-                    <div class="text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
+                <div class="flex items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
+                    <!-- Date -->
+                    <div class="w-16 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
                         ${isToday ? '今日' : displayDate}
                     </div>
-                    <div class="flex items-center gap-1 justify-center">
-                        <i class="fa-solid ${iconClass} text-lg"></i>
-                        <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:block truncate ml-1">${weatherName}</span>
+                    
+                    <!-- Weather (Left align) -->
+                    <div class="flex-1 flex items-center gap-2 pl-2 overflow-hidden">
+                        <i class="fa-solid ${iconClass} text-lg w-6 text-center"></i>
+                        <span class="text-xs text-gray-500 dark:text-slate-400 truncate">${weatherName}</span>
                     </div>
-                    <div class="text-center">
+
+                    <!-- Precip (Right align) -->
+                    <div class="w-16 text-right">
                         <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
                     </div>
-                    <div class="flex items-center justify-end gap-1 text-sm">
+
+                    <!-- Temp (Right align) -->
+                    <div class="w-24 flex items-center justify-end gap-1 text-sm">
                         <span class="text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
                         <span class="text-gray-300 dark:text-slate-600">/</span>
                         <span class="text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
@@ -434,7 +442,6 @@ const AIModule = {
 
     renderResult: (data) => {
         const resultArea = document.getElementById('ai-result-area');
-        // JSON形式で返ってくる suggestion フィールドを表示
         const text = data.suggestion || "提案を取得できませんでした。";
 
         resultArea.innerHTML = `
@@ -502,7 +509,6 @@ document.addEventListener('DOMContentLoaded', () => {
         MapModule.updateRadar();
         
         const btn = document.getElementById('refresh-btn');
-        // アニメーションクラスはCSSで定義されているのでJSでのスタイル変更は最小限に
     });
 
     document.getElementById('ai-suggest-btn').addEventListener('click', () => {
