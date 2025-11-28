@@ -13,7 +13,6 @@ const CONFIG = {
         80: 'にわか雨(弱)', 81: 'にわか雨(中)', 82: 'にわか雨(強)',
         95: '雷雨', 96: '雷雨(雹)', 99: '雷雨(強雹)'
     },
-    // 天気コードからFontAwesomeアイコンクラスを返すマップ
     weatherIcons: {
         0: 'fa-sun text-orange-500', 1: 'fa-sun text-orange-500', 2: 'fa-cloud-sun text-orange-400', 3: 'fa-cloud text-gray-500',
         45: 'fa-smog text-gray-400', 48: 'fa-smog text-gray-400',
@@ -45,7 +44,6 @@ function getWeatherColor(code) {
     return CONFIG.weatherColors.rain;
 }
 
-// アイコン取得ヘルパー
 function getWeatherIconClass(code) {
     return CONFIG.weatherIcons[code] || 'fa-question text-gray-400';
 }
@@ -54,6 +52,9 @@ function getWeatherIconClass(code) {
 // 1. Map Module
 // ==========================================
 const MapModule = {
+    rainLayer: null,
+    layerControl: null,
+
     init: async () => {
         mapInstance = L.map('map').setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
 
@@ -61,24 +62,11 @@ const MapModule = {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(mapInstance);
 
-        try {
-            const response = await fetch('https://tilecache.rainviewer.com/api/maps.json');
-            const results = await response.json();
-            
-            if (results && results.length > 0) {
-                const time = results[results.length - 1];
-                const rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
-                    opacity: 0.6,
-                    attribution: 'Radar data &copy; <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>'
-                });
+        // レイヤーコントロールの初期化
+        MapModule.layerControl = L.control.layers({"Base Map": baseLayer}, {}).addTo(mapInstance);
 
-                const overlays = { "RainViewer 雨雲": rainLayer };
-                L.control.layers({"Base Map": baseLayer}, overlays).addTo(mapInstance);
-                rainLayer.addTo(mapInstance);
-            }
-        } catch (e) {
-            console.error("RainViewer fetch failed:", e);
-        }
+        // 雨雲レーダー初期取得
+        await MapModule.updateRadar();
 
         markerInstance = L.marker([CONFIG.defaultLat, CONFIG.defaultLng], {draggable: true}).addTo(mapInstance);
         
@@ -92,6 +80,36 @@ const MapModule = {
         });
 
         MapModule.handleLocationUpdate(CONFIG.defaultLat, CONFIG.defaultLng);
+    },
+
+    updateRadar: async () => {
+        // 既存の雨雲レイヤーがあれば削除
+        if (MapModule.rainLayer) {
+            mapInstance.removeLayer(MapModule.rainLayer);
+            MapModule.layerControl.removeLayer(MapModule.rainLayer);
+            MapModule.rainLayer = null;
+        }
+
+        try {
+            // 新しいデータを取得
+            const response = await fetch('https://tilecache.rainviewer.com/api/maps.json');
+            const results = await response.json();
+            
+            if (results && results.length > 0) {
+                const time = results[results.length - 1]; // 最新のタイムスタンプ
+                
+                MapModule.rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
+                    opacity: 0.6,
+                    attribution: 'Radar data &copy; <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>'
+                });
+
+                // マップとコントロールに追加
+                MapModule.rainLayer.addTo(mapInstance);
+                MapModule.layerControl.addOverlay(MapModule.rainLayer, "RainViewer 雨雲");
+            }
+        } catch (e) {
+            console.error("RainViewer update failed:", e);
+        }
     },
 
     updateMarker: (lat, lng) => {
@@ -114,10 +132,7 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            // NOTE: dailyに weather_code, precipitation_probability_max を追加
             const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
-            // forecast_days=8 にして週間予報を取得
-            
             const weatherRes = await fetch(weatherUrl);
             const weatherData = await weatherRes.json();
 
@@ -216,9 +231,7 @@ const WeatherModule = {
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
-        // --- ★週間天気予報の描画 ---
         WeatherModule.renderWeeklyForecast(daily);
-
         ChartModule.render(data.hourly);
     },
 
@@ -226,11 +239,9 @@ const WeatherModule = {
         const container = document.getElementById('weekly-forecast-container');
         let html = '';
 
-        // 今日(0)から7日後(7)までループ
         for (let i = 0; i < daily.time.length; i++) {
-            const dateStr = daily.time[i]; // YYYY-MM-DD
+            const dateStr = daily.time[i]; 
             const date = new Date(dateStr);
-            // 曜日取得
             const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
             const isToday = i === 0;
             const displayDate = `${date.getMonth() + 1}/${date.getDate()}(${dayOfWeek})`;
@@ -243,26 +254,22 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
-            // リストアイテムのHTML
+            // 修正: p-2 -> py-1 px-2 で高さを削減
             html += `
-                <div class="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
-                    <!-- 日付 -->
+                <div class="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
                     <div class="w-20 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
                         ${isToday ? '今日' : displayDate}
                     </div>
                     
-                    <!-- アイコンと天気名 -->
                     <div class="flex items-center gap-2 flex-1 justify-center">
                         <i class="fa-solid ${iconClass} text-lg w-6 text-center"></i>
                         <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:block w-16 truncate">${weatherName}</span>
                     </div>
 
-                    <!-- 降水確率 -->
                     <div class="w-12 text-center">
                         <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
                     </div>
 
-                    <!-- 気温 (Min / Max) -->
                     <div class="w-24 flex items-center justify-end gap-2 text-sm">
                         <span class="text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
                         <span class="text-gray-300 dark:text-slate-600">/</span>
@@ -503,6 +510,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('refresh-btn').addEventListener('click', () => {
         MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
         mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
+        
+        // ★修正: 更新時に雨雲レーダーも更新する
+        MapModule.updateRadar();
         
         const btn = document.getElementById('refresh-btn');
         btn.classList.add('bg-gray-200', 'dark:bg-slate-600');
