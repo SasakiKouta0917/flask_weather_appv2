@@ -13,6 +13,16 @@ const CONFIG = {
         80: 'にわか雨(弱)', 81: 'にわか雨(中)', 82: 'にわか雨(強)',
         95: '雷雨', 96: '雷雨(雹)', 99: '雷雨(強雹)'
     },
+    // 天気コードからFontAwesomeアイコンクラスを返すマップ
+    weatherIcons: {
+        0: 'fa-sun text-orange-500', 1: 'fa-sun text-orange-500', 2: 'fa-cloud-sun text-orange-400', 3: 'fa-cloud text-gray-500',
+        45: 'fa-smog text-gray-400', 48: 'fa-smog text-gray-400',
+        51: 'fa-cloud-rain text-blue-400', 53: 'fa-cloud-rain text-blue-400', 55: 'fa-cloud-rain text-blue-500',
+        61: 'fa-umbrella text-blue-500', 63: 'fa-umbrella text-blue-600', 65: 'fa-umbrella text-blue-700',
+        71: 'fa-snowflake text-cyan-400', 73: 'fa-snowflake text-cyan-500', 75: 'fa-snowflake text-cyan-600',
+        80: 'fa-cloud-showers-heavy text-blue-500', 81: 'fa-cloud-showers-heavy text-blue-600', 82: 'fa-cloud-showers-heavy text-blue-700',
+        95: 'fa-bolt text-yellow-500', 96: 'fa-bolt text-yellow-500', 99: 'fa-bolt text-yellow-600'
+    },
     weatherColors: {
         sunny: 'rgb(255, 159, 64)',
         cloudy: 'rgb(156, 163, 175)',
@@ -33,6 +43,11 @@ function getWeatherColor(code) {
     if ([71, 73, 75].includes(code)) return CONFIG.weatherColors.snow;
     if ([95, 96, 99].includes(code)) return CONFIG.weatherColors.thunder;
     return CONFIG.weatherColors.rain;
+}
+
+// アイコン取得ヘルパー
+function getWeatherIconClass(code) {
+    return CONFIG.weatherIcons[code] || 'fa-question text-gray-400';
 }
 
 // ==========================================
@@ -99,7 +114,10 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
+            // NOTE: dailyに weather_code, precipitation_probability_max を追加
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
+            // forecast_days=8 にして週間予報を取得
+            
             const weatherRes = await fetch(weatherUrl);
             const weatherData = await weatherRes.json();
 
@@ -159,10 +177,8 @@ const WeatherModule = {
         document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
 
         // 詳細カード情報更新
-        // 1. 気温カード裏面 (気圧)
         document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
 
-        // 12時間データ解析
         const now = new Date();
         now.setMinutes(0, 0, 0);
         let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
@@ -173,17 +189,14 @@ const WeatherModule = {
         const next12hPrecip = hourly.precipitation.slice(startIndex, endIndex);
         const next12hCodes = hourly.weather_code.slice(startIndex, endIndex);
 
-        // 2. 湿度詳細
         const maxHumid = Math.max(...next12hHumid);
         const minHumid = Math.min(...next12hHumid);
         document.getElementById('card-humid-max').innerText = `${maxHumid}%`;
         document.getElementById('card-humid-min').innerText = `${minHumid}%`;
 
-        // 3. 降水量詳細
         const maxPrecip = Math.max(...next12hPrecip);
         document.getElementById('card-rain-max').innerText = `${maxPrecip}mm`;
 
-        // 4. 天気詳細
         const currentCode = current.weather_code;
         let changeIndex = -1;
         for(let i = 0; i < next12hCodes.length; i++) {
@@ -203,7 +216,62 @@ const WeatherModule = {
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
+        // --- ★週間天気予報の描画 ---
+        WeatherModule.renderWeeklyForecast(daily);
+
         ChartModule.render(data.hourly);
+    },
+
+    renderWeeklyForecast: (daily) => {
+        const container = document.getElementById('weekly-forecast-container');
+        let html = '';
+
+        // 今日(0)から7日後(7)までループ
+        for (let i = 0; i < daily.time.length; i++) {
+            const dateStr = daily.time[i]; // YYYY-MM-DD
+            const date = new Date(dateStr);
+            // 曜日取得
+            const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+            const isToday = i === 0;
+            const displayDate = `${date.getMonth() + 1}/${date.getDate()}(${dayOfWeek})`;
+
+            const code = daily.weather_code[i];
+            const maxTemp = Math.round(daily.temperature_2m_max[i]);
+            const minTemp = Math.round(daily.temperature_2m_min[i]);
+            const precipProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0;
+            
+            const iconClass = getWeatherIconClass(code);
+            const weatherName = CONFIG.wmoCodes[code] || '-';
+
+            // リストアイテムのHTML
+            html += `
+                <div class="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
+                    <!-- 日付 -->
+                    <div class="w-20 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
+                        ${isToday ? '今日' : displayDate}
+                    </div>
+                    
+                    <!-- アイコンと天気名 -->
+                    <div class="flex items-center gap-2 flex-1 justify-center">
+                        <i class="fa-solid ${iconClass} text-lg w-6 text-center"></i>
+                        <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:block w-16 truncate">${weatherName}</span>
+                    </div>
+
+                    <!-- 降水確率 -->
+                    <div class="w-12 text-center">
+                        <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
+                    </div>
+
+                    <!-- 気温 (Min / Max) -->
+                    <div class="w-24 flex items-center justify-end gap-2 text-sm">
+                        <span class="text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
+                        <span class="text-gray-300 dark:text-slate-600">/</span>
+                        <span class="text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
+                    </div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
     }
 };
 
