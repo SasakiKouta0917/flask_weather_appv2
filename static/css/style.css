@@ -58,7 +58,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles (Up/Down Fade)
+   Interactive Card Animation Styles (Strict Vertical)
    ========================================== */
 
 /* カードごとの配色変数定義 */
@@ -122,16 +122,15 @@
 .view-front {
     position: relative;
     z-index: 10;
-    
-    /* 通常時（戻ってきた状態）: 真ん中にいる */
     opacity: 1;
-    transform: translateY(0);
+    /* X軸を0に固定し、Y軸のみ動かす */
+    transform: translate3d(0, 0, 0);
     
-    /* 戻る時のアニメーション: 裏面が消えるのを待ってから(0.2s)、上から降りてくる */
-    transition: opacity 0.3s ease 0.2s, transform 0.3s ease 0.2s;
+    /* 戻る時: 裏面が消えてから、上から降りてくる(FadeIn Down) */
+    transition: opacity 0.2s ease 0.1s, transform 0.2s ease 0.1s;
 }
 
-/* 裏面 (Back) */
+/* 裏面 (Back) - 初期状態 */
 .view-back {
     position: absolute;
     top: 0; 
@@ -139,37 +138,37 @@
     width: 100%; 
     height: 100%;
     z-index: 20;
+    
+    /* 初期状態: 透明かつ下に配置 (Y=+20px) */
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
     pointer-events: none;
     
-    /* 通常時（隠れている状態）: 下に潜んでいる */
-    opacity: 0;
-    transform: translateY(20px);
-    
-    /* 戻る時のアニメーション: 即座に下に下がりながら消える */
+    /* 戻る時: 即座に下に下がりながら消える(FadeOut Down) */
     transition: opacity 0.2s ease 0s, transform 0.2s ease 0s;
 }
 
 /* アニメーション発火時 (ホバー/アクティブ) */
 
-/* 表面: 上に上がりながら即座に消える */
+/* 表面: 上に上がりながら消える (FadeOut Up) */
 .show-detail .view-front,
 .interactive-card:hover .view-front {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translate3d(0, -20px, 0);
     
     /* 行きのアニメーション: 即座に実行 */
     transition: opacity 0.2s ease 0s, transform 0.2s ease 0s;
 }
 
-/* 裏面: 下から上がってきながら現れる */
+/* 裏面: 下から上がってきながら現れる (FadeIn Up) */
 .show-detail .view-back,
 .interactive-card:hover .view-back {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     pointer-events: auto;
     
-    /* 行きのアニメーション: 表面が消えるのを待ってから(0.2s)実行 */
-    transition: opacity 0.3s ease 0.2s, transform 0.3s ease 0.2s;
+    /* 行きのアニメーション: 表面が消えるのを待ってから(0.15s)実行 */
+    transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
 
 /* --- 文字色の強制上書き --- */
