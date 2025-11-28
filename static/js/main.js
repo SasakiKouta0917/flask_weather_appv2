@@ -249,6 +249,8 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
+            // 修正: 気温部分のHTML構造変更 (固定幅で整列)
+            // w-28 の中に、w-8(min) / w-6(slash) / w-8(max) を配置して位置ずれを防止
             html += `
                 <div class="flex items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
                     <div class="w-16 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
@@ -264,10 +266,10 @@ const WeatherModule = {
                         <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
                     </div>
 
-                    <div class="w-24 flex items-center justify-end gap-1 text-sm">
-                        <span class="text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
-                        <span class="text-gray-300 dark:text-slate-600">/</span>
-                        <span class="text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
+                    <div class="w-28 flex items-center justify-end text-sm">
+                        <span class="w-8 text-right text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
+                        <span class="w-6 text-center text-gray-300 dark:text-slate-600">/</span>
+                        <span class="w-8 text-right text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
                     </div>
                 </div>
             `;
@@ -455,7 +457,6 @@ const AIModule = {
 // ==========================================
 const ThemeModule = {
     init: () => {
-        // Theme Toggle
         const toggleBtn = document.getElementById('theme-toggle-btn');
         const btnText = document.getElementById('theme-btn-text');
         
@@ -473,7 +474,6 @@ const ThemeModule = {
             }
         });
 
-        // Scene Input Toggle
         const sceneSelect = document.getElementById('scene-select');
         const customInput = document.getElementById('scene-custom-input');
         
@@ -486,15 +486,11 @@ const ThemeModule = {
             }
         });
 
-        // -----------------------------------------------------
-        // Interactive Card Click Logic (Toggle & 3s Auto-Close)
-        // -----------------------------------------------------
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
-            let timeoutId; // タイマーIDをカードごとに保持
+            let timeoutId;
 
             card.addEventListener('click', () => {
-                // すでに詳細表示中なら閉じる
                 if (card.classList.contains('show-detail')) {
                     card.classList.remove('show-detail');
                     if (timeoutId) {
@@ -502,14 +498,9 @@ const ThemeModule = {
                         timeoutId = null;
                     }
                 } 
-                // 閉じていれば開く
                 else {
                     card.classList.add('show-detail');
-                    
-                    // 3秒後に自動で閉じるタイマーをセット
-                    // (前のタイマーがあればクリア)
                     if (timeoutId) clearTimeout(timeoutId);
-                    
                     timeoutId = setTimeout(() => {
                         card.classList.remove('show-detail');
                         timeoutId = null;
