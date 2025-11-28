@@ -1,12 +1,10 @@
-import os
 from flask import Flask, render_template, request, jsonify
 # chatgpt_api.py から関数をインポート
 from chatgpt_api import suggest_outfit
 
 app = Flask(__name__)
 
-# Renderの環境変数からAPIキーを取得
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+# NOTE: openai.api_keyの設定は chatgpt_api.py 側で行われるため、ここには記述しません。
 
 @app.route('/')
 def index():
