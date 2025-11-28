@@ -40,16 +40,13 @@
         </div>
     </header>
 
-    <!-- Main Content -->
-    <!-- Gridレイアウトではなく、Flex columnで大きなセクションを縦に積む形に変更 -->
+    <!-- Main Content Grid -->
     <main class="flex-grow p-3 md:p-4 flex flex-col gap-4 md:gap-6 w-full max-w-[1600px] mx-auto">
         
         <!-- ■■■ 上段セクション: マップ & 現在の天気・推移 ■■■ -->
-        <!-- ここでグリッドを組み、マップ(左)の高さを右側のコンテンツに合わせる -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
             
-            <!-- Left: Map (Height stretches to match right column) -->
-            <!-- h-full と flex-col で高さを親要素(Gridセル)いっぱいに広げる -->
+            <!-- Left: Map -->
             <section class="lg:col-span-5 relative bg-white dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 fade-in-up transition-colors duration-300 shadow-sm flex flex-col min-h-[300px]">
                 <div id="map" class="flex-grow w-full z-10 transition-all duration-300"></div>
                 <!-- Loading Overlay for Map -->
@@ -179,13 +176,13 @@
         <!-- ■■■ 下段セクション: 週間予報 & AI服装提案 ■■■ -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
             
-            <!-- Left: Weekly Forecast (Moved here to align with AI suggestion) -->
-            <section class="lg:col-span-5 bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 fade-in-up delay-2 transition-colors duration-300 shadow-sm">
-                <h3 class="font-bold text-base md:text-lg mb-3 text-gray-700 dark:text-slate-200 flex items-center gap-2">
+            <!-- Left: Weekly Forecast -->
+            <!-- 修正: p-4 -> p-3 に減らし、border-l-4 ... を追加 -->
+            <section class="lg:col-span-5 bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-600 fade-in-up delay-2 transition-colors duration-300 shadow-sm">
+                <h3 class="font-bold text-base md:text-lg mb-3 text-gray-700 dark:text-slate-200 flex items-center gap-2 px-1">
                     <i class="fa-regular fa-calendar-days text-blue-500"></i> 週間予報
                 </h3>
                 <div id="weekly-forecast-container" class="space-y-2">
-                    <!-- JSでここにリストが生成されます -->
                     <div class="text-center text-sm text-gray-400 py-4">読み込み中...</div>
                 </div>
             </section>
