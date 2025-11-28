@@ -4,7 +4,8 @@ from chatgpt_api import suggest_outfit
 
 app = Flask(__name__)
 
-# NOTE: openai.api_keyの設定は chatgpt_api.py 側で行われるため、ここには記述しません。
+# NOTE: openai.api_keyの設定は chatgpt_api.py 側で行われるため、
+# ここには openai 関連のコードは一切記述しません。
 
 @app.route('/')
 def index():
