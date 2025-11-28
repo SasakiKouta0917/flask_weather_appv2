@@ -5,6 +5,9 @@ from chatgpt_api import suggest_outfit
 
 app = Flask(__name__)
 
+# Renderの環境変数からAPIキーを取得
+openai.api_key = os.environ.get("OPENAI_API_KEY")
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -22,7 +25,7 @@ def suggest_outfit_api():
     # 別ファイルに切り出したAIロジックを呼び出す
     result = suggest_outfit(weather, scene)
 
-    # 結果に応じたステータスコードの設定（エラー時は500にするなど）
+    # 結果に応じたステータスコードの設定
     status_code = 500 if result.get("type") == "error" else 200
 
     return jsonify(result), status_code
