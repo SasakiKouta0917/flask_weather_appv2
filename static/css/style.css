@@ -86,8 +86,9 @@
 .interactive-card::after {
     content: "";
     position: absolute;
-    width: 20%;
-    height: 20%;
+    /* 修正: 初期サイズを0にして見えないようにする */
+    width: 0;
+    height: 0;
     background-color: var(--card-anim-color);
     transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
     z-index: 0; /* コンテンツの下 */
@@ -125,7 +126,8 @@
     position: relative;
     z-index: 10; /* 背景(0)より上 */
     opacity: 1;
-    transition: opacity 0.2s ease-out;
+    /* 修正: 素早く消えるように時間を短縮 */
+    transition: opacity 0.1s ease-out;
 }
 
 /* 裏面 (Back) - 初期状態は非表示 */
@@ -141,8 +143,8 @@
     opacity: 0;
     transform: translateY(10px); /* 少し下にある */
     
-    /* フェードイン設定: 背景が広がるのを待つ (delay 0.2s) */
-    transition: opacity 0.4s ease 0.2s, transform 0.4s ease 0.2s;
+    /* 修正: 背景が広がるのを待ってからフェードイン (delay 0.3s) */
+    transition: opacity 0.3s ease 0.3s, transform 0.3s ease 0.3s;
     pointer-events: none; /* 見えてないときはクリック等を無効化 */
 }
 
@@ -150,6 +152,7 @@
 .show-detail .view-front,
 .interactive-card:hover .view-front {
     opacity: 0;
+    transition-delay: 0s; /* 即座に消す */
 }
 
 .show-detail .view-back,
