@@ -58,7 +58,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles (Vertical Fix)
+   Interactive Card Animation Styles (Mobile Fix)
    ========================================== */
 
 /* カードごとの配色変数定義 */
@@ -77,7 +77,7 @@
 .interactive-card {
     position: relative;
     z-index: 1;
-    transition: none; /* 干渉回避 */
+    transition: none;
 }
 
 /* --- 擬似要素による背景アニメーション (四隅) --- */
@@ -106,14 +106,24 @@
     border-radius: 0 100% 0 0;
 }
 
-/* --- ホバー/アクティブ時の拡大 --- */
+/* --- 拡大アニメーション (スマホ対応版) --- */
+
+/* 1. JSでクラスが付与された場合 (スマホ・PC共通) */
 .show-detail::before,
-.show-detail::after,
-.interactive-card:hover::before,
-.interactive-card:hover::after {
+.show-detail::after {
     width: 100%;
     height: 100%;
     border-radius: 0;
+}
+
+/* 2. PCのみ: ホバーで拡大 (スマホでは無効化) */
+@media (hover: hover) {
+    .interactive-card:hover::before,
+    .interactive-card:hover::after {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
 }
 
 /* --- コンテンツの表示制御 --- */
@@ -123,10 +133,8 @@
     position: relative;
     z-index: 10;
     opacity: 1;
-    /* X=0px, Y=0px */
     transform: translate(0px, 0px);
-    
-    /* 戻る時: 即座に元の位置に戻る */
+    /* 戻る時 */
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
@@ -140,39 +148,52 @@
     z-index: 20;
     
     /* 初期状態: 透明 かつ 下(Y=20px)に配置 */
-    /* X軸を0pxに固定して横移動を阻止 */
     opacity: 0;
-    transform: translate(0px, 20px);
+    transform: translate(0px, 20px) !important;
     pointer-events: none;
     
-    /* 戻る時: 下に下がりながら消える */
+    /* 戻る時 */
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
-/* アニメーション発火時 (ホバー/アクティブ) */
+/* --- アニメーション発火時 --- */
 
-/* 表面: 上(Y=-20px)に移動しながら消える */
-.show-detail .view-front,
-.interactive-card:hover .view-front {
+/* 1. JSクラス (.show-detail) */
+.show-detail .view-front {
     opacity: 0;
-    transform: translate(0px, -20px);
+    transform: translate(0px, -20px) !important;
 }
 
-/* 裏面: 元の位置(Y=0px)に上がってきながら現れる */
-.show-detail .view-back,
-.interactive-card:hover .view-back {
+.show-detail .view-back {
     opacity: 1;
-    transform: translate(0px, 0px);
+    transform: translate(0px, 0px) !important;
     pointer-events: auto;
-    
-    /* 背景拡大を待ってから(0.15s) 表示開始 */
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
 
+/* 2. PCのみ: ホバー時 */
+@media (hover: hover) {
+    .interactive-card:hover .view-front {
+        opacity: 0;
+        transform: translate(0px, -20px) !important;
+    }
+
+    .interactive-card:hover .view-back {
+        opacity: 1;
+        transform: translate(0px, 0px) !important;
+        pointer-events: auto;
+        transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+    }
+}
+
 /* --- 文字色の強制上書き --- */
-.show-detail .view-back *,
-.interactive-card:hover .view-back * {
+.show-detail .view-back * {
     color: #ffffff !important;
+}
+@media (hover: hover) {
+    .interactive-card:hover .view-back * {
+        color: #ffffff !important;
+    }
 }
 
 /* --- アイコンの色変化 --- */
@@ -182,9 +203,13 @@
     z-index: 30;
 }
 
-.show-detail > div:first-child i,
-.interactive-card:hover > div:first-child i {
+.show-detail > div:first-child i {
     color: #ffffff !important;
+}
+@media (hover: hover) {
+    .interactive-card:hover > div:first-child i {
+        color: #ffffff !important;
+    }
 }
 
 
@@ -258,7 +283,6 @@
     cursor: pointer;
     background-color: #ffffff;
     color: #4b5563;
-    /* 修正: 縁の色を #e5e7eb から #cbd5e1 (Slate-300) に変更 */
     border: 1px solid #cbd5e1;
 }
 .dark .refresh-btn-anim { background-color: #334155; color: #e2e8f0; border-color: #475569; }
