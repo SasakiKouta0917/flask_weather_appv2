@@ -119,7 +119,7 @@
 }
 
 /* ==========================================
-   ① Theme Toggle Button Animation (修正版)
+   ① Theme Toggle Button Animation
    ========================================== */
 .theme-toggle-anim {
     position: relative;
@@ -259,7 +259,7 @@
 }
 
 /* ==========================================
-   Background Gradient (Updated)
+   Background Pattern (Polka Dot)
    ========================================== */
 body {
     position: relative;
@@ -276,11 +276,19 @@ body::before {
     z-index: -50; /* コンテンツの最背面へ */
     pointer-events: none;
 
-    /* 変更: 左上(白) -> 右下(水色)のグラデーション */
-    background: linear-gradient(to bottom right, #ffffff, #bae6fd);
+    /* ベースカラー */
+    background-color: #ffffff;
+    
+    /* 水玉模様 (水色 #bae6fd = Sky-200相当) */
+    background-image: radial-gradient(#bae6fd 2px, transparent 2px), radial-gradient(#bae6fd 2px, #ffffff 2px);
+    background-size: 40px 40px;
+    background-position: 0 0, 20px 20px;
+    
+    /* 透明度調整（コンテンツを見やすくするため） */
+    opacity: 0.6;
 }
 
-/* ダークモード時は背景グラデーションを無効化 (白文字が見えなくなるのを防ぐため) */
+/* ダークモード時は背景パターンを無効化 (白文字が見えなくなるのを防ぐため) */
 .dark body::before {
     display: none;
 }
