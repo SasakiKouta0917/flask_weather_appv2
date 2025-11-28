@@ -101,45 +101,40 @@
 }
 
 /* ==========================================
-   AI Suggest Button Animation (New)
+   AI Suggest Button Animation
    ========================================== */
 .btn-float-anim {
-    /* ベースの影 (薄め) */
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease 0s;
 }
 
 .btn-float-anim:hover {
-    /* ホバー時の影 (紫色の拡散影) */
     box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4);
-    /* 上に浮き上がる */
     transform: translateY(-7px);
 }
 
 .btn-float-anim:active {
-    /* クリック時に少し沈む */
     transform: translateY(-1px);
     box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2);
 }
 
 /* ==========================================
-   Theme Toggle Button Animation
+   ① Theme Toggle Button Animation (修正版)
    ========================================== */
 .theme-toggle-anim {
     position: relative;
     overflow: hidden;
     z-index: 1;
-    /* 色と境界線のトランジション */
     transition: color 0.2s ease-in, border-color 0.2s ease-in, background-color 0.2s ease-in;
-    
-    /* 初期状態（ライトモード）: 白背景、黒文字 */
-    background-color: #ffffff;
-    color: #1e293b; /* Slate-800 */
-    border: 1px solid #cbd5e1; /* Slate-300 */
     cursor: pointer;
+    
+    /* 初期（ライトモード）: 白背景、黒文字 */
+    background-color: #ffffff;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
 }
 
-/* 擬似要素によるアニメーション背景 (波紋用) */
+/* 波紋エフェクト用の共通設定 */
 .theme-toggle-anim::before,
 .theme-toggle-anim::after {
     content: "";
@@ -149,42 +144,116 @@
     top: 100%;
     width: 140%;
     height: 180%;
-    background-color: rgba(0, 0, 0, 0.05);
     border-radius: 50%;
     display: block;
     transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
     z-index: -1;
 }
 
-/* メインの背景色になる擬似要素 */
+/* アニメーションの本体色 */
 .theme-toggle-anim::after {
     left: 55%;
     transform: translateX(-50%) scaleY(1) scaleX(1.45);
     top: 180%;
     width: 160%;
     height: 190%;
-    background-color: #1e293b; /* ダーク色 (Slate-800) */
 }
 
-/* ホバー時 または ダークモード有効時(.darkクラスがある時) */
-/* これにより、クリック後も反転状態が維持されます */
-.theme-toggle-anim:hover,
-:is(.dark .theme-toggle-anim) {
+/* --- ライトモード時のホバー (白 -> 黒) --- */
+.theme-toggle-anim::after {
+    background-color: #1e293b; /* 黒 */
+}
+.theme-toggle-anim:hover {
     color: #ffffff;
     border-color: #1e293b;
-    background-color: transparent; /* 背景色は擬似要素で表現するため透明に */
 }
-
-.theme-toggle-anim:hover::before,
-:is(.dark .theme-toggle-anim)::before {
-    top: -35%;
-    background-color: #1e293b;
+.theme-toggle-anim:hover::after {
+    top: -45%;
     transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
 }
 
-.theme-toggle-anim:hover::after,
-:is(.dark .theme-toggle-anim)::after {
+/* --- ダークモード時の状態 (.dark クラス下) --- */
+.dark .theme-toggle-anim {
+    /* 黒背景、白文字 (背景色と同化しないよう少し明るい黒 #1e293b を使用) */
+    background-color: #1e293b; 
+    color: #ffffff;
+    border-color: #475569;
+}
+
+/* --- ダークモード時のホバー (黒 -> 白) --- */
+/* 擬似要素の色を白に変更 */
+.dark .theme-toggle-anim::before,
+.dark .theme-toggle-anim::after {
+    background-color: #ffffff;
+}
+
+.dark .theme-toggle-anim:hover {
+    color: #1e293b; /* 文字を黒に */
+    border-color: #ffffff;
+    background-color: transparent;
+}
+/* アニメーション発火 */
+.dark .theme-toggle-anim:hover::after {
     top: -45%;
-    background-color: #1e293b;
+    transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
+}
+
+
+/* ==========================================
+   ② Refresh Button Animation (新規追加: 白->緑)
+   ========================================== */
+.refresh-btn-anim {
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+    transition: all 0.2s ease-in;
+    cursor: pointer;
+
+    /* 初期: 白背景 */
+    background-color: #ffffff;
+    color: #4b5563; /* Gray-600 */
+    border: 1px solid #e5e7eb; /* Gray-200 */
+}
+
+/* ダークモード時の初期状態 */
+.dark .refresh-btn-anim {
+    background-color: #334155; /* Slate-700 */
+    color: #e2e8f0; /* Slate-200 */
+    border-color: #475569;
+}
+
+.refresh-btn-anim::before,
+.refresh-btn-anim::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%) scaleY(1) scaleX(1.25);
+    top: 100%;
+    width: 140%;
+    height: 180%;
+    border-radius: 50%;
+    display: block;
+    transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
+    z-index: -1;
+}
+
+/* 緑色のアニメーション背景 */
+.refresh-btn-anim::after {
+    left: 55%;
+    transform: translateX(-50%) scaleY(1) scaleX(1.45);
+    top: 180%;
+    width: 160%;
+    height: 190%;
+    background-color: #22c55e; /* Green-500 */
+}
+
+/* ホバー時の動作 (白/黒 -> 緑) */
+.refresh-btn-anim:hover {
+    color: #ffffff;
+    border-color: #22c55e;
+}
+
+.refresh-btn-anim:hover::after {
+    top: -45%;
     transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
 }
