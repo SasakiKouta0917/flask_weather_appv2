@@ -99,7 +99,6 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            // NOTE: hourlyに relative_humidity_2m, precipitation を追加
             const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
             const weatherRes = await fetch(weatherUrl);
             const weatherData = await weatherRes.json();
@@ -145,10 +144,11 @@ const WeatherModule = {
             precipitation: current.precipitation,
             weather: weatherDesc,
             temp_max: daily.temperature_2m_max[0],
-            temp_min: daily.temperature_2m_min[0]
+            temp_min: daily.temperature_2m_min[0],
+            pressure: current.surface_pressure
         };
 
-        // --- 基本情報の更新 ---
+        // 基本情報更新
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
@@ -158,40 +158,34 @@ const WeatherModule = {
         document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
         document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
 
-        // --- 詳細カード情報の算出 (12時間推移から) ---
-        
-        // 現在時刻のインデックスを取得
+        // 詳細カード情報更新
+        // 1. 気温カード裏面 (気圧)
+        document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
+
+        // 12時間データ解析
         const now = new Date();
         now.setMinutes(0, 0, 0);
         let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
         if(startIndex === -1) startIndex = 0;
         
-        // 12時間分スライス
         const endIndex = startIndex + 12;
-        const next12hTemps = hourly.temperature_2m.slice(startIndex, endIndex); // 気温(未使用だが参照用)
         const next12hHumid = hourly.relative_humidity_2m.slice(startIndex, endIndex);
         const next12hPrecip = hourly.precipitation.slice(startIndex, endIndex);
         const next12hCodes = hourly.weather_code.slice(startIndex, endIndex);
 
-        // 1. 気温詳細 (最高/最低)
-        document.getElementById('card-temp-max').innerText = `${daily.temperature_2m_max[0]}℃`;
-        document.getElementById('card-temp-min').innerText = `${daily.temperature_2m_min[0]}℃`;
-
-        // 2. 湿度詳細 (最高/最低) - 12時間以内から算出
+        // 2. 湿度詳細
         const maxHumid = Math.max(...next12hHumid);
         const minHumid = Math.min(...next12hHumid);
         document.getElementById('card-humid-max').innerText = `${maxHumid}%`;
         document.getElementById('card-humid-min').innerText = `${minHumid}%`;
 
-        // 3. 降水量詳細 (最大) - 12時間以内から算出
+        // 3. 降水量詳細
         const maxPrecip = Math.max(...next12hPrecip);
         document.getElementById('card-rain-max').innerText = `${maxPrecip}mm`;
 
-        // 4. 天気詳細 (変化予測)
+        // 4. 天気詳細
         const currentCode = current.weather_code;
         let changeIndex = -1;
-        
-        // 現在と違う天気になる最初の時間を探す
         for(let i = 0; i < next12hCodes.length; i++) {
             if(next12hCodes[i] !== currentCode) {
                 changeIndex = i;
@@ -200,13 +194,11 @@ const WeatherModule = {
         }
 
         if(changeIndex !== -1) {
-            // 変化あり
             const nextCode = next12hCodes[changeIndex];
             const nextWeather = CONFIG.wmoCodes[nextCode] || '-';
             document.getElementById('card-weather-time').innerText = `${changeIndex}時間後`;
             document.getElementById('card-weather-val').innerText = nextWeather;
         } else {
-            // 変化なし
             document.getElementById('card-weather-time').innerText = `当面`;
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
@@ -260,19 +252,12 @@ const ChartModule = {
                         backgroundColor: 'rgba(255, 99, 132, 0.2)',
                         yAxisID: 'y',
                         tension: 0.4,
-                        animation: {
-                            duration: 1500,
-                            easing: 'easeOutQuart'
-                        },
                         datalabels: {
                             align: 'top',
                             anchor: 'end',
-                            offset: 4,
+                            offset: 6,
                             color: textColor,
-                            font: {
-                                size: 10,
-                                weight: 'bold'
-                            },
+                            font: { size: 10, weight: 'bold' },
                             formatter: (value, context) => {
                                 const index = context.dataIndex;
                                 if (index === 0) return CONFIG.wmoCodes[weatherCodes[index]];
@@ -294,6 +279,9 @@ const ChartModule = {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 25 }
+                },
                 interaction: {
                     mode: 'index',
                     intersect: false,
@@ -305,7 +293,8 @@ const ChartModule = {
                         display: true,
                         position: 'left',
                         ticks: { display: true, color: textColor },
-                        title: { display: false }
+                        title: { display: false },
+                        suggestedMax: Math.max(...temps) + 2
                     },
                     y1: {
                         type: 'linear',
@@ -331,7 +320,15 @@ const ChartModule = {
 const AIModule = {
     suggestOutfit: async () => {
         const btn = document.getElementById('ai-suggest-btn');
-        const scene = document.getElementById('scene-select').value;
+        let scene = document.getElementById('scene-select').value;
+        const customScene = document.getElementById('scene-custom-input').value.trim();
+
+        if (scene === 'その他' && customScene) {
+            scene = customScene;
+        } else if (scene === 'その他' && !customScene) {
+            alert("シーンを入力してください。");
+            return;
+        }
 
         if (!currentWeatherData) {
             alert("先に地図をクリックして天気情報を取得してください。");
@@ -400,7 +397,6 @@ const ThemeModule = {
             document.documentElement.classList.toggle('dark');
             const isDark = document.documentElement.classList.contains('dark');
             btnText.innerText = isDark ? 'ライト' : 'ダーク';
-            
             if(weatherChartInstance) {
                 const textColor = isDark ? '#e2e8f0' : '#666';
                 weatherChartInstance.options.scales.x.ticks.color = textColor;
@@ -411,8 +407,18 @@ const ThemeModule = {
             }
         });
 
-        // 4つのカード全てにインタラクションを追加
-        // interactive-cardクラスを持つ要素を全て取得
+        const sceneSelect = document.getElementById('scene-select');
+        const customInput = document.getElementById('scene-custom-input');
+        
+        sceneSelect.addEventListener('change', () => {
+            if (sceneSelect.value === 'その他') {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+            }
+        });
+
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
             card.addEventListener('click', () => {
