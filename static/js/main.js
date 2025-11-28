@@ -249,26 +249,21 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
-            // HTML Structure updated for Flexbox layout
             html += `
                 <div class="flex items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
-                    <!-- Date -->
                     <div class="w-16 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
                         ${isToday ? '今日' : displayDate}
                     </div>
                     
-                    <!-- Weather (Left align) -->
                     <div class="flex-1 flex items-center gap-2 pl-2 overflow-hidden">
                         <i class="fa-solid ${iconClass} text-lg w-6 text-center"></i>
                         <span class="text-xs text-gray-500 dark:text-slate-400 truncate">${weatherName}</span>
                     </div>
 
-                    <!-- Precip (Right align) -->
                     <div class="w-16 text-right">
                         <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
                     </div>
 
-                    <!-- Temp (Right align) -->
                     <div class="w-24 flex items-center justify-end gap-1 text-sm">
                         <span class="text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
                         <span class="text-gray-300 dark:text-slate-600">/</span>
@@ -460,6 +455,7 @@ const AIModule = {
 // ==========================================
 const ThemeModule = {
     init: () => {
+        // Theme Toggle
         const toggleBtn = document.getElementById('theme-toggle-btn');
         const btnText = document.getElementById('theme-btn-text');
         
@@ -477,6 +473,7 @@ const ThemeModule = {
             }
         });
 
+        // Scene Input Toggle
         const sceneSelect = document.getElementById('scene-select');
         const customInput = document.getElementById('scene-custom-input');
         
@@ -489,10 +486,35 @@ const ThemeModule = {
             }
         });
 
+        // -----------------------------------------------------
+        // Interactive Card Click Logic (Toggle & 3s Auto-Close)
+        // -----------------------------------------------------
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
+            let timeoutId; // タイマーIDをカードごとに保持
+
             card.addEventListener('click', () => {
-                card.classList.toggle('show-detail');
+                // すでに詳細表示中なら閉じる
+                if (card.classList.contains('show-detail')) {
+                    card.classList.remove('show-detail');
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                } 
+                // 閉じていれば開く
+                else {
+                    card.classList.add('show-detail');
+                    
+                    // 3秒後に自動で閉じるタイマーをセット
+                    // (前のタイマーがあればクリア)
+                    if (timeoutId) clearTimeout(timeoutId);
+                    
+                    timeoutId = setTimeout(() => {
+                        card.classList.remove('show-detail');
+                        timeoutId = null;
+                    }, 3000);
+                }
             });
         });
     }
