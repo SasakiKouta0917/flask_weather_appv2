@@ -71,13 +71,14 @@
                         
                         <!-- Buttons Wrapper -->
                         <div class="flex gap-2 self-end sm:self-auto">
-                            <!-- 修正: 既存の色指定クラスを削除し、theme-toggle-anim を追加 -->
+                            <!-- Theme Toggle -->
                             <button id="theme-toggle-btn" class="theme-toggle-anim px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 shadow-sm transform active:scale-95">
                                 <i class="fa-solid fa-moon dark:hidden"></i>
                                 <i class="fa-solid fa-sun hidden dark:inline"></i>
                                 <span id="theme-btn-text" class="whitespace-nowrap">ダーク</span>
                             </button>
-                            <button id="refresh-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg transition border border-gray-200 dark:border-slate-600 flex items-center gap-2 transform active:scale-95 shadow-sm">
+                            <!-- Refresh Button: 修正 (refresh-btn-anim を適用) -->
+                            <button id="refresh-btn" class="refresh-btn-anim px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 transform active:scale-95 shadow-sm">
                                 <i class="fa-solid fa-rotate-right"></i> <span class="whitespace-nowrap">更新</span>
                             </button>
                         </div>
