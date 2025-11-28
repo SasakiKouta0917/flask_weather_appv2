@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    # タイムアウトを120秒に延長して、AIの生成待ちによるクラッシュを防ぐ
+    # タイムアウトを120秒に延長
     startCommand: gunicorn app:app --timeout 120
     envVars:
       - key: OPENAI_API_KEY
