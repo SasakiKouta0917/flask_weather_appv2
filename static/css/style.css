@@ -58,7 +58,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles (Fix Overlap)
+   Interactive Card Animation Styles (Fix Visibility)
    ========================================== */
 
 /* カードごとの配色変数定義 */
@@ -89,7 +89,7 @@
     height: 0;
     background-color: var(--card-anim-color);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    z-index: 0;
+    z-index: 5; /* コンテンツの下だが、ベース背景より上 */
 }
 
 /* 右上 */
@@ -123,8 +123,9 @@
     position: relative;
     z-index: 10;
     opacity: 1;
-    /* 通常時（戻ってきた時）: 裏面が消えるのを少し待ってからフェードイン */
-    transition: opacity 0.2s ease 0.1s;
+    visibility: visible;
+    /* 通常時（戻る時）: 遅延させて表示 (重なり防止) */
+    transition: opacity 0.2s ease 0.15s, visibility 0s linear 0s;
 }
 
 /* 裏面 (Back) */
@@ -137,26 +138,30 @@
     z-index: 20;
     
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     
-    /* 通常時（戻ってきた時）: 即座に消える (ご要望対応: delay 0s) */
-    transition: opacity 0.1s ease 0s;
+    /* 通常時（戻る時）: 即座に消す (重なり防止) */
+    transition: opacity 0.1s ease 0s, visibility 0s linear 0.1s;
 }
 
 /* アニメーション発火時 (ホバー/アクティブ) */
+
+/* 表面: 即座に消える */
 .show-detail .view-front,
 .interactive-card:hover .view-front {
     opacity: 0;
-    /* ホバー時: 即座に消える */
-    transition: opacity 0.1s ease 0s;
+    visibility: hidden;
+    transition: opacity 0.1s ease 0s, visibility 0s linear 0.1s;
 }
 
+/* 裏面: 背景拡大を待ってからフェードイン */
 .show-detail .view-back,
 .interactive-card:hover .view-back {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
-    /* ホバー時: 背景拡大を少し待ってからフェードイン */
-    transition: opacity 0.3s ease 0.15s;
+    transition: opacity 0.3s ease 0.15s, visibility 0s linear 0s;
 }
 
 /* --- 文字色の強制上書き --- */
