@@ -124,17 +124,14 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            // 1. Dynamic Fetch: Selected Location (Current & Hourly)
             const dynamicUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
             const dynamicRes = await fetch(dynamicUrl);
             const dynamicData = await dynamicRes.json();
 
-            // 2. Fixed Fetch: Kitakami Computer Academy (Daily/Weekly)
             const fixedUrl = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.defaultLat}&longitude=${CONFIG.defaultLng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
             const fixedRes = await fetch(fixedUrl);
             const fixedData = await fixedRes.json();
 
-            // Geocoding (Dynamic)
             let locationName = "指定地点";
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
 
@@ -165,9 +162,7 @@ const WeatherModule = {
     updateUI: (locationName, dynamicData, fixedData) => {
         const current = dynamicData.current;
         const hourly = dynamicData.hourly;
-        const dailyCurrent = dynamicData.daily; // Selected location's daily data (for max/min temp of current day)
-        
-        // Fixed Weekly Data
+        const dailyCurrent = dynamicData.daily;
         const weeklyDaily = fixedData.daily;
 
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
@@ -183,7 +178,6 @@ const WeatherModule = {
             pressure: current.surface_pressure
         };
 
-        // Basic Info Update
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
@@ -193,7 +187,6 @@ const WeatherModule = {
         document.getElementById('temp-max').innerText = dailyCurrent.temperature_2m_max[0];
         document.getElementById('temp-min').innerText = dailyCurrent.temperature_2m_min[0];
 
-        // Detailed Card Info
         document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
 
         const now = new Date();
@@ -233,10 +226,7 @@ const WeatherModule = {
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
-        // Render Weekly Forecast (Using fixed Kitakami data)
         WeatherModule.renderWeeklyForecast(weeklyDaily);
-        
-        // Render Chart (Using dynamic selected location data)
         ChartModule.render(hourly);
     },
 
@@ -259,26 +249,18 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
-            // Layout matches the header labels
             html += `
                 <div class="grid grid-cols-4 gap-2 items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
-                    <!-- Date -->
                     <div class="text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
                         ${isToday ? '今日' : displayDate}
                     </div>
-                    
-                    <!-- Weather -->
                     <div class="flex items-center gap-1 justify-center">
                         <i class="fa-solid ${iconClass} text-lg"></i>
                         <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:block truncate ml-1">${weatherName}</span>
                     </div>
-
-                    <!-- Precip -->
                     <div class="text-center">
                         <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
                     </div>
-
-                    <!-- Temp -->
                     <div class="flex items-center justify-end gap-1 text-sm">
                         <span class="text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
                         <span class="text-gray-300 dark:text-slate-600">/</span>
@@ -450,22 +432,19 @@ const AIModule = {
         }
     },
 
-    renderResult: (suggestions) => {
+    renderResult: (data) => {
         const resultArea = document.getElementById('ai-result-area');
-        let html = '';
+        // JSON形式で返ってくる suggestion フィールドを表示
+        const text = data.suggestion || "提案を取得できませんでした。";
 
-        suggestions.forEach((item, index) => {
-            const delay = index * 0.1;
-            html += `
-                <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-4 hover:border-purple-300 dark:hover:border-purple-500 transition shadow-sm hover:shadow-md fade-in-up" style="animation-delay: ${delay}s">
-                    <h4 class="font-bold text-purple-600 dark:text-purple-400 mb-2 border-b border-purple-100 dark:border-slate-600 pb-1">
-                        <i class="fa-regular fa-clock"></i> ${item.period}
-                    </h4>
-                    <p class="text-gray-700 dark:text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">${item.any}</p>
-                </div>
-            `;
-        });
-        resultArea.innerHTML = `<div class="flex flex-col gap-4 w-full">${html}</div>`;
+        resultArea.innerHTML = `
+            <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-6 shadow-sm fade-in-up">
+                <h4 class="font-bold text-purple-600 dark:text-purple-400 mb-3 border-b border-purple-100 dark:border-slate-600 pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-shirt"></i> コーディネート提案
+                </h4>
+                <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap">${text}</p>
+            </div>
+        `;
     }
 };
 
@@ -520,12 +499,10 @@ document.addEventListener('DOMContentLoaded', () => {
         MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
         mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
         
-        // 雨雲レーダーも更新
         MapModule.updateRadar();
         
         const btn = document.getElementById('refresh-btn');
-        btn.classList.add('bg-gray-200', 'dark:bg-slate-600');
-        setTimeout(() => btn.classList.remove('bg-gray-200', 'dark:bg-slate-600'), 200);
+        // アニメーションクラスはCSSで定義されているのでJSでのスタイル変更は最小限に
     });
 
     document.getElementById('ai-suggest-btn').addEventListener('click', () => {
