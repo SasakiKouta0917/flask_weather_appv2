@@ -42,88 +42,80 @@
     filter: invert(100%) hue-rotate(180deg);
 }
 
-/* アニメーション定義: 下からふわっと浮き上がる */
+/* アニメーション定義 */
 @keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* アニメーションクラス */
 .fade-in-up {
     animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-    opacity: 0; /* 初期状態は透明 */
+    opacity: 0;
 }
 
-/* 遅延設定 */
-.delay-1 {
-    animation-delay: 0.1s;
-}
-.delay-2 {
-    animation-delay: 0.2s;
-}
-.delay-3 {
-    animation-delay: 0.3s;
-}
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles (Updated)
-   Based on Uiverse.io by eslam-hany
+   Interactive Card Animation Styles (Fix)
    ========================================== */
 
-/* カードの基本設定 */
+/* カードごとの配色変数定義 */
+#temp-card-container    { --card-anim-color: #3b82f6; } /* Blue */
+#humid-card-container   { --card-anim-color: #06b6d4; } /* Cyan */
+#rain-card-container    { --card-anim-color: #6366f1; } /* Indigo */
+#weather-card-container { --card-anim-color: #f97316; } /* Orange */
+
+/* ダークモード時の色 */
+.dark #temp-card-container    { --card-anim-color: #2563eb; }
+.dark #humid-card-container   { --card-anim-color: #0891b2; }
+.dark #rain-card-container    { --card-anim-color: #4f46e5; }
+.dark #weather-card-container { --card-anim-color: #ea580c; }
+
+/* カード本体 */
 .interactive-card {
     position: relative;
+    /* Tailwindの overflow-hidden が効いている前提 */
     z-index: 1;
     transition: transform 0.3s ease;
 }
 
-/* --- 擬似要素による背景アニメーション (四隅からの拡大) --- */
+/* --- 擬似要素による背景アニメーション (四隅) --- */
 .interactive-card::before,
 .interactive-card::after {
-    position: absolute;
     content: "";
+    position: absolute;
     width: 20%;
     height: 20%;
-    display: block;
-    /* カードごとのテーマカラー (後述の変数で定義) */
-    background-color: var(--card-anim-color); 
+    background-color: var(--card-anim-color);
     transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
     z-index: 0; /* コンテンツの下 */
 }
 
 /* 右上 */
 .interactive-card::before {
-    top: 0;
+    top: 0; 
     right: 0;
-    /* 角丸: 右上はカードに合わせて丸く、左下へ向かって尖る */
-    border-radius: 0 0.5rem 0 100%; 
+    border-radius: 0 0 0 100%;
 }
 
 /* 左下 */
 .interactive-card::after {
-    bottom: 0;
+    bottom: 0; 
     left: 0;
-    /* 角丸: 左下はカードに合わせて丸く、右上へ向かって尖る */
-    border-radius: 0 100% 0 0.5rem; 
+    border-radius: 0 100% 0 0;
 }
 
-/* --- ホバー/アクティブ時の拡大アニメーション --- */
-/* クリック時(.show-detail) または PCホバー時 */
+/* --- ホバー/アクティブ時の拡大 --- */
+/* PCホバー または スマホタップ(.show-detail) */
 .show-detail::before,
 .show-detail::after,
-@media (hover: hover) {
-    .interactive-card:hover::before,
-    .interactive-card:hover::after {
-        width: 100%;
-        height: 100%;
-        border-radius: 0.5rem; /* カード全体を覆う */
-    }
+.interactive-card:hover::before,
+.interactive-card:hover::after {
+    width: 100%;
+    height: 100%;
+    border-radius: 0; /* 四角く広がる */
 }
 
 /* --- コンテンツの表示制御 --- */
@@ -131,102 +123,59 @@
 /* 表面 (Front) */
 .view-front {
     position: relative;
-    z-index: 1;
+    z-index: 10; /* 背景(0)より上 */
     opacity: 1;
-    /* 素早く消える */
     transition: opacity 0.2s ease-out;
 }
 
-/* 裏面 (Back) */
+/* 裏面 (Back) - 初期状態は非表示 */
 .view-back {
     position: absolute;
-    z-index: 10;
-    opacity: 0;
-    width: 100%;
-    height: 100%;
-    top: 0;
+    top: 0; 
     left: 0;
-    /* 背景が広がるのを待ってから少しずつフェードイン */
-    transition: opacity 0.4s ease-in 0.15s;
+    width: 100%; 
+    height: 100%;
+    z-index: 20; /* 最前面 */
+    
+    /* アニメーション初期状態 */
+    opacity: 0;
+    transform: translateY(10px); /* 少し下にある */
+    
+    /* フェードイン設定: 背景が広がるのを待つ (delay 0.2s) */
+    transition: opacity 0.4s ease 0.2s, transform 0.4s ease 0.2s;
+    pointer-events: none; /* 見えてないときはクリック等を無効化 */
 }
 
-/* ホバー/アクティブ時の透明度切り替え */
-.show-detail .view-front {
+/* アニメーション発火時 */
+.show-detail .view-front,
+.interactive-card:hover .view-front {
     opacity: 0;
 }
-.show-detail .view-back {
+
+.show-detail .view-back,
+.interactive-card:hover .view-back {
     opacity: 1;
+    transform: translateY(0); /* 元の位置へふわっと浮上 */
+    pointer-events: auto;
 }
 
-@media (hover: hover) {
-    .interactive-card:hover .view-front {
-        opacity: 0;
-    }
-    .interactive-card:hover .view-back {
-        opacity: 1;
-    }
+/* --- 文字色の強制上書き (背景が濃色になるため白にする) --- */
+.show-detail .view-back *,
+.interactive-card:hover .view-back * {
+    color: #ffffff !important;
 }
 
-/* --- 色の変化 (ホバー時に文字とアイコンを白にする) --- */
-
-/* アイコンの色変化 */
-.interactive-card i {
+/* --- アイコンの色変化 --- */
+/* アイコンは view-front/back の外にある絶対配置要素 */
+.interactive-card > div:first-child i {
     transition: color 0.3s ease;
     position: relative;
-    z-index: 20; /* 最前面 */
+    z-index: 30; /* 誰よりも前面 */
 }
 
-.show-detail i {
+.show-detail > div:first-child i,
+.interactive-card:hover > div:first-child i {
     color: #ffffff !important;
-}
-@media (hover: hover) {
-    .interactive-card:hover i {
-        color: #ffffff !important;
-    }
-}
-
-/* テキストの色変化 (詳細情報の全テキストを白に) */
-.show-detail .view-back * {
-    color: #ffffff !important;
-}
-@media (hover: hover) {
-    .interactive-card:hover .view-back * {
-        color: #ffffff !important;
-    }
-}
-
-/* --- カードごとの配色設定 (濃い色に変更: 白文字が読めるように) --- */
-
-/* 1. 気温 (Blue) */
-#temp-card-container {
-    --card-anim-color: #3b82f6; /* Blue-500 */
-}
-.dark #temp-card-container {
-    --card-anim-color: #2563eb; /* Blue-600 */
-}
-
-/* 2. 湿度 (Cyan) */
-#humid-card-container {
-    --card-anim-color: #06b6d4; /* Cyan-500 */
-}
-.dark #humid-card-container {
-    --card-anim-color: #0891b2; /* Cyan-600 */
-}
-
-/* 3. 降水量 (Indigo) */
-#rain-card-container {
-    --card-anim-color: #6366f1; /* Indigo-500 */
-}
-.dark #rain-card-container {
-    --card-anim-color: #4f46e5; /* Indigo-600 */
-}
-
-/* 4. 天気 (Orange) */
-#weather-card-container {
-    --card-anim-color: #f97316; /* Orange-500 */
-}
-.dark #weather-card-container {
-    --card-anim-color: #ea580c; /* Orange-600 */
 }
 
 
@@ -237,19 +186,17 @@
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease 0s;
 }
-
 .btn-float-anim:hover {
     box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4);
     transform: translateY(-7px);
 }
-
 .btn-float-anim:active {
     transform: translateY(-1px);
     box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2);
 }
 
 /* ==========================================
-   ① Theme Toggle Button Animation
+   Theme Toggle Button Animation
    ========================================== */
 .theme-toggle-anim {
     position: relative;
@@ -257,14 +204,10 @@
     z-index: 1;
     transition: color 0.2s ease-in, border-color 0.2s ease-in, background-color 0.2s ease-in;
     cursor: pointer;
-    
-    /* 初期（ライトモード）: 白背景、黒文字 */
     background-color: #ffffff;
     color: #1e293b;
     border: 1px solid #cbd5e1;
 }
-
-/* 波紋エフェクト用の共通設定 */
 .theme-toggle-anim::before,
 .theme-toggle-anim::after {
     content: "";
@@ -279,8 +222,6 @@
     transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
     z-index: -1;
 }
-
-/* アニメーションの本体色 */
 .theme-toggle-anim::after {
     left: 55%;
     transform: translateX(-50%) scaleY(1) scaleX(1.45);
@@ -288,49 +229,17 @@
     width: 160%;
     height: 190%;
 }
+.theme-toggle-anim::after { background-color: #1e293b; }
+.theme-toggle-anim:hover { color: #ffffff; border-color: #1e293b; }
+.theme-toggle-anim:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
 
-/* --- ライトモード時のホバー (白 -> 黒) --- */
-.theme-toggle-anim::after {
-    background-color: #1e293b; /* 黒 */
-}
-.theme-toggle-anim:hover {
-    color: #ffffff;
-    border-color: #1e293b;
-}
-.theme-toggle-anim:hover::after {
-    top: -45%;
-    transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
-}
-
-/* --- ダークモード時の状態 (.dark クラス下) --- */
-.dark .theme-toggle-anim {
-    /* 黒背景、白文字 (背景色と同化しないよう少し明るい黒 #1e293b を使用) */
-    background-color: #1e293b; 
-    color: #ffffff;
-    border-color: #475569;
-}
-
-/* --- ダークモード時のホバー (黒 -> 白) --- */
-/* 擬似要素の色を白に変更 */
-.dark .theme-toggle-anim::before,
-.dark .theme-toggle-anim::after {
-    background-color: #ffffff;
-}
-
-.dark .theme-toggle-anim:hover {
-    color: #1e293b; /* 文字を黒に */
-    border-color: #ffffff;
-    background-color: transparent;
-}
-/* アニメーション発火 */
-.dark .theme-toggle-anim:hover::after {
-    top: -45%;
-    transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
-}
-
+.dark .theme-toggle-anim { background-color: #1e293b; color: #ffffff; border-color: #475569; }
+.dark .theme-toggle-anim::before, .dark .theme-toggle-anim::after { background-color: #ffffff; }
+.dark .theme-toggle-anim:hover { color: #1e293b; border-color: #ffffff; background-color: transparent; }
+.dark .theme-toggle-anim:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
 
 /* ==========================================
-   ② Refresh Button Animation (白->緑)
+   Refresh Button Animation
    ========================================== */
 .refresh-btn-anim {
     position: relative;
@@ -338,87 +247,34 @@
     z-index: 1;
     transition: all 0.2s ease-in;
     cursor: pointer;
-
-    /* 初期: 白背景 */
     background-color: #ffffff;
-    color: #4b5563; /* Gray-600 */
-    border: 1px solid #e5e7eb; /* Gray-200 */
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
 }
-
-/* ダークモード時の初期状態 */
-.dark .refresh-btn-anim {
-    background-color: #334155; /* Slate-700 */
-    color: #e2e8f0; /* Slate-200 */
-    border-color: #475569;
+.dark .refresh-btn-anim { background-color: #334155; color: #e2e8f0; border-color: #475569; }
+.refresh-btn-anim::before, .refresh-btn-anim::after {
+    content: ""; position: absolute; left: 50%; transform: translateX(-50%) scaleY(1) scaleX(1.25);
+    top: 100%; width: 140%; height: 180%; border-radius: 50%; display: block;
+    transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1); z-index: -1;
 }
-
-.refresh-btn-anim::before,
 .refresh-btn-anim::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%) scaleY(1) scaleX(1.25);
-    top: 100%;
-    width: 140%;
-    height: 180%;
-    border-radius: 50%;
-    display: block;
-    transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
-    z-index: -1;
+    left: 55%; transform: translateX(-50%) scaleY(1) scaleX(1.45); top: 180%; width: 160%; height: 190%;
+    background-color: #22c55e;
 }
-
-/* 緑色のアニメーション背景 */
-.refresh-btn-anim::after {
-    left: 55%;
-    transform: translateX(-50%) scaleY(1) scaleX(1.45);
-    top: 180%;
-    width: 160%;
-    height: 190%;
-    background-color: #22c55e; /* Green-500 */
-}
-
-/* ホバー時の動作 (白/黒 -> 緑) */
-.refresh-btn-anim:hover {
-    color: #ffffff;
-    border-color: #22c55e;
-}
-
-.refresh-btn-anim:hover::after {
-    top: -45%;
-    transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
-}
+.refresh-btn-anim:hover { color: #ffffff; border-color: #22c55e; }
+.refresh-btn-anim:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
 
 /* ==========================================
-   Background Pattern (Polka Dot)
+   Background Pattern
    ========================================== */
-body {
-    position: relative;
-    min-height: 100vh;
-}
-
+body { position: relative; min-height: 100vh; }
 body::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -50; /* コンテンツの最背面へ */
-    pointer-events: none;
-
-    /* ベースカラー */
+    content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -50; pointer-events: none;
     background-color: #ffffff;
-    
-    /* 水玉模様 (水色 #bae6fd = Sky-200相当) */
     background-image: radial-gradient(#bae6fd 2px, transparent 2px), radial-gradient(#bae6fd 2px, #ffffff 2px);
     background-size: 40px 40px;
     background-position: 0 0, 20px 20px;
-    
-    /* 透明度調整（コンテンツを見やすくするため） */
     opacity: 0.6;
 }
-
-/* ダークモード時は背景パターンを無効化 (白文字が見えなくなるのを防ぐため) */
-.dark body::before {
-    display: none;
-}
+.dark body::before { display: none; }
