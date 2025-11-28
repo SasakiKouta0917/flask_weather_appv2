@@ -87,10 +87,12 @@
                             <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
                                 <i class="fa-solid fa-temperature-three-quarters text-blue-500 dark:text-blue-400 text-lg md:text-xl"></i>
                             </div>
+                            <!-- Front -->
                             <div class="view-front absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center">
                                 <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">現在気温</p>
                                 <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-temp">--℃</p>
                             </div>
+                            <!-- Back -->
                             <div class="view-back absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center">
                                 <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">現在気圧</p>
                                 <p class="font-bold text-base md:text-lg text-gray-700 dark:text-slate-100" id="card-pressure">--hPa</p>
@@ -207,8 +209,7 @@
                     <div class="w-16">日付</div>
                     <div class="flex-1 text-left pl-2">天気</div>
                     <div class="w-16 text-right">降水確率</div>
-                    <!-- 修正: 幅を w-24 -> w-28 に拡張 -->
-                    <div class="w-28 text-right">気温(低/高)</div>
+                    <div class="w-20 text-right">気温(低/高)</div>
                 </div>
 
                 <div id="weekly-forecast-container" class="space-y-2">
