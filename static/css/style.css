@@ -58,7 +58,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles (Strict Vertical)
+   Interactive Card Animation Styles (Final Fix)
    ========================================== */
 
 /* カードごとの配色変数定義 */
@@ -77,7 +77,7 @@
 .interactive-card {
     position: relative;
     z-index: 1;
-    transition: none;
+    transition: none; /* 干渉回避 */
 }
 
 /* --- 擬似要素による背景アニメーション (四隅) --- */
@@ -123,14 +123,14 @@
     position: relative;
     z-index: 10;
     opacity: 1;
-    /* X軸を0に固定し、Y軸のみ動かす */
-    transform: translate3d(0, 0, 0);
+    /* X=0px, Y=0px */
+    transform: translate(0px, 0px);
     
-    /* 戻る時: 裏面が消えてから、上から降りてくる(FadeIn Down) */
-    transition: opacity 0.2s ease 0.1s, transform 0.2s ease 0.1s;
+    /* 戻る時: 即座に元の位置に戻る */
+    transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
-/* 裏面 (Back) - 初期状態 */
+/* 裏面 (Back) */
 .view-back {
     position: absolute;
     top: 0; 
@@ -139,35 +139,33 @@
     height: 100%;
     z-index: 20;
     
-    /* 初期状態: 透明かつ下に配置 (Y=+20px) */
+    /* 初期状態: 透明 かつ 下(Y=20px)に配置 */
+    /* X軸を0pxに固定して横移動を阻止 */
     opacity: 0;
-    transform: translate3d(0, 20px, 0);
+    transform: translate(0px, 20px);
     pointer-events: none;
     
-    /* 戻る時: 即座に下に下がりながら消える(FadeOut Down) */
-    transition: opacity 0.2s ease 0s, transform 0.2s ease 0s;
+    /* 戻る時: 下に下がりながら消える */
+    transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
 /* アニメーション発火時 (ホバー/アクティブ) */
 
-/* 表面: 上に上がりながら消える (FadeOut Up) */
+/* 表面: 上(Y=-20px)に移動しながら消える */
 .show-detail .view-front,
 .interactive-card:hover .view-front {
     opacity: 0;
-    transform: translate3d(0, -20px, 0);
-    
-    /* 行きのアニメーション: 即座に実行 */
-    transition: opacity 0.2s ease 0s, transform 0.2s ease 0s;
+    transform: translate(0px, -20px);
 }
 
-/* 裏面: 下から上がってきながら現れる (FadeIn Up) */
+/* 裏面: 元の位置(Y=0px)に上がってきながら現れる */
 .show-detail .view-back,
 .interactive-card:hover .view-back {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate(0px, 0px);
     pointer-events: auto;
     
-    /* 行きのアニメーション: 表面が消えるのを待ってから(0.15s)実行 */
+    /* 背景拡大を待ってから(0.15s) 表示開始 */
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
 
