@@ -44,8 +44,6 @@
     <main class="flex-grow p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 h-full items-start">
         
         <!-- Left Column: Map (要素①) -->
-        <!-- 修正: 固定値 lg:h-[930px] を削除し、lg:h-auto (変動式) に戻しました -->
-        <!-- これにより、スマホでは300px固定、PCでは右カラムの高さに合わせて自動調整されます -->
         <section class="lg:col-span-5 flex flex-col gap-4 h-[300px] lg:h-auto bg-white dark:bg-slate-800 rounded-xl overflow-hidden relative border border-gray-200 dark:border-slate-700 fade-in-up transition-colors duration-300 shadow-sm">
             <div id="map" class="w-full h-full z-10 transition-all duration-300"></div>
             <!-- Loading Overlay for Map -->
@@ -83,7 +81,7 @@
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-center" id="current-weather-box">
                     
-                    <!-- 1. 現在気温カード (修正: 裏面を気圧に変更) -->
+                    <!-- 1. 現在気温カード (裏面: 気圧) -->
                     <div id="temp-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-blue-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-blue-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
                         <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
                             <i class="fa-solid fa-temperature-three-quarters text-blue-500 dark:text-blue-400 text-lg md:text-xl"></i>
@@ -179,7 +177,7 @@
                     </button>
                 </div>
 
-                <!-- Scene Selector (Modified) -->
+                <!-- Scene Selector -->
                 <div class="mb-4">
                     <label class="text-xs md:text-sm text-gray-500 dark:text-slate-400 block mb-1">利用シーン:</label>
                     <select id="scene-select" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-gray-50 dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition mb-2">
@@ -187,11 +185,11 @@
                         <option value="散歩">散歩</option>
                         <option value="その他">その他</option>
                     </select>
-                    <!-- Custom Scene Input (Hidden by default) -->
+                    <!-- Custom Scene Input -->
                     <input type="text" id="scene-custom-input" placeholder="具体的なシーンを入力 (例: 旅行、ライブ)" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-600 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition hidden">
                 </div>
 
-                <!-- Result Area (Scrollable) -->
+                <!-- Result Area -->
                 <div id="ai-result-area" class="space-y-4 flex-grow flex flex-col overflow-y-auto max-h-[500px]">
                     <div class="bg-gray-50 dark:bg-slate-700/30 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 md:p-8 text-center text-sm md:text-base text-gray-400 dark:text-slate-500 h-full flex items-center justify-center flex-grow transition duration-500 min-h-[150px]">
                         ここにAIからの提案が表示されます
