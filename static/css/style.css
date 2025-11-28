@@ -72,33 +72,163 @@
 }
 
 /* ==========================================
-   Interactive Card Animation Styles (汎用化)
+   Interactive Card Animation Styles (Updated)
+   Based on Uiverse.io by eslam-hany
    ========================================== */
 
-/* 1. 表面レイヤー: 左へフェードアウト */
+/* カードの基本設定 */
+.interactive-card {
+    position: relative;
+    z-index: 1;
+    transition: transform 0.3s ease;
+}
+
+/* --- 擬似要素による背景アニメーション (四隅からの拡大) --- */
+.interactive-card::before,
+.interactive-card::after {
+    position: absolute;
+    content: "";
+    width: 20%;
+    height: 20%;
+    display: block;
+    /* カードごとのテーマカラー (後述の変数で定義) */
+    background-color: var(--card-anim-color); 
+    transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 0; /* コンテンツの下 */
+}
+
+/* 右上 */
+.interactive-card::before {
+    top: 0;
+    right: 0;
+    /* 角丸: 右上はカードに合わせて丸く、左下へ向かって尖る */
+    border-radius: 0 0.5rem 0 100%; 
+}
+
+/* 左下 */
+.interactive-card::after {
+    bottom: 0;
+    left: 0;
+    /* 角丸: 左下はカードに合わせて丸く、右上へ向かって尖る */
+    border-radius: 0 100% 0 0.5rem; 
+}
+
+/* --- ホバー/アクティブ時の拡大アニメーション --- */
+/* クリック時(.show-detail) または PCホバー時 */
+.show-detail::before,
+.show-detail::after,
+@media (hover: hover) {
+    .interactive-card:hover::before,
+    .interactive-card:hover::after {
+        width: 100%;
+        height: 100%;
+        border-radius: 0.5rem; /* カード全体を覆う */
+    }
+}
+
+/* --- コンテンツの表示制御 --- */
+
+/* 表面 (Front) */
+.view-front {
+    position: relative;
+    z-index: 1;
+    opacity: 1;
+    /* 素早く消える */
+    transition: opacity 0.2s ease-out;
+}
+
+/* 裏面 (Back) */
+.view-back {
+    position: absolute;
+    z-index: 10;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    /* 背景が広がるのを待ってから少しずつフェードイン */
+    transition: opacity 0.4s ease-in 0.15s;
+}
+
+/* ホバー/アクティブ時の透明度切り替え */
 .show-detail .view-front {
     opacity: 0;
-    transform: translateX(-100%);
 }
-
-/* 2. 裏面レイヤー: 右からフェードイン */
 .show-detail .view-back {
     opacity: 1;
-    transform: translateX(0);
 }
 
-/* PC: ホバー時にも同じアニメーションを適用 (.interactive-cardクラスを持つ要素に対して) */
 @media (hover: hover) {
     .interactive-card:hover .view-front {
         opacity: 0;
-        transform: translateX(-100%);
     }
-    
     .interactive-card:hover .view-back {
         opacity: 1;
-        transform: translateX(0);
     }
 }
+
+/* --- 色の変化 (ホバー時に文字とアイコンを白にする) --- */
+
+/* アイコンの色変化 */
+.interactive-card i {
+    transition: color 0.3s ease;
+    position: relative;
+    z-index: 20; /* 最前面 */
+}
+
+.show-detail i {
+    color: #ffffff !important;
+}
+@media (hover: hover) {
+    .interactive-card:hover i {
+        color: #ffffff !important;
+    }
+}
+
+/* テキストの色変化 (詳細情報の全テキストを白に) */
+.show-detail .view-back * {
+    color: #ffffff !important;
+}
+@media (hover: hover) {
+    .interactive-card:hover .view-back * {
+        color: #ffffff !important;
+    }
+}
+
+/* --- カードごとの配色設定 (濃い色に変更: 白文字が読めるように) --- */
+
+/* 1. 気温 (Blue) */
+#temp-card-container {
+    --card-anim-color: #3b82f6; /* Blue-500 */
+}
+.dark #temp-card-container {
+    --card-anim-color: #2563eb; /* Blue-600 */
+}
+
+/* 2. 湿度 (Cyan) */
+#humid-card-container {
+    --card-anim-color: #06b6d4; /* Cyan-500 */
+}
+.dark #humid-card-container {
+    --card-anim-color: #0891b2; /* Cyan-600 */
+}
+
+/* 3. 降水量 (Indigo) */
+#rain-card-container {
+    --card-anim-color: #6366f1; /* Indigo-500 */
+}
+.dark #rain-card-container {
+    --card-anim-color: #4f46e5; /* Indigo-600 */
+}
+
+/* 4. 天気 (Orange) */
+#weather-card-container {
+    --card-anim-color: #f97316; /* Orange-500 */
+}
+.dark #weather-card-container {
+    --card-anim-color: #ea580c; /* Orange-600 */
+}
+
 
 /* ==========================================
    AI Suggest Button Animation
