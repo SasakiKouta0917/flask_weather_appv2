@@ -58,7 +58,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles (Fix Visibility)
+   Interactive Card Animation Styles (Bottom Fade In)
    ========================================== */
 
 /* カードごとの配色変数定義 */
@@ -89,7 +89,7 @@
     height: 0;
     background-color: var(--card-anim-color);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    z-index: 5; /* コンテンツの下だが、ベース背景より上 */
+    z-index: 0;
 }
 
 /* 右上 */
@@ -123,12 +123,12 @@
     position: relative;
     z-index: 10;
     opacity: 1;
-    visibility: visible;
-    /* 通常時（戻る時）: 遅延させて表示 (重なり防止) */
-    transition: opacity 0.2s ease 0.15s, visibility 0s linear 0s;
+    transform: translateY(0);
+    /* 戻る時: 即座に元の位置に戻る */
+    transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
-/* 裏面 (Back) */
+/* 裏面 (Back) - 初期状態 */
 .view-back {
     position: absolute;
     top: 0; 
@@ -137,31 +137,33 @@
     height: 100%;
     z-index: 20;
     
+    /* 初期状態: 透明かつ下に配置 */
     opacity: 0;
-    visibility: hidden;
+    transform: translateY(20px);
     pointer-events: none;
     
-    /* 通常時（戻る時）: 即座に消す (重なり防止) */
-    transition: opacity 0.1s ease 0s, visibility 0s linear 0.1s;
+    /* 戻る時: 即座に消えて下に戻る */
+    transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
 /* アニメーション発火時 (ホバー/アクティブ) */
 
-/* 表面: 即座に消える */
+/* 表面: 上に少し移動しながら消える */
 .show-detail .view-front,
 .interactive-card:hover .view-front {
     opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.1s ease 0s, visibility 0s linear 0.1s;
+    transform: translateY(-10px);
 }
 
-/* 裏面: 背景拡大を待ってからフェードイン */
+/* 裏面: 下からふわっと現れる */
 .show-detail .view-back,
 .interactive-card:hover .view-back {
     opacity: 1;
-    visibility: visible;
+    transform: translateY(0);
     pointer-events: auto;
-    transition: opacity 0.3s ease 0.15s, visibility 0s linear 0s;
+    
+    /* 背景が広がるのを少し待ってから(0.15s)表示開始 */
+    transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
 
 /* --- 文字色の強制上書き --- */
