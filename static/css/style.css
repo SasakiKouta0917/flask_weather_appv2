@@ -58,7 +58,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles (Bottom Fade In)
+   Interactive Card Animation Styles (Up/Down Fade)
    ========================================== */
 
 /* カードごとの配色変数定義 */
@@ -122,13 +122,16 @@
 .view-front {
     position: relative;
     z-index: 10;
+    
+    /* 通常時（戻ってきた状態）: 真ん中にいる */
     opacity: 1;
     transform: translateY(0);
-    /* 戻る時: 即座に元の位置に戻る */
-    transition: opacity 0.1s ease, transform 0.1s ease;
+    
+    /* 戻る時のアニメーション: 裏面が消えるのを待ってから(0.2s)、上から降りてくる */
+    transition: opacity 0.3s ease 0.2s, transform 0.3s ease 0.2s;
 }
 
-/* 裏面 (Back) - 初期状態 */
+/* 裏面 (Back) */
 .view-back {
     position: absolute;
     top: 0; 
@@ -136,34 +139,37 @@
     width: 100%; 
     height: 100%;
     z-index: 20;
-    
-    /* 初期状態: 透明かつ下に配置 */
-    opacity: 0;
-    transform: translateY(20px);
     pointer-events: none;
     
-    /* 戻る時: 即座に消えて下に戻る */
-    transition: opacity 0.1s ease, transform 0.1s ease;
+    /* 通常時（隠れている状態）: 下に潜んでいる */
+    opacity: 0;
+    transform: translateY(20px);
+    
+    /* 戻る時のアニメーション: 即座に下に下がりながら消える */
+    transition: opacity 0.2s ease 0s, transform 0.2s ease 0s;
 }
 
 /* アニメーション発火時 (ホバー/アクティブ) */
 
-/* 表面: 上に少し移動しながら消える */
+/* 表面: 上に上がりながら即座に消える */
 .show-detail .view-front,
 .interactive-card:hover .view-front {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-20px);
+    
+    /* 行きのアニメーション: 即座に実行 */
+    transition: opacity 0.2s ease 0s, transform 0.2s ease 0s;
 }
 
-/* 裏面: 下からふわっと現れる */
+/* 裏面: 下から上がってきながら現れる */
 .show-detail .view-back,
 .interactive-card:hover .view-back {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
     
-    /* 背景が広がるのを少し待ってから(0.15s)表示開始 */
-    transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+    /* 行きのアニメーション: 表面が消えるのを待ってから(0.2s)実行 */
+    transition: opacity 0.3s ease 0.2s, transform 0.3s ease 0.2s;
 }
 
 /* --- 文字色の強制上書き --- */
