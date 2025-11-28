@@ -123,14 +123,14 @@
     position: relative;
     z-index: 10;
     opacity: 1;
-    /* !importantを追加してTailwindの干渉を確実に防ぐ */
-    transform: translate3d(0, 0, 0) !important;
+    /* X=0px, Y=0px */
+    transform: translate(0px, 0px);
     
     /* 戻る時: 即座に元の位置に戻る */
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
-/* 裏面 (Back) - 初期状態 */
+/* 裏面 (Back) */
 .view-back {
     position: absolute;
     top: 0; 
@@ -140,8 +140,9 @@
     z-index: 20;
     
     /* 初期状態: 透明 かつ 下(Y=20px)に配置 */
+    /* X軸を0pxに固定して横移動を阻止 */
     opacity: 0;
-    transform: translate3d(0, 20px, 0) !important;
+    transform: translate(0px, 20px);
     pointer-events: none;
     
     /* 戻る時: 下に下がりながら消える */
@@ -154,14 +155,14 @@
 .show-detail .view-front,
 .interactive-card:hover .view-front {
     opacity: 0;
-    transform: translate3d(0, -20px, 0) !important;
+    transform: translate(0px, -20px);
 }
 
 /* 裏面: 元の位置(Y=0px)に上がってきながら現れる */
 .show-detail .view-back,
 .interactive-card:hover .view-back {
     opacity: 1;
-    transform: translate3d(0, 0, 0) !important;
+    transform: translate(0px, 0px);
     pointer-events: auto;
     
     /* 背景拡大を待ってから(0.15s) 表示開始 */
@@ -257,7 +258,8 @@
     cursor: pointer;
     background-color: #ffffff;
     color: #4b5563;
-    border: 1px solid #e5e7eb;
+    /* 修正: 縁の色を #e5e7eb から #cbd5e1 (Slate-300) に変更 */
+    border: 1px solid #cbd5e1;
 }
 .dark .refresh-btn-anim { background-color: #334155; color: #e2e8f0; border-color: #475569; }
 .refresh-btn-anim::before, .refresh-btn-anim::after {
