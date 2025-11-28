@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課題研究S2班</title>
+    <title>課題研究1S2班</title>
     <!-- Tailwind CSS with Config -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -44,7 +44,8 @@
     <main class="flex-grow p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 h-full items-start">
         
         <!-- Left Column: Map (要素①) -->
-        <section class="lg:col-span-5 flex flex-col gap-4 h-[300px] lg:h-auto bg-white dark:bg-slate-800 rounded-xl overflow-hidden relative border border-gray-200 dark:border-slate-700 fade-in-up transition-colors duration-300 shadow-sm">
+        <!-- 修正: lg:h-auto だと高さが0になるため、lg:h-[500px] に戻して高さを確保 -->
+        <section class="lg:col-span-5 flex flex-col gap-4 h-[300px] lg:h-[500px] bg-white dark:bg-slate-800 rounded-xl overflow-hidden relative border border-gray-200 dark:border-slate-700 fade-in-up transition-colors duration-300 shadow-sm">
             <div id="map" class="w-full h-full z-10 transition-all duration-300"></div>
             <!-- Loading Overlay for Map -->
             <div id="map-loading" class="absolute inset-0 bg-white/80 dark:bg-slate-800/80 z-20 flex justify-center items-center hidden">
