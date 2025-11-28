@@ -257,3 +257,32 @@
     top: -45%;
     transform: translateX(-50%) scaleY(1.3) scaleX(0.8);
 }
+
+/* ==========================================
+   Background Pattern (Custom)
+   ========================================== */
+body {
+    position: relative;
+    min-height: 100vh;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -50; /* コンテンツの最背面へ */
+    pointer-events: none;
+
+    /* ユーザー指定のパターン */
+    background-color: #ffffff;
+    opacity: 0.3;
+    background-image: repeating-radial-gradient( circle at 0 0, transparent 0, #ffffff 40px ), repeating-linear-gradient( #82bbbf55, #82bbbf );
+}
+
+/* ダークモード時は背景パターンを無効化 (白文字が見えなくなるのを防ぐため) */
+.dark body::before {
+    display: none;
+}
