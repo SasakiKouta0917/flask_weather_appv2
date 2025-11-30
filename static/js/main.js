@@ -177,13 +177,10 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            // Combine all data requests into one dynamic call for the selected location
-            // forecast_days=8 to include weekly data
             const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
             const weatherRes = await fetch(weatherUrl);
             const weatherData = await weatherRes.json();
 
-            // Geocoding
             let locationName = "指定地点";
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
 
@@ -201,7 +198,6 @@ const WeatherModule = {
                 }
             }
 
-            // Pass the single data object
             WeatherModule.updateUI(locationName, weatherData);
             
         } catch (error) {
@@ -214,9 +210,9 @@ const WeatherModule = {
 
     updateUI: (locationName, data) => {
         const current = data.current;
+        const daily = data.daily;
         const hourly = data.hourly;
-        const daily = data.daily; // Contains 8 days of data for selected location
-
+        
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
         currentWeatherData = {
@@ -230,7 +226,6 @@ const WeatherModule = {
             pressure: current.surface_pressure
         };
 
-        // Basic Info Update
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
@@ -240,7 +235,6 @@ const WeatherModule = {
         document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
         document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
 
-        // Detailed Card Info
         document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
 
         const now = new Date();
@@ -280,13 +274,9 @@ const WeatherModule = {
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
-        // Reset timer
         TimeModule.reset();
 
-        // Render Weekly Forecast (Using dynamic daily data)
         WeatherModule.renderWeeklyForecast(daily);
-        
-        // Render Chart
         ChartModule.render(hourly);
     },
 
@@ -467,6 +457,9 @@ const AIModule = {
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
 
+        // Trigger animation on click
+        ThemeModule.triggerButtonAnim(btn);
+
         try {
             const response = await fetch("/api/suggest_outfit", {
                 method: "POST",
@@ -515,13 +508,15 @@ const AIModule = {
 // ==========================================
 const ThemeModule = {
     init: () => {
-        // Init time module
         TimeModule.init();
 
         const toggleBtn = document.getElementById('theme-toggle-btn');
         const btnText = document.getElementById('theme-btn-text');
         
         toggleBtn.addEventListener('click', () => {
+            // Trigger animation
+            ThemeModule.triggerButtonAnim(toggleBtn);
+            
             document.documentElement.classList.toggle('dark');
             const isDark = document.documentElement.classList.contains('dark');
             btnText.innerText = isDark ? 'ライト' : 'ダーク';
@@ -534,6 +529,14 @@ const ThemeModule = {
                 weatherChartInstance.update();
             }
         });
+
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                 ThemeModule.triggerButtonAnim(refreshBtn);
+                 // Logic is handled in listener below
+            });
+        }
 
         const sceneSelect = document.getElementById('scene-select');
         const customInput = document.getElementById('scene-custom-input');
@@ -561,9 +564,7 @@ const ThemeModule = {
                 } 
                 else {
                     card.classList.add('show-detail');
-                    // Clear existing timer if any
                     if (card._timeoutId) clearTimeout(card._timeoutId);
-                    // Set new 3s timer
                     card._timeoutId = setTimeout(() => {
                         card.classList.remove('show-detail');
                         card._timeoutId = null;
@@ -573,22 +574,24 @@ const ThemeModule = {
         });
     },
 
-    // ★ 5秒経過時に自動発火する関数
     triggerAutoShow: () => {
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
-            // 1. 強制的に開く
             card.classList.add('show-detail');
-            
-            // 2. 既存のタイマー（3秒で閉じる予定のもの等）があればクリア
             if (card._timeoutId) clearTimeout(card._timeoutId);
-
-            // 3. 新たに5秒後(計10秒時点)に閉じるタイマーをセット
             card._timeoutId = setTimeout(() => {
                 card.classList.remove('show-detail');
                 card._timeoutId = null;
             }, 5000);
         });
+    },
+
+    // Helper to trigger button active state for mobile
+    triggerButtonAnim: (btn) => {
+        btn.classList.add('is-active');
+        setTimeout(() => {
+            btn.classList.remove('is-active');
+        }, 500);
     }
 };
 
@@ -599,10 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('refresh-btn').addEventListener('click', () => {
         MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
         mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
-        
         MapModule.updateRadar();
-        
-        const btn = document.getElementById('refresh-btn');
     });
 
     document.getElementById('ai-suggest-btn').addEventListener('click', () => {
