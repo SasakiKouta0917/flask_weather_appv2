@@ -49,11 +49,12 @@ function getWeatherIconClass(code) {
 }
 
 // ==========================================
-// Time Module (New)
+// Time Module (Updated)
 // ==========================================
 const TimeModule = {
     lastUpdated: null,
     intervalId: null,
+    hasTriggeredAutoShow: false, // 5秒アニメーション実行済みフラグ
 
     init: () => {
         TimeModule.lastUpdated = new Date();
@@ -62,6 +63,7 @@ const TimeModule = {
 
     reset: () => {
         TimeModule.lastUpdated = new Date();
+        TimeModule.hasTriggeredAutoShow = false; // フラグリセット
         TimeModule.updateDisplay();
     },
 
@@ -75,17 +77,20 @@ const TimeModule = {
         const diffMs = now - TimeModule.lastUpdated;
         const diffSec = Math.floor(diffMs / 1000);
 
+        // ★ 5秒経過時のアニメーション発火
+        if (diffSec === 5 && !TimeModule.hasTriggeredAutoShow) {
+            TimeModule.hasTriggeredAutoShow = true;
+            ThemeModule.triggerAutoShow();
+        }
+
         let text = "";
         
         if (diffSec < 60) {
-            // 59秒まで: XX秒 (ゼロ埋め)
             text = `前回の更新から ${String(diffSec).padStart(2, '0')}秒`;
         } else if (diffSec < 3600) {
-            // 59分まで: XX分
             const min = Math.floor(diffSec / 60);
             text = `前回の更新から ${String(min).padStart(2, '0')}分`;
         } else {
-            // 1時間以上: XX時間
             const hour = Math.floor(diffSec / 3600);
             text = `前回の更新から ${String(hour).padStart(2, '0')}時間`;
         }
@@ -503,11 +508,11 @@ const AIModule = {
 };
 
 // ==========================================
-// 5. Theme & Interaction Module
+// 5. Theme & Interaction Module (Updated)
 // ==========================================
 const ThemeModule = {
     init: () => {
-        // TimeModule初期化を追加
+        // Init time module
         TimeModule.init();
 
         const toggleBtn = document.getElementById('theme-toggle-btn');
@@ -541,25 +546,45 @@ const ThemeModule = {
 
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
-            let timeoutId;
+            card._timeoutId = null; // Initialize property
 
             card.addEventListener('click', () => {
                 if (card.classList.contains('show-detail')) {
                     card.classList.remove('show-detail');
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        timeoutId = null;
+                    if (card._timeoutId) {
+                        clearTimeout(card._timeoutId);
+                        card._timeoutId = null;
                     }
                 } 
                 else {
                     card.classList.add('show-detail');
-                    if (timeoutId) clearTimeout(timeoutId);
-                    timeoutId = setTimeout(() => {
+                    // Clear existing timer if any
+                    if (card._timeoutId) clearTimeout(card._timeoutId);
+                    // Set new 3s timer
+                    card._timeoutId = setTimeout(() => {
                         card.classList.remove('show-detail');
-                        timeoutId = null;
+                        card._timeoutId = null;
                     }, 3000);
                 }
             });
+        });
+    },
+
+    // ★ 5秒経過時に自動発火する関数
+    triggerAutoShow: () => {
+        const cards = document.querySelectorAll('.interactive-card');
+        cards.forEach(card => {
+            // 1. 強制的に開く
+            card.classList.add('show-detail');
+            
+            // 2. 既存のタイマー（3秒で閉じる予定のもの等）があればクリア
+            if (card._timeoutId) clearTimeout(card._timeoutId);
+
+            // 3. 新たに5秒後(計10秒時点)に閉じるタイマーをセット
+            card._timeoutId = setTimeout(() => {
+                card.classList.remove('show-detail');
+                card._timeoutId = null;
+            }, 5000);
         });
     }
 };
