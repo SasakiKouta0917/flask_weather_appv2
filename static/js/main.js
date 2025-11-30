@@ -49,12 +49,12 @@ function getWeatherIconClass(code) {
 }
 
 // ==========================================
-// Time Module (Updated)
+// Time Module
 // ==========================================
 const TimeModule = {
     lastUpdated: null,
     intervalId: null,
-    hasTriggeredAutoShow: false, // 5秒アニメーション実行済みフラグ
+    hasTriggeredAutoShow: false,
 
     init: () => {
         TimeModule.lastUpdated = new Date();
@@ -63,7 +63,7 @@ const TimeModule = {
 
     reset: () => {
         TimeModule.lastUpdated = new Date();
-        TimeModule.hasTriggeredAutoShow = false; // フラグリセット
+        TimeModule.hasTriggeredAutoShow = false;
         TimeModule.updateDisplay();
     },
 
@@ -77,7 +77,6 @@ const TimeModule = {
         const diffMs = now - TimeModule.lastUpdated;
         const diffSec = Math.floor(diffMs / 1000);
 
-        // ★ 5秒経過時のアニメーション発火
         if (diffSec === 5 && !TimeModule.hasTriggeredAutoShow) {
             TimeModule.hasTriggeredAutoShow = true;
             ThemeModule.triggerAutoShow();
@@ -178,14 +177,13 @@ const WeatherModule = {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
-            const dynamicUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
-            const dynamicRes = await fetch(dynamicUrl);
-            const dynamicData = await dynamicRes.json();
+            // Combine all data requests into one dynamic call for the selected location
+            // forecast_days=8 to include weekly data
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
+            const weatherRes = await fetch(weatherUrl);
+            const weatherData = await weatherRes.json();
 
-            const fixedUrl = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.defaultLat}&longitude=${CONFIG.defaultLng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
-            const fixedRes = await fetch(fixedUrl);
-            const fixedData = await fixedRes.json();
-
+            // Geocoding
             let locationName = "指定地点";
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
 
@@ -203,7 +201,8 @@ const WeatherModule = {
                 }
             }
 
-            WeatherModule.updateUI(locationName, dynamicData, fixedData);
+            // Pass the single data object
+            WeatherModule.updateUI(locationName, weatherData);
             
         } catch (error) {
             console.error("Weather fetch error:", error);
@@ -213,11 +212,10 @@ const WeatherModule = {
         }
     },
 
-    updateUI: (locationName, dynamicData, fixedData) => {
-        const current = dynamicData.current;
-        const hourly = dynamicData.hourly;
-        const dailyCurrent = dynamicData.daily;
-        const weeklyDaily = fixedData.daily;
+    updateUI: (locationName, data) => {
+        const current = data.current;
+        const hourly = data.hourly;
+        const daily = data.daily; // Contains 8 days of data for selected location
 
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
@@ -227,20 +225,22 @@ const WeatherModule = {
             humidity: current.relative_humidity_2m,
             precipitation: current.precipitation,
             weather: weatherDesc,
-            temp_max: dailyCurrent.temperature_2m_max[0],
-            temp_min: dailyCurrent.temperature_2m_min[0],
+            temp_max: daily.temperature_2m_max[0],
+            temp_min: daily.temperature_2m_min[0],
             pressure: current.surface_pressure
         };
 
+        // Basic Info Update
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
         document.getElementById('current-rain').innerText = `${current.precipitation}mm`;
         document.getElementById('current-weather-desc').innerText = weatherDesc;
         
-        document.getElementById('temp-max').innerText = dailyCurrent.temperature_2m_max[0];
-        document.getElementById('temp-min').innerText = dailyCurrent.temperature_2m_min[0];
+        document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
+        document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
 
+        // Detailed Card Info
         document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
 
         const now = new Date();
@@ -280,10 +280,13 @@ const WeatherModule = {
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
-        // リセット呼び出し
+        // Reset timer
         TimeModule.reset();
 
-        WeatherModule.renderWeeklyForecast(weeklyDaily);
+        // Render Weekly Forecast (Using dynamic daily data)
+        WeatherModule.renderWeeklyForecast(daily);
+        
+        // Render Chart
         ChartModule.render(hourly);
     },
 
@@ -508,7 +511,7 @@ const AIModule = {
 };
 
 // ==========================================
-// 5. Theme & Interaction Module (Updated)
+// 5. Theme & Interaction Module
 // ==========================================
 const ThemeModule = {
     init: () => {
