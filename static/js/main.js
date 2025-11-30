@@ -49,6 +49,55 @@ function getWeatherIconClass(code) {
 }
 
 // ==========================================
+// Time Module (New)
+// ==========================================
+const TimeModule = {
+    lastUpdated: null,
+    intervalId: null,
+
+    init: () => {
+        TimeModule.lastUpdated = new Date();
+        TimeModule.startTimer();
+    },
+
+    reset: () => {
+        TimeModule.lastUpdated = new Date();
+        TimeModule.updateDisplay();
+    },
+
+    startTimer: () => {
+        if (TimeModule.intervalId) clearInterval(TimeModule.intervalId);
+        TimeModule.intervalId = setInterval(TimeModule.updateDisplay, 1000);
+    },
+
+    updateDisplay: () => {
+        const now = new Date();
+        const diffMs = now - TimeModule.lastUpdated;
+        const diffSec = Math.floor(diffMs / 1000);
+
+        let text = "";
+        
+        if (diffSec < 60) {
+            // 59秒まで: XX秒 (ゼロ埋め)
+            text = `前回の更新から ${String(diffSec).padStart(2, '0')}秒`;
+        } else if (diffSec < 3600) {
+            // 59分まで: XX分
+            const min = Math.floor(diffSec / 60);
+            text = `前回の更新から ${String(min).padStart(2, '0')}分`;
+        } else {
+            // 1時間以上: XX時間
+            const hour = Math.floor(diffSec / 3600);
+            text = `前回の更新から ${String(hour).padStart(2, '0')}時間`;
+        }
+
+        const timerEl = document.getElementById('update-timer');
+        if (timerEl) {
+            timerEl.innerText = text;
+        }
+    }
+};
+
+// ==========================================
 // 1. Map Module
 // ==========================================
 const MapModule = {
@@ -226,6 +275,9 @@ const WeatherModule = {
             document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
+        // リセット呼び出し
+        TimeModule.reset();
+
         WeatherModule.renderWeeklyForecast(weeklyDaily);
         ChartModule.render(hourly);
     },
@@ -249,7 +301,6 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
-            // 修正: 降水確率を中央揃え、気温幅を短縮
             html += `
                 <div class="flex items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
                     <div class="w-16 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
@@ -327,7 +378,6 @@ const ChartModule = {
                             anchor: 'end',
                             offset: 6,
                             color: textColor,
-                            // 修正: フォントサイズを拡大 (12)
                             font: { size: 12, weight: 'bold' },
                             formatter: (value, context) => {
                                 const index = context.dataIndex;
@@ -457,6 +507,9 @@ const AIModule = {
 // ==========================================
 const ThemeModule = {
     init: () => {
+        // TimeModule初期化を追加
+        TimeModule.init();
+
         const toggleBtn = document.getElementById('theme-toggle-btn');
         const btnText = document.getElementById('theme-btn-text');
         
