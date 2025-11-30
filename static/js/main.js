@@ -249,8 +249,7 @@ const WeatherModule = {
             const iconClass = getWeatherIconClass(code);
             const weatherName = CONFIG.wmoCodes[code] || '-';
 
-            // 修正: 気温部分のHTML構造変更 (固定幅で整列)
-            // w-28 の中に、w-8(min) / w-6(slash) / w-8(max) を配置して位置ずれを防止
+            // 修正: 降水確率を中央揃え、気温幅を短縮
             html += `
                 <div class="flex items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
                     <div class="w-16 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
@@ -262,14 +261,14 @@ const WeatherModule = {
                         <span class="text-xs text-gray-500 dark:text-slate-400 truncate">${weatherName}</span>
                     </div>
 
-                    <div class="w-16 text-right">
+                    <div class="w-16 text-center">
                         <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
                     </div>
 
-                    <div class="w-28 flex items-center justify-end text-sm">
-                        <span class="w-8 text-right text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
-                        <span class="w-6 text-center text-gray-300 dark:text-slate-600">/</span>
-                        <span class="w-8 text-right text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
+                    <div class="w-16 flex items-center justify-end text-sm">
+                        <span class="w-5 text-right text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
+                        <span class="w-3 text-center text-gray-300 dark:text-slate-600">/</span>
+                        <span class="w-5 text-right text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
                     </div>
                 </div>
             `;
@@ -328,7 +327,8 @@ const ChartModule = {
                             anchor: 'end',
                             offset: 6,
                             color: textColor,
-                            font: { size: 10, weight: 'bold' },
+                            // 修正: フォントサイズを拡大 (12)
+                            font: { size: 12, weight: 'bold' },
                             formatter: (value, context) => {
                                 const index = context.dataIndex;
                                 if (index === 0) return CONFIG.wmoCodes[weatherCodes[index]];
