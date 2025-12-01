@@ -58,7 +58,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Interactive Card Animation Styles
+   Interactive Card Animation Styles (Mobile Fix)
    ========================================== */
 
 /* カードごとの配色変数定義 */
@@ -106,24 +106,15 @@
     border-radius: 0 100% 0 0;
 }
 
-/* --- ホバー/アクティブ時の拡大 --- */
-.show-detail::before,
-.show-detail::after,
-.interactive-card:hover::before,
-.interactive-card:hover::after {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-}
-
-/* --- コンテンツの表示制御 --- */
+/* --- アニメーション共通設定 (通常時) --- */
 
 /* 表面 (Front) */
 .view-front {
     position: relative;
     z-index: 10;
     opacity: 1;
-    transform: translate(0px, 0px);
+    transform: translate3d(0, 0, 0);
+    /* 戻る時 */
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
@@ -136,40 +127,88 @@
     height: 100%;
     z-index: 20;
     opacity: 0;
-    transform: translate(0px, 20px);
+    transform: translate3d(0, 20px, 0);
     pointer-events: none;
+    /* 戻る時 */
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
-/* アニメーション発火時 */
-.show-detail .view-front,
-.interactive-card:hover .view-front {
-    opacity: 0;
-    transform: translate(0px, -20px);
+/* --- アニメーション発火時 (JSクラス .show-detail) --- */
+/* スマホ・PC共通で動作する（クリック時） */
+
+/* 背景拡大 */
+.show-detail::before,
+.show-detail::after {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
 }
 
-.show-detail .view-back,
-.interactive-card:hover .view-back {
+/* 表面: 上に消える */
+.show-detail .view-front {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0) !important;
+}
+
+/* 裏面: 下から現れる */
+.show-detail .view-back {
     opacity: 1;
-    transform: translate(0px, 0px);
+    transform: translate3d(0, 0, 0) !important;
     pointer-events: auto;
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
 
-.show-detail .view-back *,
-.interactive-card:hover .view-back * {
+/* 文字色強制白 */
+.show-detail .view-back * {
+    color: #ffffff !important;
+}
+/* アイコン強制白 */
+.show-detail > div:first-child i {
     color: #ffffff !important;
 }
 
+
+/* --- アニメーション発火時 (ホバー) --- */
+/* ★重要: マウスがある環境でのみ有効にする（スマホでの誤作動防止） */
+@media (hover: hover) {
+    
+    /* 背景拡大 */
+    .interactive-card:hover::before,
+    .interactive-card:hover::after {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+
+    /* 表面: 上に消える */
+    .interactive-card:hover .view-front {
+        opacity: 0;
+        transform: translate3d(0, -20px, 0) !important;
+    }
+
+    /* 裏面: 下から現れる */
+    .interactive-card:hover .view-back {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) !important;
+        pointer-events: auto;
+        transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+    }
+    
+    /* 文字色強制白 */
+    .interactive-card:hover .view-back * {
+        color: #ffffff !important;
+    }
+    /* アイコン強制白 */
+    .interactive-card:hover > div:first-child i {
+        color: #ffffff !important;
+    }
+}
+
+/* アイコンの色変化トランジション */
 .interactive-card > div:first-child i {
     transition: color 0.2s ease;
     position: relative;
     z-index: 30;
-}
-
-.show-detail > div:first-child i,
-.interactive-card:hover > div:first-child i {
-    color: #ffffff !important;
 }
 
 
@@ -180,6 +219,7 @@
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease 0s;
 }
+
 /* PCのみホバー適用 */
 @media (hover: hover) {
     .btn-float-anim:hover {
