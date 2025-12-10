@@ -443,7 +443,7 @@ const AIModule = {
         const customScene = document.getElementById('scene-custom-input').value.trim();
         const gender = document.getElementById('gender-select').value;
         
-        // モード判定 (修正: querySelectorで確実に取得)
+        // モード判定
         const selectedMode = document.querySelector('input[name="proposal-mode"]:checked');
         const mode = selectedMode ? selectedMode.value : 'simple';
 
@@ -547,7 +547,7 @@ const ThemeModule = {
             });
         }
 
-        // --- モード切替時の表示制御 (修正版) ---
+        // --- モード切替時の表示制御 ---
         const modeRadios = document.querySelectorAll('input[name="proposal-mode"]');
         const detailedInputs = document.getElementById('detailed-inputs');
 
@@ -564,7 +564,6 @@ const ThemeModule = {
             radio.addEventListener('change', updateInputs);
         });
         
-        // 初期化時にも実行
         updateInputs();
 
 
@@ -580,9 +579,6 @@ const ThemeModule = {
             }
         });
 
-        // -----------------------------------------------------
-        // Interactive Card Click Logic (Toggle & 3s Auto-Close)
-        // -----------------------------------------------------
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
             card._timeoutId = null;
@@ -606,12 +602,14 @@ const ThemeModule = {
             });
         });
 
-        // --- Scroll to Top Logic ---
+        // --- Scroll to Top Logic (Relaxed Condition) ---
         const scrollBtn = document.getElementById('scroll-to-top');
         if (scrollBtn) {
             window.addEventListener('scroll', () => {
                 const scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-                if (scrollBottom < 100) {
+                
+                // 修正: 判定を緩和 (100 -> 300)
+                if (scrollBottom < 300) {
                     scrollBtn.classList.add('show');
                 } else {
                     scrollBtn.classList.remove('show');
