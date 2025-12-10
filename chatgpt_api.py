@@ -5,8 +5,8 @@ import json
 # APIキーの設定（環境変数から読み込み）
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
-def suggest_outfit(weather, scene="通学"):
-    # ユーザーから渡された天気情報を展開
+def suggest_outfit(weather, options):
+    # 天気情報の展開
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
     temp_min = weather.get("temp_min")
@@ -14,59 +14,84 @@ def suggest_outfit(weather, scene="通学"):
     humidity = weather.get("humidity")
     precipitation = weather.get("precipitation")
     
-    prompt = f"""
-以下の天気情報と利用シーンをもとに、その日に適した服装を日本語で提案してください。
+    # オプション情報の展開
+    mode = options.get("mode")
+    scene = options.get("scene") or "特になし"
+    gender = options.get("gender")
+    preference = options.get("preference") or "特になし"
+    wardrobe = options.get("wardrobe") or "特になし"
 
+    # 性別・スタイルの表示用文字列
+    gender_str = "指定なし（ユニセックス）"
+    if gender == "mens": gender_str = "メンズ"
+    if gender == "ladies": gender_str = "レディース"
+
+    # --- プロンプト構築 ---
+    
+    # 共通部分
+    base_info = f"""
 # 天気情報
-- 現在の天気: {weather_desc}
-- 現在の気温: {temp}℃
-- 最高気温: {temp_max}℃
-- 最低気温: {temp_min}℃
+- 天気: {weather_desc}
+- 気温: {temp}℃ (最高:{temp_max}℃ / 最低:{temp_min}℃)
 - 湿度: {humidity}%
 - 降水量: {precipitation}mm
 
-# 利用シーン
-- {scene}
-
-# 条件
-1. 上記の天気情報と利用シーンを考慮して、その日に適した服装を提案してください。
-- 気温が低い場合は、防寒対策を提案してください。
-- 気温が高い場合は、涼しい服装を提案してください。
-- 雨が予想される場合は、雨具や防水対策を提案してください。
-
-2. 提案する服装は以下のカテゴリを考慮したトータルコーディネートにしてください：
-- 上着
-- インナー
-- ボトム
-- アクセサリー（例: 帽子、マフラー、日傘など）
-- 靴
-
-3. 出力形式は以下の通り、**JSON形式**で出力してください。
-項目を分けず、朝・昼・夜の気温変化や天候を考慮した**ひとつのまとまった提案文章（300文字程度）**にしてください：
-
-{{
-  "suggestion": "ここに、その日の天候や気温の変化を踏まえた具体的な服装提案やアドバイスを、ひとつの文章としてまとめて記述してください。"
-}}
-
-# 補足
-- 指示の復唱はしないでください。
-- 自己評価はしないでください。
-- 最終成果物（JSON）以外は出力しないでください。
-- 出力結果をダブルクォーテーション("")で囲わないでください。
+# 基本条件
+- 利用シーン: {scene}
+- スタイル対象: {gender_str}
 """
+
+    # モード別指示
+    if mode == "detailed":
+        # 詳細提案モード
+        instruction = f"""
+# ユーザーの要望データ
+- **着たい服・気分**: {preference}
+- **手持ちの服リスト**: {wardrobe}
+
+# 指示
+1. ユーザーの「着たい服」を可能な限り取り入れたコーディネートを考えてください。
+2. 「手持ちの服リスト」にあるアイテムを優先的に組み合わせてください。リストにないアイテムが必要な場合は「買い足し推奨」や「あれば良いもの」として提案してください。
+3. 天気（特に気温や雨）を考慮し、快適に過ごせる工夫を具体的にアドバイスしてください。
+4. アイテム名は具体的に挙げて提案してください。
+"""
+    else:
+        # おまかせ提案モード (デフォルト)
+        instruction = f"""
+# 指示
+1. 天気情報と利用シーンから、最適な服装の「方向性」を提案してください。
+2. **具体的な商品名やピンポイントな色・形（例：「ユニクロの黒ダウン」など）は避けてください。**
+3. 代わりに「厚手の防寒アウター」「風を通さない素材」「明るい色味のトップス」のように、**抽象的かつ機能性や雰囲気を重視した表現**で提案してください。
+4. ユーザーが自分のクローゼットから服を選びやすくなるような、道しるべとなるアドバイスにしてください。
+"""
+
+    # 共通の出力フォーマット指示
+    format_instruction = """
+# 出力形式
+以下のJSON形式で出力してください。項目を分けず、時間帯（朝・昼・夜）の変化やまとめを含めた**ひとつのまとまった提案文章（400文字程度）**にしてください。
+
+{
+  "suggestion": "ここに提案文章を記述..."
+}
+
+# 制約
+- 指示の復唱はしない。
+- JSON以外の余計な文字は出力しない。
+"""
+
+    prompt = base_info + instruction + format_instruction
 
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "あなたは天気に応じた服装を提案するアシスタントです。"},
+                {"role": "system", "content": "あなたはプロのスタイリストAIです。気象条件とTPOに合わせた最適な服装を提案します。"},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7
         )
 
         content = response.choices[0].message.content.strip()
-        # 万が一Markdown記法が含まれていた場合のクリーンアップ
         clean_json = content.replace("```json", "").replace("```", "").strip()
         suggestions = json.loads(clean_json)
 
@@ -77,10 +102,9 @@ def suggest_outfit(weather, scene="通学"):
 
     except Exception as e:
         print(f"Error in chatgpt_api: {e}")
-        # エラー時はダミーデータを返す
         return {
             "type": "dummy",
             "suggestions": {
-                "suggestion": "通信エラーが発生したため、AIからの提案を取得できませんでした。天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。(ダミーデータ表示中)"
+                "suggestion": "通信エラーが発生しました。天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。(ダミーデータ)"
             }
         }
