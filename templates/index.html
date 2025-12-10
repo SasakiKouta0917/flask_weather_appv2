@@ -8,14 +8,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class', // クラス切り替えでダークモードを制御
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        slate: {
-                            850: '#1e293b', // 少し明るめのダーク背景用
-                            900: '#0f172a', // メインダーク背景
-                        }
+                        slate: { 850: '#1e293b', 900: '#0f172a' }
                     }
                 }
             }
@@ -52,7 +49,6 @@
                 <div id="map-loading" class="absolute inset-0 bg-white/80 dark:bg-slate-800/80 z-20 flex justify-center items-center hidden">
                     <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
-                <!-- 操作ガイドラベルは削除済み -->
             </section>
 
             <!-- Right: Weather Info & Graph -->
@@ -82,25 +78,22 @@
                     </div>
 
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-center" id="current-weather-box">
-                        
-                        <!-- 1. 現在気温カード -->
+                        <!-- 1. 現在気温 -->
                         <div id="temp-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-blue-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-blue-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
                             <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
                                 <i class="fa-solid fa-temperature-three-quarters text-blue-500 dark:text-blue-400 text-lg md:text-xl"></i>
                             </div>
-                            <!-- Front -->
                             <div class="view-front absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center">
                                 <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">現在気温</p>
                                 <p class="font-bold text-lg md:text-xl dark:text-slate-100" id="current-temp">--℃</p>
                             </div>
-                            <!-- Back -->
                             <div class="view-back absolute inset-0 flex flex-col justify-end pb-2 md:pb-3 items-center">
                                 <p class="text-[10px] md:text-xs text-gray-500 dark:text-slate-400">現在気圧</p>
                                 <p class="font-bold text-base md:text-lg text-gray-700 dark:text-slate-100" id="card-pressure">--hPa</p>
                             </div>
                         </div>
 
-                        <!-- 2. 湿度カード -->
+                        <!-- 2. 湿度 -->
                         <div id="humid-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-cyan-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-cyan-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
                             <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
                                 <i class="fa-solid fa-droplet text-cyan-500 dark:text-cyan-400 text-lg md:text-xl"></i>
@@ -121,7 +114,7 @@
                             </div>
                         </div>
 
-                        <!-- 3. 降水量カード -->
+                        <!-- 3. 降水量 -->
                         <div id="rain-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-indigo-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
                             <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
                                 <i class="fa-solid fa-cloud-rain text-indigo-500 dark:text-indigo-400 text-lg md:text-xl"></i>
@@ -138,7 +131,7 @@
                             </div>
                         </div>
 
-                        <!-- 4. 天気カード -->
+                        <!-- 4. 天気 -->
                         <div id="weather-card-container" class="interactive-card relative overflow-hidden p-2 md:p-3 bg-orange-50 dark:bg-slate-700/50 rounded-lg transition hover:bg-orange-100 dark:hover:bg-slate-700 cursor-pointer group h-[88px] md:h-[96px]">
                             <div class="absolute top-2 left-0 right-0 z-10 pointer-events-none">
                                 <i class="fa-solid fa-sun text-orange-500 dark:text-orange-400 text-lg md:text-xl"></i>
@@ -174,24 +167,68 @@
 
         <!-- ■■■ 下段セクション ■■■ -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
+            
             <!-- Left: AI Outfit Suggestion -->
             <div class="lg:col-span-5 bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-purple-500 dark:border-l-purple-600 flex flex-col fade-in-up delay-3 transition-colors duration-300 shadow-sm h-full min-h-[400px]">
+                
+                <!-- Title & Button -->
                 <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3 sm:gap-0">
                     <h3 class="font-bold text-base md:text-lg text-gray-700 dark:text-slate-200 w-full sm:w-auto"><i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> AI服装提案</h3>
                     <button id="ai-suggest-btn" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-full font-bold btn-float-anim disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base">
                         <i class="fa-solid fa-robot"></i> AI服装提案を取得
                     </button>
                 </div>
-                <!-- Scene Selector -->
-                <div class="mb-4">
-                    <label class="text-xs md:text-sm text-gray-500 dark:text-slate-400 block mb-1">利用シーン:</label>
-                    <select id="scene-select" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-gray-50 dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition mb-2">
-                        <option value="通学">通学</option>
-                        <option value="散歩">散歩</option>
-                        <option value="その他">その他</option>
-                    </select>
-                    <input type="text" id="scene-custom-input" placeholder="具体的なシーンを入力 (例: 旅行、ライブ)" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-600 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition hidden">
+
+                <!-- Settings Area -->
+                <div class="space-y-4 mb-4">
+                    
+                    <!-- 1. Proposal Method (Radio) -->
+                    <div class="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border border-gray-200 dark:border-slate-600">
+                        <label class="text-xs text-gray-500 dark:text-slate-400 font-bold mb-2 block">提案方法の変更</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="proposal-mode" value="simple" checked class="text-purple-600 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-500">
+                                <span class="text-sm text-gray-700 dark:text-slate-200">おまかせ</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="proposal-mode" value="detailed" class="text-purple-600 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-500">
+                                <span class="text-sm text-gray-700 dark:text-slate-200">詳細</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 2. Basic Inputs -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Scene -->
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-slate-400 block mb-1">利用シーン</label>
+                            <input type="text" id="scene-input" placeholder="例: 通学、デート" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition">
+                        </div>
+                        <!-- Style/Gender (New Feature ④) -->
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-slate-400 block mb-1">性別・スタイル</label>
+                            <select id="gender-select" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition">
+                                <option value="unspecified">指定なし</option>
+                                <option value="mens">メンズ</option>
+                                <option value="ladies">レディース</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 3. Detailed Inputs (Hidden by default) -->
+                    <div id="detailed-inputs" class="space-y-3 hidden">
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-slate-400 block mb-1">着ていきたい服装・気分</label>
+                            <input type="text" id="preference-input" placeholder="例: 白いニット、動きやすい服" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-slate-400 block mb-1">手持ちの服（服装一覧）</label>
+                            <textarea id="wardrobe-input" rows="2" placeholder="例: 黒ダウン、デニム、ベージュのチノパン" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition"></textarea>
+                        </div>
+                    </div>
+
                 </div>
+
                 <!-- Result Area -->
                 <div id="ai-result-area" class="space-y-4 flex-grow flex flex-col overflow-y-auto max-h-[500px]">
                     <div class="bg-gray-50 dark:bg-slate-700/30 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 md:p-8 text-center text-sm md:text-base text-gray-400 dark:text-slate-500 h-full flex items-center justify-center flex-grow transition duration-500 min-h-[150px]">
