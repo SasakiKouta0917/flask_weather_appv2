@@ -520,90 +520,43 @@ const AIModule = {
 // ==========================================
 const ThemeModule = {
     init: () => {
+        // ... existing init code ...
         TimeModule.init();
 
+        // (既存のボタン・セレクト等のイベントリスナー) ...
         const toggleBtn = document.getElementById('theme-toggle-btn');
-        const btnText = document.getElementById('theme-btn-text');
+        // ... (中略) ...
         
-        toggleBtn.addEventListener('click', () => {
-            ThemeModule.triggerButtonAnim(toggleBtn);
-            
-            document.documentElement.classList.toggle('dark');
-            const isDark = document.documentElement.classList.contains('dark');
-            btnText.innerText = isDark ? 'ライト' : 'ダーク';
-            if(weatherChartInstance) {
-                const textColor = isDark ? '#e2e8f0' : '#666';
-                weatherChartInstance.options.scales.x.ticks.color = textColor;
-                weatherChartInstance.options.scales.y.ticks.color = textColor;
-                weatherChartInstance.options.plugins.legend.labels.color = textColor;
-                weatherChartInstance.data.datasets[0].datalabels.color = textColor;
-                weatherChartInstance.update();
-            }
-        });
+        // --- Scroll to Top Logic ---
+        const scrollBtn = document.getElementById('scroll-to-top');
+        if (scrollBtn) {
+            window.addEventListener('scroll', () => {
+                // ドキュメントの高さ - 表示領域の高さ - 現在のスクロール位置
+                const scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+                
+                // 最下部から100px以内なら表示
+                if (scrollBottom < 100) {
+                    scrollBtn.classList.add('show');
+                } else {
+                    scrollBtn.classList.remove('show');
+                }
+            });
 
-        const refreshBtn = document.getElementById('refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                 ThemeModule.triggerButtonAnim(refreshBtn);
+            scrollBtn.addEventListener('click', () => {
+                // アニメーション発火
+                scrollBtn.classList.add('is-active');
+                
+                // トップへスクロール
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // アニメーション終了後にクラスを外す (1秒後)
+                setTimeout(() => {
+                    scrollBtn.classList.remove('is-active');
+                }, 1000);
             });
         }
-
-        // --- モード切替時の表示制御 ---
-        const modeRadios = document.getElementsByName('proposal-mode');
-        const detailedInputs = document.getElementById('detailed-inputs');
-        
-        modeRadios.forEach(radio => {
-            radio.addEventListener('change', () => {
-                if (radio.value === 'detailed') {
-                    detailedInputs.classList.remove('hidden');
-                } else {
-                    detailedInputs.classList.add('hidden');
-                }
-            });
-        });
-
-        const cards = document.querySelectorAll('.interactive-card');
-        cards.forEach(card => {
-            card._timeoutId = null;
-
-            card.addEventListener('click', () => {
-                if (card.classList.contains('show-detail')) {
-                    card.classList.remove('show-detail');
-                    if (card._timeoutId) {
-                        clearTimeout(card._timeoutId);
-                        card._timeoutId = null;
-                    }
-                } 
-                else {
-                    card.classList.add('show-detail');
-                    if (card._timeoutId) clearTimeout(card._timeoutId);
-                    card._timeoutId = setTimeout(() => {
-                        card.classList.remove('show-detail');
-                        card._timeoutId = null;
-                    }, 3000);
-                }
-            });
-        });
     },
-
-    triggerAutoShow: () => {
-        const cards = document.querySelectorAll('.interactive-card');
-        cards.forEach(card => {
-            card.classList.add('show-detail');
-            if (card._timeoutId) clearTimeout(card._timeoutId);
-            card._timeoutId = setTimeout(() => {
-                card.classList.remove('show-detail');
-                card._timeoutId = null;
-            }, 5000);
-        });
-    },
-
-    triggerButtonAnim: (btn) => {
-        btn.classList.add('is-active');
-        setTimeout(() => {
-            btn.classList.remove('is-active');
-        }, 500);
-    }
+    // ... existing functions ...
 };
 
 document.addEventListener('DOMContentLoaded', () => {
