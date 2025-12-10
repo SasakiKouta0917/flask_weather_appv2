@@ -44,7 +44,7 @@
     <main class="flex-grow p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 lg:grid-flow-row-dense gap-4 md:gap-6 w-full max-w-[1600px] mx-auto items-start">
         
         <!-- 1. Map -->
-        <!-- PC: 高さ自動追従 (lg:h-full) -->
+        <!-- PC: 高さ自動追従 -->
         <section class="order-1 lg:order-1 lg:col-span-5 lg:row-span-2 relative bg-white dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 fade-in-up transition-colors duration-300 shadow-sm flex flex-col h-[300px] lg:h-full min-h-[300px]">
             <div id="map" class="flex-grow w-full z-10 transition-all duration-300"></div>
             <div id="map-loading" class="absolute inset-0 bg-white/80 dark:bg-slate-800/80 z-20 flex justify-center items-center hidden">
@@ -65,12 +65,12 @@
                     <span id="update-timer" class="text-[10px] md:text-xs text-gray-400 dark:text-slate-500 mr-2 font-mono whitespace-nowrap">
                         前回の更新から 00秒
                     </span>
-                    <button id="theme-toggle-btn" class="theme-toggle-anim px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 shadow-sm transform active:scale-95">
+                    <button id="theme-toggle-btn" class="ripple-btn theme-btn px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 shadow-sm transform active:scale-95">
                         <i class="fa-solid fa-moon dark:hidden"></i>
                         <i class="fa-solid fa-sun hidden dark:inline"></i>
                         <span id="theme-btn-text" class="whitespace-nowrap">ダーク</span>
                     </button>
-                    <button id="refresh-btn" class="refresh-btn-anim px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 transform active:scale-95 shadow-sm">
+                    <button id="refresh-btn" class="ripple-btn refresh-btn px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 transform active:scale-95 shadow-sm">
                         <i class="fa-solid fa-rotate-right"></i> <span class="whitespace-nowrap">更新</span>
                     </button>
                 </div>
@@ -213,7 +213,7 @@
         </div>
 
         <!-- 4. Weather Chart -->
-        <!-- PC: 高さ固定 316px (260 + 316 + gap 24 = 600px) -->
+        <!-- PC: 高さ固定 316px -->
         <div class="order-4 lg:order-3 lg:col-span-7 bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-600 fade-in-up delay-2 transition-colors duration-300 shadow-sm lg:h-[316px] flex flex-col">
             <h3 class="font-bold text-base md:text-lg mb-4 text-gray-700 dark:text-slate-200"><i class="fa-solid fa-chart-line text-blue-500"></i> 天候推移</h3>
             <div class="relative flex-grow w-full">
@@ -222,7 +222,7 @@
         </div>
 
         <!-- 5. Weekly Forecast -->
-        <!-- PC: 高さ固定 600px (AIカードと揃える) -->
+        <!-- PC: 高さ固定 600px -->
         <section class="order-5 lg:order-5 lg:col-span-7 bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-600 fade-in-up delay-2 transition-colors duration-300 shadow-sm lg:h-[600px] flex flex-col">
             <h3 class="font-bold text-base md:text-lg mb-3 text-gray-700 dark:text-slate-200 flex items-center gap-2 px-1 flex-shrink-0">
                 <i class="fa-regular fa-calendar-days text-blue-500"></i> 週間予報
