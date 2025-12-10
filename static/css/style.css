@@ -431,52 +431,113 @@ body::before {
 }
 
 /* ==========================================
-   Scroll to Top Button (Animation Removed)
+   Interactive Card Animation Styles (Final Fix for Mobile)
    ========================================== */
-#scroll-to-top {
-  /* 配置設定 */
-  position: fixed;
-  left: 0;
-  bottom: 20px;
-  z-index: 50;
-  
-  /* 表示切り替え用 (画面外へ) */
-  transform: translateX(-150%);
-  
-  /* デザインスタイル */
-  font-family: inherit;
-  font-size: 16px; /* 20pxから調整 */
-  background: royalblue;
-  color: white;
-  padding: 0.7em 1em;
-  padding-left: 0.9em;
-  display: flex;
-  align-items: center;
-  border: none;
-  /* 左端に付けるので角丸を右側のみに調整 (お好みで) */
-  border-radius: 0 16px 16px 0;
-  overflow: hidden;
-  transition: transform 0.3s ease-in-out, opacity 0.3s;
-  cursor: pointer;
-  opacity: 0.9;
+
+/* ... (colors definition remains same) ... */
+#temp-card-container    { --card-anim-color: #3b82f6; }
+#humid-card-container   { --card-anim-color: #06b6d4; }
+#rain-card-container    { --card-anim-color: #6366f1; }
+#weather-card-container { --card-anim-color: #f97316; }
+.dark #temp-card-container    { --card-anim-color: #2563eb; }
+.dark #humid-card-container   { --card-anim-color: #0891b2; }
+.dark #rain-card-container    { --card-anim-color: #4f46e5; }
+.dark #weather-card-container { --card-anim-color: #ea580c; }
+
+/* カード本体 */
+.interactive-card {
+    position: relative;
+    z-index: 1;
+    transition: none;
+    /* 重要: スマホでのタップハイライトを無効化して自前のアニメーションを見やすく */
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* 表示状態 */
-#scroll-to-top.show {
-  transform: translateX(0);
+/* 背景アニメーション (四隅) */
+.interactive-card::before,
+.interactive-card::after {
+    content: "";
+    position: absolute;
+    width: 0;
+    height: 0;
+    background-color: var(--card-anim-color);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 0; /* コンテンツ(10)より下 */
 }
 
-/* --- 内部要素のスタイル --- */
-#scroll-to-top span {
-  display: block;
-  margin-left: 0.3em;
+.interactive-card::before { top: 0; right: 0; border-radius: 0 0 0 100%; }
+.interactive-card::after { bottom: 0; left: 0; border-radius: 0 100% 0 0; }
+
+/* --- 拡大アニメーション (共通) --- */
+.show-detail::before,
+.show-detail::after {
+    width: 100%; height: 100%; border-radius: 0;
 }
 
-#scroll-to-top svg {
-  display: block;
+/* --- コンテンツ表示制御 --- */
+
+/* 表面 */
+.view-front {
+    position: relative;
+    z-index: 10;
+    width: 100%; height: 100%; /* クリック領域確保 */
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition: opacity 0.1s ease, transform 0.1s ease;
+    pointer-events: auto; /* 常にクリック可能 */
 }
 
-/* クリック瞬間の押し込み */
-#scroll-to-top:active {
-  transform: translateX(0) scale(0.95);
+/* 裏面 */
+.view-back {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 20;
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+    pointer-events: none; /* 非表示時はクリック透過 */
+    transition: opacity 0.1s ease, transform 0.1s ease;
 }
+
+/* --- アニメーション発火時 (.show-detail) --- */
+.show-detail .view-front {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0) !important;
+    pointer-events: none; /* 消えている時は裏面に譲る */
+}
+
+.show-detail .view-back {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) !important;
+    pointer-events: auto; /* 表示されたらクリック可能 */
+    transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+}
+
+/* 文字色・アイコン色強制白 */
+.show-detail .view-back *,
+.show-detail > div:first-child i {
+    color: #ffffff !important;
+}
+
+/* --- PCホバー設定 --- */
+@media (hover: hover) {
+    .interactive-card:hover::before,
+    .interactive-card:hover::after {
+        width: 100%; height: 100%; border-radius: 0;
+    }
+    .interactive-card:hover .view-front {
+        opacity: 0; transform: translate3d(0, -20px, 0) !important; pointer-events: none;
+    }
+    .interactive-card:hover .view-back {
+        opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
+        transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+    }
+    .interactive-card:hover .view-back *,
+    .interactive-card:hover > div:first-child i {
+        color: #ffffff !important;
+    }
+}
+
+/* ... (other button animations remain same) ... */
+
+/* ... (background pattern remains same) ... */
