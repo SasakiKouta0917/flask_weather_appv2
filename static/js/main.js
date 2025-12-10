@@ -443,7 +443,6 @@ const AIModule = {
         const customScene = document.getElementById('scene-custom-input').value.trim();
         const gender = document.getElementById('gender-select').value;
         
-        // モード判定
         const selectedMode = document.querySelector('input[name="proposal-mode"]:checked');
         const mode = selectedMode ? selectedMode.value : 'simple';
 
@@ -522,28 +521,31 @@ const ThemeModule = {
         TimeModule.init();
 
         const toggleBtn = document.getElementById('theme-toggle-btn');
-        const btnText = document.getElementById('theme-btn-text');
-        
-        toggleBtn.addEventListener('click', () => {
-            ThemeModule.triggerButtonAnim(toggleBtn);
-            
-            document.documentElement.classList.toggle('dark');
-            const isDark = document.documentElement.classList.contains('dark');
-            btnText.innerText = isDark ? 'ライト' : 'ダーク';
-            if(weatherChartInstance) {
-                const textColor = isDark ? '#e2e8f0' : '#666';
-                weatherChartInstance.options.scales.x.ticks.color = textColor;
-                weatherChartInstance.options.scales.y.ticks.color = textColor;
-                weatherChartInstance.options.plugins.legend.labels.color = textColor;
-                weatherChartInstance.data.datasets[0].datalabels.color = textColor;
-                weatherChartInstance.update();
-            }
-        });
+        if (toggleBtn) {
+            const btnText = document.getElementById('theme-btn-text');
+            toggleBtn.addEventListener('click', () => {
+                ThemeModule.triggerButtonAnim(toggleBtn);
+                
+                document.documentElement.classList.toggle('dark');
+                const isDark = document.documentElement.classList.contains('dark');
+                if (btnText) btnText.innerText = isDark ? 'ライト' : 'ダーク';
+                
+                if(weatherChartInstance) {
+                    const textColor = isDark ? '#e2e8f0' : '#666';
+                    weatherChartInstance.options.scales.x.ticks.color = textColor;
+                    weatherChartInstance.options.scales.y.ticks.color = textColor;
+                    weatherChartInstance.options.plugins.legend.labels.color = textColor;
+                    weatherChartInstance.data.datasets[0].datalabels.color = textColor;
+                    weatherChartInstance.update();
+                }
+            });
+        }
 
         const refreshBtn = document.getElementById('refresh-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
                  ThemeModule.triggerButtonAnim(refreshBtn);
+                 // Logic is handled in global listener
             });
         }
 
@@ -563,22 +565,21 @@ const ThemeModule = {
         modeRadios.forEach(radio => {
             radio.addEventListener('change', updateInputs);
         });
-        
-        // 初期化時にも実行
         updateInputs();
-
 
         const sceneSelect = document.getElementById('scene-select');
         const customInput = document.getElementById('scene-custom-input');
         
-        sceneSelect.addEventListener('change', () => {
-            if (sceneSelect.value === 'その他') {
-                customInput.classList.remove('hidden');
-                customInput.focus();
-            } else {
-                customInput.classList.add('hidden');
-            }
-        });
+        if (sceneSelect) {
+            sceneSelect.addEventListener('change', () => {
+                if (sceneSelect.value === 'その他') {
+                    customInput.classList.remove('hidden');
+                    customInput.focus();
+                } else {
+                    customInput.classList.add('hidden');
+                }
+            });
+        }
 
         // -----------------------------------------------------
         // Interactive Card Click Logic (Toggle & 3s Auto-Close)
@@ -588,8 +589,7 @@ const ThemeModule = {
             card._timeoutId = null;
 
             card.addEventListener('click', (e) => {
-                e.stopPropagation(); // 重要: バブリング防止
-                
+                // 親要素への伝播を止める必要はないが、明示的にクリックされたことを確認
                 if (card.classList.contains('show-detail')) {
                     card.classList.remove('show-detail');
                     if (card._timeoutId) {
@@ -634,7 +634,7 @@ const ThemeModule = {
             card._timeoutId = setTimeout(() => {
                 card.classList.remove('show-detail');
                 card._timeoutId = null;
-            }, 5000); // 5s after auto-show (total 10s mark)
+            }, 5000);
         });
     },
 
@@ -650,13 +650,19 @@ document.addEventListener('DOMContentLoaded', () => {
     MapModule.init();
     ThemeModule.init();
 
-    document.getElementById('refresh-btn').addEventListener('click', () => {
-        MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
-        mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
-        MapModule.updateRadar();
-    });
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
+            mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
+            MapModule.updateRadar();
+        });
+    }
 
-    document.getElementById('ai-suggest-btn').addEventListener('click', () => {
-        AIModule.suggestOutfit();
-    });
+    const aiBtn = document.getElementById('ai-suggest-btn');
+    if (aiBtn) {
+        aiBtn.addEventListener('click', () => {
+            AIModule.suggestOutfit();
+        });
+    }
 });
