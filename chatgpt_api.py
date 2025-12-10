@@ -27,8 +27,6 @@ def suggest_outfit(weather, options):
     if gender == "ladies": gender_str = "レディース"
 
     # --- プロンプト構築 ---
-    
-    # 共通部分
     base_info = f"""
 # 天気情報
 - 天気: {weather_desc}
@@ -41,9 +39,7 @@ def suggest_outfit(weather, options):
 - スタイル対象: {gender_str}
 """
 
-    # モード別指示
     if mode == "detailed":
-        # 詳細提案モード
         instruction = f"""
 # ユーザーの要望データ
 - **着たい服・気分**: {preference}
@@ -56,7 +52,6 @@ def suggest_outfit(weather, options):
 4. アイテム名は具体的に挙げて提案してください。
 """
     else:
-        # おまかせ提案モード (デフォルト)
         instruction = f"""
 # 指示
 1. 天気情報と利用シーンから、最適な服装の「方向性」を提案してください。
@@ -65,7 +60,6 @@ def suggest_outfit(weather, options):
 4. ユーザーが自分のクローゼットから服を選びやすくなるような、道しるべとなるアドバイスにしてください。
 """
 
-    # 共通の出力フォーマット指示
     format_instruction = """
 # 出力形式
 以下のJSON形式で出力してください。項目を分けず、時間帯（朝・昼・夜）の変化やまとめを含めた**ひとつのまとまった提案文章（400文字程度）**にしてください。
