@@ -4,8 +4,10 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    # タイムアウトを120秒に延長
-    startCommand: gunicorn app:app --timeout 120
+    # 修正: --bind 0.0.0.0:10000 を追加して、外部接続を受け付けるように変更
+    startCommand: gunicorn app:app --bind 0.0.0.0:10000 --timeout 120
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: PORT
+        value: 10000
