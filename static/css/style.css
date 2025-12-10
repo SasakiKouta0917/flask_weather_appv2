@@ -1,328 +1,29 @@
 /* カスタムスクロールバー */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-::-webkit-scrollbar-track {
-    background: #f1f1f1; 
-}
-::-webkit-scrollbar-thumb {
-    background: #888; 
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #555; 
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
 
-/* ダークモード時のスクロールバー */
-.dark ::-webkit-scrollbar-track {
-    background: #1e293b;
-}
-.dark ::-webkit-scrollbar-thumb {
-    background: #475569;
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
-}
+/* ダークモード設定 */
+.dark ::-webkit-scrollbar-track { background: #1e293b; }
+.dark ::-webkit-scrollbar-thumb { background: #475569; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-.leaflet-popup-content-wrapper {
-    border-radius: 8px;
-    font-family: 'Helvetica', 'Arial', sans-serif;
-}
-
-/* ダークモード時に地図の明るさを落とす */
-.dark .leaflet-layer,
-.dark .leaflet-control-zoom-in,
-.dark .leaflet-control-zoom-out,
-.dark .leaflet-control-attribution {
+.leaflet-popup-content-wrapper { border-radius: 8px; font-family: 'Helvetica', 'Arial', sans-serif; }
+.dark .leaflet-layer, .dark .leaflet-control-zoom-in, .dark .leaflet-control-zoom-out, .dark .leaflet-control-attribution {
     filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
-/* 雨雲レーダーなどは色反転させない */
-.dark .leaflet-overlay-pane {
-    filter: invert(100%) hue-rotate(180deg);
-}
+.dark .leaflet-overlay-pane { filter: invert(100%) hue-rotate(180deg); }
 
 /* アニメーション定義 */
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
-
-.fade-in-up {
-    animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-    opacity: 0;
-}
-
+.fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
 .delay-1 { animation-delay: 0.1s; }
 .delay-2 { animation-delay: 0.2s; }
 .delay-3 { animation-delay: 0.3s; }
-
-/* ==========================================
-   Interactive Card Animation Styles (Mobile Fix)
-   ========================================== */
-
-/* カードごとの配色変数定義 */
-#temp-card-container    { --card-anim-color: #3b82f6; } /* Blue */
-#humid-card-container   { --card-anim-color: #06b6d4; } /* Cyan */
-#rain-card-container    { --card-anim-color: #6366f1; } /* Indigo */
-#weather-card-container { --card-anim-color: #f97316; } /* Orange */
-
-/* ダークモード時の色 */
-.dark #temp-card-container    { --card-anim-color: #2563eb; }
-.dark #humid-card-container   { --card-anim-color: #0891b2; }
-.dark #rain-card-container    { --card-anim-color: #4f46e5; }
-.dark #weather-card-container { --card-anim-color: #ea580c; }
-
-/* カード本体 */
-.interactive-card {
-    position: relative;
-    z-index: 1;
-    transition: none;
-}
-
-/* --- 擬似要素による背景アニメーション (四隅) --- */
-.interactive-card::before,
-.interactive-card::after {
-    content: "";
-    position: absolute;
-    width: 0;
-    height: 0;
-    background-color: var(--card-anim-color);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    z-index: 0;
-}
-
-/* 右上 */
-.interactive-card::before {
-    top: 0; 
-    right: 0;
-    border-radius: 0 0 0 100%;
-}
-
-/* 左下 */
-.interactive-card::after {
-    bottom: 0; 
-    left: 0;
-    border-radius: 0 100% 0 0;
-}
-
-/* --- アニメーション共通設定 (通常時) --- */
-
-/* 表面 (Front) */
-.view-front {
-    position: relative;
-    z-index: 10;
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-    /* 戻る時 */
-    transition: opacity 0.1s ease, transform 0.1s ease;
-}
-
-/* 裏面 (Back) */
-.view-back {
-    position: absolute;
-    top: 0; 
-    left: 0;
-    width: 100%; 
-    height: 100%;
-    z-index: 20;
-    opacity: 0;
-    transform: translate3d(0, 20px, 0);
-    pointer-events: none;
-    /* 戻る時 */
-    transition: opacity 0.1s ease, transform 0.1s ease;
-}
-
-/* --- アニメーション発火時 (JSクラス .show-detail) --- */
-/* スマホ・PC共通で動作する（クリック時） */
-
-/* 背景拡大 */
-.show-detail::before,
-.show-detail::after {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-}
-
-/* 表面: 上に消える */
-.show-detail .view-front {
-    opacity: 0;
-    transform: translate3d(0, -20px, 0) !important;
-}
-
-/* 裏面: 下から現れる */
-.show-detail .view-back {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) !important;
-    pointer-events: auto;
-    transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
-}
-
-/* 文字色強制白 */
-.show-detail .view-back * {
-    color: #ffffff !important;
-}
-/* アイコン強制白 */
-.show-detail > div:first-child i {
-    color: #ffffff !important;
-}
-
-
-/* --- アニメーション発火時 (ホバー) --- */
-/* ★重要: マウスがある環境でのみ有効にする（スマホでの誤作動防止） */
-@media (hover: hover) {
-    
-    /* 背景拡大 */
-    .interactive-card:hover::before,
-    .interactive-card:hover::after {
-        width: 100%;
-        height: 100%;
-        border-radius: 0;
-    }
-
-    /* 表面: 上に消える */
-    .interactive-card:hover .view-front {
-        opacity: 0;
-        transform: translate3d(0, -20px, 0) !important;
-    }
-
-    /* 裏面: 下から現れる */
-    .interactive-card:hover .view-back {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) !important;
-        pointer-events: auto;
-        transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
-    }
-    
-    /* 文字色強制白 */
-    .interactive-card:hover .view-back * {
-        color: #ffffff !important;
-    }
-    /* アイコン強制白 */
-    .interactive-card:hover > div:first-child i {
-        color: #ffffff !important;
-    }
-}
-
-/* アイコンの色変化トランジション */
-.interactive-card > div:first-child i {
-    transition: color 0.2s ease;
-    position: relative;
-    z-index: 30;
-}
-
-
-/* ==========================================
-   AI Suggest Button Animation
-   ========================================== */
-.btn-float-anim {
-    box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease 0s;
-}
-
-/* PCのみホバー適用 */
-@media (hover: hover) {
-    .btn-float-anim:hover {
-        box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4);
-        transform: translateY(-7px);
-    }
-}
-.btn-float-anim.is-active {
-    box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4);
-    transform: translateY(-7px);
-}
-.btn-float-anim:active {
-    transform: translateY(-1px);
-    box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2);
-}
-
-/* ==========================================
-   Theme Toggle Button Animation (Mobile Fix)
-   ========================================== */
-.theme-toggle-anim {
-    position: relative;
-    overflow: hidden;
-    z-index: 1;
-    transition: color 0.2s ease-in, border-color 0.2s ease-in, background-color 0.2s ease-in;
-    cursor: pointer;
-    background-color: #ffffff;
-    color: #1e293b;
-    border: 1px solid #cbd5e1;
-}
-.theme-toggle-anim::before,
-.theme-toggle-anim::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%) scaleY(1) scaleX(1.25);
-    top: 100%;
-    width: 140%;
-    height: 180%;
-    border-radius: 50%;
-    display: block;
-    transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
-    z-index: -1;
-}
-.theme-toggle-anim::after {
-    left: 55%;
-    transform: translateX(-50%) scaleY(1) scaleX(1.45);
-    top: 180%;
-    width: 160%;
-    height: 190%;
-}
-.theme-toggle-anim::after { background-color: #1e293b; }
-
-/* PC Hover OR Active Class */
-@media (hover: hover) {
-    .theme-toggle-anim:hover { color: #ffffff; border-color: #1e293b; }
-    .theme-toggle-anim:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
-}
-.theme-toggle-anim.is-active { color: #ffffff; border-color: #1e293b; }
-.theme-toggle-anim.is-active::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
-
-/* Dark Mode */
-.dark .theme-toggle-anim { background-color: #1e293b; color: #ffffff; border-color: #475569; }
-.dark .theme-toggle-anim::before, .dark .theme-toggle-anim::after { background-color: #ffffff; }
-
-@media (hover: hover) {
-    .dark .theme-toggle-anim:hover { color: #1e293b; border-color: #ffffff; background-color: transparent; }
-    .dark .theme-toggle-anim:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
-}
-.dark .theme-toggle-anim.is-active { color: #1e293b; border-color: #ffffff; background-color: transparent; }
-.dark .theme-toggle-anim.is-active::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
-
-
-/* ==========================================
-   Refresh Button Animation (Mobile Fix)
-   ========================================== */
-.refresh-btn-anim {
-    position: relative;
-    overflow: hidden;
-    z-index: 1;
-    transition: all 0.2s ease-in;
-    cursor: pointer;
-    background-color: #ffffff;
-    color: #4b5563;
-    border: 1px solid #cbd5e1;
-}
-.dark .refresh-btn-anim { background-color: #334155; color: #e2e8f0; border-color: #475569; }
-.refresh-btn-anim::before, .refresh-btn-anim::after {
-    content: ""; position: absolute; left: 50%; transform: translateX(-50%) scaleY(1) scaleX(1.25);
-    top: 100%; width: 140%; height: 180%; border-radius: 50%; display: block;
-    transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1); z-index: -1;
-}
-.refresh-btn-anim::after {
-    left: 55%; transform: translateX(-50%) scaleY(1) scaleX(1.45); top: 180%; width: 160%; height: 190%;
-    background-color: #22c55e;
-}
-
-/* PC Hover OR Active Class */
-@media (hover: hover) {
-    .refresh-btn-anim:hover { color: #ffffff; border-color: #22c55e; }
-    .refresh-btn-anim:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
-}
-.refresh-btn-anim.is-active { color: #ffffff; border-color: #22c55e; }
-.refresh-btn-anim.is-active::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
 
 /* ==========================================
    Background Pattern
@@ -333,112 +34,176 @@ body::before {
     z-index: -50; pointer-events: none;
     background-color: #ffffff;
     background-image: radial-gradient(#bae6fd 2px, transparent 2px), radial-gradient(#bae6fd 2px, #ffffff 2px);
-    background-size: 40px 40px;
-    background-position: 0 0, 20px 20px;
-    opacity: 0.6;
+    background-size: 40px 40px; background-position: 0 0, 20px 20px; opacity: 0.6;
 }
 .dark body::before { display: none; }
 
 /* ==========================================
-   Checkbox Animation (Wave-46)
+   Interactive Card Animation Styles
    ========================================== */
-.checkbox-wrapper-46 input {
-  display: none;
-  visibility: hidden;
-}
-
-.checkbox-wrapper-46 .cbx {
-  margin: auto;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: pointer;
-  display: flex; /* 追加: 横並び調整 */
-  align-items: center; /* 追加: 垂直中央揃え */
-}
-.checkbox-wrapper-46 .cbx span {
-  display: inline-block;
-  vertical-align: middle;
-  transform: translate3d(0, 0, 0);
-}
-.checkbox-wrapper-46 .cbx span:first-child {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  transform: scale(1);
-  vertical-align: middle;
-  border: 1px solid #9098a9;
-  transition: all 0.2s ease;
-  flex-shrink: 0; /* 追加: 縮小防止 */
-  background-color: #fff; /* 追加: 背景色 */
-}
-/* ダークモード対応 */
-.dark .checkbox-wrapper-46 .cbx span:first-child {
-  border-color: #475569;
-  background-color: #1e293b;
-}
-
-.checkbox-wrapper-46 .cbx span:first-child svg {
-  position: absolute;
-  top: 3px;
-  left: 2px;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 16px;
-  stroke-dashoffset: 16px;
-  transition: all 0.3s ease;
-  transition-delay: 0.1s;
-  transform: translate3d(0, 0, 0);
-}
-.checkbox-wrapper-46 .cbx span:first-child:before {
-  content: "";
-  width: 100%;
-  height: 100%;
-  background: #506eec;
-  display: block;
-  transform: scale(0);
-  opacity: 1;
-  border-radius: 50%;
-}
-.checkbox-wrapper-46 .cbx span:last-child {
-  padding-left: 8px;
-}
-.checkbox-wrapper-46 .cbx:hover span:first-child {
-  border-color: #506eec;
-}
-
-.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child {
-  background: #506eec;
-  border-color: #506eec;
-  animation: wave-46 0.4s ease;
-}
-.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child svg {
-  stroke-dashoffset: 0;
-}
-.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child:before {
-  transform: scale(3.5);
-  opacity: 0;
-  transition: all 0.6s ease;
-}
-
-@keyframes wave-46 {
-  50% {
-    transform: scale(0.9);
-  }
-}
-
-/* ==========================================
-   Interactive Card Animation Styles (Final Fix for Mobile)
-   ========================================== */
-
-/* ... (colors definition remains same) ... */
+/* 配色変数 */
 #temp-card-container    { --card-anim-color: #3b82f6; }
 #humid-card-container   { --card-anim-color: #06b6d4; }
 #rain-card-container    { --card-anim-color: #6366f1; }
 #weather-card-container { --card-anim-color: #f97316; }
+.dark #temp-card-container    { --card-anim-color: #2563eb; }
+.dark #humid-card-container   { --card-anim-color: #0891b2; }
+.dark #rain-card-container    { --card-anim-color: #4f46e5; }
+.dark #weather-card-container { --card-anim-color: #ea580c; }
+
+.interactive-card {
+    position: relative; z-index: 1; transition: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 背景アニメーション (四隅) */
+.interactive-card::before, .interactive-card::after {
+    content: ""; position: absolute; width: 0; height: 0;
+    background-color: var(--card-anim-color);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 0;
+}
+.interactive-card::before { top: 0; right: 0; border-radius: 0 0 0 100%; }
+.interactive-card::after { bottom: 0; left: 0; border-radius: 0 100% 0 0; }
+
+/* 拡大状態 (共通) */
+.show-detail::before, .show-detail::after { width: 100%; height: 100%; border-radius: 0; }
+
+/* コンテンツ表示制御 */
+.view-front {
+    position: relative; z-index: 10; width: 100%; height: 100%; opacity: 1;
+    transform: translate3d(0, 0, 0); pointer-events: auto;
+    transition: opacity 0.1s ease, transform 0.1s ease;
+}
+.view-back {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; opacity: 0;
+    transform: translate3d(0, 20px, 0); pointer-events: none;
+    transition: opacity 0.1s ease, transform 0.1s ease;
+}
+
+/* アニメーション発火時 (.show-detail) */
+.show-detail .view-front { opacity: 0; transform: translate3d(0, -20px, 0) !important; pointer-events: none; }
+.show-detail .view-back {
+    opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
+    transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+}
+.show-detail .view-back *, .show-detail > div:first-child i { color: #ffffff !important; }
+
+/* PCホバー設定 */
+@media (hover: hover) {
+    .interactive-card:hover::before, .interactive-card:hover::after { width: 100%; height: 100%; border-radius: 0; }
+    .interactive-card:hover .view-front { opacity: 0; transform: translate3d(0, -20px, 0) !important; pointer-events: none; }
+    .interactive-card:hover .view-back {
+        opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
+        transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+    }
+    .interactive-card:hover .view-back *, .interactive-card:hover > div:first-child i { color: #ffffff !important; }
+}
+.interactive-card > div:first-child i { transition: color 0.2s ease; position: relative; z-index: 30; }
+
+/* ==========================================
+   Button Animations (Consolidated)
+   ========================================== */
+
+/* AI Suggest Button */
+.btn-float-anim {
+    box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
+}
+@media (hover: hover) {
+    .btn-float-anim:hover { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
+}
+.btn-float-anim.is-active { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
+.btn-float-anim:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2); }
+
+/* Ripple Buttons (Theme & Refresh) - 共通化 */
+.ripple-btn {
+    position: relative; overflow: hidden; z-index: 1; cursor: pointer;
+    transition: color 0.2s ease-in, border-color 0.2s ease-in, background-color 0.2s ease-in;
+    background-color: #ffffff; border: 1px solid #cbd5e1;
+}
+.ripple-btn::before, .ripple-btn::after {
+    content: ""; position: absolute; left: 50%; top: 100%; width: 140%; height: 180%;
+    border-radius: 50%; display: block; z-index: -1;
+    transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
+    transform: translateX(-50%) scaleY(1) scaleX(1.25);
+}
+.ripple-btn::after {
+    left: 55%; top: 180%; width: 160%; height: 190%;
+    transform: translateX(-50%) scaleY(1) scaleX(1.45);
+}
+/* ホバー/アクティブ時の共通アニメーション */
+@media (hover: hover) {
+    .ripple-btn:hover { color: #ffffff; }
+    .ripple-btn:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
+}
+.ripple-btn.is-active { color: #ffffff; }
+.ripple-btn.is-active::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
+
+/* テーマ切り替えボタン固有色 */
+.theme-btn { color: #1e293b; }
+.theme-btn::after { background-color: #1e293b; }
+@media (hover: hover) { .theme-btn:hover { border-color: #1e293b; } }
+.theme-btn.is-active { border-color: #1e293b; }
+/* ダークモード時 */
+.dark .theme-btn { background-color: #1e293b; color: #ffffff; border-color: #475569; }
+.dark .theme-btn::before, .dark .theme-btn::after { background-color: #ffffff; }
+@media (hover: hover) {
+    .dark .theme-btn:hover { color: #1e293b; border-color: #ffffff; background-color: transparent; }
+}
+.dark .theme-btn.is-active { color: #1e293b; border-color: #ffffff; background-color: transparent; }
+
+/* 更新ボタン固有色 */
+.refresh-btn { color: #4b5563; }
+.refresh-btn::after { background-color: #22c55e; }
+@media (hover: hover) { .refresh-btn:hover { border-color: #22c55e; } }
+.refresh-btn.is-active { border-color: #22c55e; }
+/* ダークモード時 */
+.dark .refresh-btn { background-color: #334155; color: #e2e8f0; border-color: #475569; }
+
+/* ==========================================
+   Checkbox Animation
+   ========================================== */
+.checkbox-wrapper-46 input { display: none; visibility: hidden; }
+.checkbox-wrapper-46 .cbx {
+    margin: auto; -webkit-user-select: none; user-select: none; cursor: pointer;
+    display: flex; align-items: center;
+}
+.checkbox-wrapper-46 .cbx span { display: inline-block; vertical-align: middle; transform: translate3d(0, 0, 0); }
+.checkbox-wrapper-46 .cbx span:first-child {
+    position: relative; width: 18px; height: 18px; border-radius: 3px; transform: scale(1);
+    vertical-align: middle; border: 1px solid #9098a9; transition: all 0.2s ease;
+    flex-shrink: 0; background-color: #fff;
+}
+.dark .checkbox-wrapper-46 .cbx span:first-child { border-color: #475569; background-color: #1e293b; }
+.checkbox-wrapper-46 .cbx span:first-child svg {
+    position: absolute; top: 3px; left: 2px; fill: none; stroke: #ffffff; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 16px; stroke-dashoffset: 16px;
+    transition: all 0.3s ease; transition-delay: 0.1s; transform: translate3d(0, 0, 0);
+}
+.checkbox-wrapper-46 .cbx span:first-child:before {
+    content: ""; width: 100%; height: 100%; background: #506eec; display: block;
+    transform: scale(0); opacity: 1; border-radius: 50%;
+}
+.checkbox-wrapper-46 .cbx span:last-child { padding-left: 8px; }
+.checkbox-wrapper-46 .cbx:hover span:first-child { border-color: #506eec; }
+.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child {
+    background: #506eec; border-color: #506eec; animation: wave-46 0.4s ease;
+}
+.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child svg { stroke-dashoffset: 0; }
+.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child:before {
+    transform: scale(3.5); opacity: 0; transition: all 0.6s ease;
+}
+@keyframes wave-46 { 50% { transform: scale(0.9); } }
+
+/* ==========================================
+   Interactive Card Animation Styles (Mobile Fix Final)
+   ========================================== */
+
+/* 配色変数定義 */
+#temp-card-container    { --card-anim-color: #3b82f6; }
+#humid-card-container   { --card-anim-color: #06b6d4; }
+#rain-card-container    { --card-anim-color: #6366f1; }
+#weather-card-container { --card-anim-color: #f97316; }
+
 .dark #temp-card-container    { --card-anim-color: #2563eb; }
 .dark #humid-card-container   { --card-anim-color: #0891b2; }
 .dark #rain-card-container    { --card-anim-color: #4f46e5; }
@@ -449,95 +214,177 @@ body::before {
     position: relative;
     z-index: 1;
     transition: none;
-    /* 重要: スマホでのタップハイライトを無効化して自前のアニメーションを見やすく */
     -webkit-tap-highlight-color: transparent;
+    cursor: pointer; /* カーソルポインターを明示 */
 }
 
 /* 背景アニメーション (四隅) */
 .interactive-card::before,
 .interactive-card::after {
-    content: "";
-    position: absolute;
-    width: 0;
-    height: 0;
+    content: ""; position: absolute; width: 0; height: 0;
     background-color: var(--card-anim-color);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    z-index: 0; /* コンテンツ(10)より下 */
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 0;
 }
-
 .interactive-card::before { top: 0; right: 0; border-radius: 0 0 0 100%; }
 .interactive-card::after { bottom: 0; left: 0; border-radius: 0 100% 0 0; }
 
-/* --- 拡大アニメーション (共通) --- */
-.show-detail::before,
-.show-detail::after {
+/* 拡大アニメーション */
+.show-detail::before, .show-detail::after {
     width: 100%; height: 100%; border-radius: 0;
 }
 
-/* --- コンテンツ表示制御 --- */
-
-/* 表面 */
+/* コンテンツ制御 (重要: pointer-events: none で親要素にイベントを通す) */
 .view-front {
-    position: relative;
-    z-index: 10;
-    width: 100%; height: 100%; /* クリック領域確保 */
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
+    position: relative; z-index: 10; width: 100%; height: 100%; opacity: 1;
+    transform: translate3d(0, 0, 0); pointer-events: none;
     transition: opacity 0.1s ease, transform 0.1s ease;
-    pointer-events: auto; /* 常にクリック可能 */
 }
-
-/* 裏面 */
 .view-back {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: 20;
-    opacity: 0;
-    transform: translate3d(0, 20px, 0);
-    pointer-events: none; /* 非表示時はクリック透過 */
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20;
+    opacity: 0; transform: translate3d(0, 20px, 0); pointer-events: none;
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
-/* --- アニメーション発火時 (.show-detail) --- */
+/* アニメーション発火時 */
 .show-detail .view-front {
-    opacity: 0;
-    transform: translate3d(0, -20px, 0) !important;
-    pointer-events: none; /* 消えている時は裏面に譲る */
+    opacity: 0; transform: translate3d(0, -20px, 0) !important;
 }
-
 .show-detail .view-back {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) !important;
-    pointer-events: auto; /* 表示されたらクリック可能 */
+    opacity: 1; transform: translate3d(0, 0, 0) !important;
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
 
-/* 文字色・アイコン色強制白 */
-.show-detail .view-back *,
-.show-detail > div:first-child i {
+/* 文字色強制白 */
+.show-detail .view-back *, .show-detail > div:first-child i {
     color: #ffffff !important;
 }
 
-/* --- PCホバー設定 --- */
+/* PCホバー設定 */
 @media (hover: hover) {
-    .interactive-card:hover::before,
-    .interactive-card:hover::after {
+    .interactive-card:hover::before, .interactive-card:hover::after {
         width: 100%; height: 100%; border-radius: 0;
     }
     .interactive-card:hover .view-front {
-        opacity: 0; transform: translate3d(0, -20px, 0) !important; pointer-events: none;
+        opacity: 0; transform: translate3d(0, -20px, 0) !important;
     }
     .interactive-card:hover .view-back {
-        opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
+        opacity: 1; transform: translate3d(0, 0, 0) !important;
         transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
     }
-    .interactive-card:hover .view-back *,
-    .interactive-card:hover > div:first-child i {
+    .interactive-card:hover .view-back *, .interactive-card:hover > div:first-child i {
         color: #ffffff !important;
     }
 }
+.interactive-card > div:first-child i {
+    transition: color 0.2s ease; position: relative; z-index: 30; pointer-events: none;
+}
 
-/* ... (other button animations remain same) ... */
+/* ... (Button animations and other styles remain the same) ... */
+/* Scroll to Top Button */
+#scroll-to-top {
+  position: fixed; left: 0; bottom: 20px; z-index: 50; transform: translateX(-150%);
+  font-family: inherit; font-size: 16px; background: royalblue; color: white;
+  padding: 0.7em 1em; padding-left: 0.9em; display: flex; align-items: center; border: none;
+  border-radius: 0 16px 16px 0; overflow: hidden; transition: transform 0.3s ease-in-out, opacity 0.3s;
+  cursor: pointer; opacity: 0.9;
+}
+#scroll-to-top.show { transform: translateX(0); }
+#scroll-to-top span { display: block; margin-left: 0.3em; }
+#scroll-to-top svg { display: block; }
+#scroll-to-top:active { transform: translateX(0) scale(0.95); }
 
-/* ... (background pattern remains same) ... */
+/* ... (Remaining styles) ... */
+/* チェックボックス等は変更なしのため省略せず記述する必要がありますが、
+   ここでは容量削減のため、元のファイルから変更がない部分は ... で示しています。
+   実際にはフルセットのCSSが必要です。今回は重要な変更部分を中心に記述しました。 */
+   
+/* 以下、省略せずに記述します */
+.btn-float-anim {
+    box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
+}
+@media (hover: hover) {
+    .btn-float-anim:hover { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
+}
+.btn-float-anim.is-active { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
+.btn-float-anim:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2); }
+
+.ripple-btn {
+    position: relative; overflow: hidden; z-index: 1; cursor: pointer;
+    transition: color 0.2s ease-in, border-color 0.2s ease-in, background-color 0.2s ease-in;
+    background-color: #ffffff; border: 1px solid #cbd5e1;
+}
+.ripple-btn::before, .ripple-btn::after {
+    content: ""; position: absolute; left: 50%; top: 100%; width: 140%; height: 180%;
+    border-radius: 50%; display: block; z-index: -1;
+    transition: all 0.5s 0.1s cubic-bezier(0.55, 0, 0.1, 1);
+    transform: translateX(-50%) scaleY(1) scaleX(1.25);
+}
+.ripple-btn::after {
+    left: 55%; top: 180%; width: 160%; height: 190%;
+    transform: translateX(-50%) scaleY(1) scaleX(1.45);
+}
+@media (hover: hover) {
+    .ripple-btn:hover { color: #ffffff; }
+    .ripple-btn:hover::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
+}
+.ripple-btn.is-active { color: #ffffff; }
+.ripple-btn.is-active::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
+
+.theme-btn { color: #1e293b; }
+.theme-btn::after { background-color: #1e293b; }
+@media (hover: hover) { .theme-btn:hover { border-color: #1e293b; } }
+.theme-btn.is-active { border-color: #1e293b; }
+.dark .theme-btn { background-color: #1e293b; color: #ffffff; border-color: #475569; }
+.dark .theme-btn::before, .dark .theme-btn::after { background-color: #ffffff; }
+@media (hover: hover) {
+    .dark .theme-btn:hover { color: #1e293b; border-color: #ffffff; background-color: transparent; }
+}
+.dark .theme-btn.is-active { color: #1e293b; border-color: #ffffff; background-color: transparent; }
+
+.refresh-btn { color: #4b5563; }
+.refresh-btn::after { background-color: #22c55e; }
+@media (hover: hover) { .refresh-btn:hover { border-color: #22c55e; } }
+.refresh-btn.is-active { border-color: #22c55e; }
+.dark .refresh-btn { background-color: #334155; color: #e2e8f0; border-color: #475569; }
+
+.checkbox-wrapper-46 input { display: none; visibility: hidden; }
+.checkbox-wrapper-46 .cbx {
+    margin: auto; -webkit-user-select: none; user-select: none; cursor: pointer;
+    display: flex; align-items: center;
+}
+.checkbox-wrapper-46 .cbx span { display: inline-block; vertical-align: middle; transform: translate3d(0, 0, 0); }
+.checkbox-wrapper-46 .cbx span:first-child {
+    position: relative; width: 18px; height: 18px; border-radius: 3px; transform: scale(1);
+    vertical-align: middle; border: 1px solid #9098a9; transition: all 0.2s ease;
+    flex-shrink: 0; background-color: #fff;
+}
+.dark .checkbox-wrapper-46 .cbx span:first-child { border-color: #475569; background-color: #1e293b; }
+.checkbox-wrapper-46 .cbx span:first-child svg {
+    position: absolute; top: 3px; left: 2px; fill: none; stroke: #ffffff; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 16px; stroke-dashoffset: 16px;
+    transition: all 0.3s ease; transition-delay: 0.1s; transform: translate3d(0, 0, 0);
+}
+.checkbox-wrapper-46 .cbx span:first-child:before {
+    content: ""; width: 100%; height: 100%; background: #506eec; display: block;
+    transform: scale(0); opacity: 1; border-radius: 50%;
+}
+.checkbox-wrapper-46 .cbx span:last-child { padding-left: 8px; }
+.checkbox-wrapper-46 .cbx:hover span:first-child { border-color: #506eec; }
+.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child {
+    background: #506eec; border-color: #506eec; animation: wave-46 0.4s ease;
+}
+.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child svg { stroke-dashoffset: 0; }
+.checkbox-wrapper-46 .inp-cbx:checked + .cbx span:first-child:before {
+    transform: scale(3.5); opacity: 0; transition: all 0.6s ease;
+}
+@keyframes wave-46 { 50% { transform: scale(0.9); } }
+
+body { position: relative; min-height: 100vh; }
+body::before {
+    content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -50; pointer-events: none;
+    background-color: #ffffff;
+    background-image: radial-gradient(#bae6fd 2px, transparent 2px), radial-gradient(#bae6fd 2px, #ffffff 2px);
+    background-size: 40px 40px; background-position: 0 0, 20px 20px; opacity: 0.6;
+}
+.dark body::before { display: none; }
