@@ -13,16 +13,24 @@ def index():
 
 @app.route('/api/suggest_outfit', methods=['POST'])
 def suggest_outfit_api():
-    # フロントエンドから天気情報とシーンを受け取る
+    # フロントエンドから各種情報を受け取る
     data = request.json
     weather = data.get('weather_data')
-    scene = data.get('scene', '通学')
+    
+    # 提案オプション情報の取得
+    options = {
+        "mode": data.get('mode', 'simple'),           # simple(おまかせ) or detailed(詳細)
+        "scene": data.get('scene', ''),               # シーン（自由入力）
+        "gender": data.get('gender', 'unspecified'),  # 性別・スタイル
+        "preference": data.get('preference', ''),     # 着たい服（詳細モード用）
+        "wardrobe": data.get('wardrobe', '')          # 手持ちの服（詳細モード用）
+    }
 
     if not weather:
         return jsonify({"error": "No weather data provided"}), 400
 
-    # 別ファイルに切り出したAIロジックを呼び出す
-    result = suggest_outfit(weather, scene)
+    # AIロジックを呼び出す
+    result = suggest_outfit(weather, options)
 
     # 結果に応じたステータスコードの設定
     status_code = 500 if result.get("type") == "error" else 200
