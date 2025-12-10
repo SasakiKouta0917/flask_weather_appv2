@@ -26,31 +26,20 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   【重要】クリック判定の強制修復 (Priority Fix)
+   Clickable Elements Fix (Crucial)
    ========================================== */
-/* すべての操作可能な要素を強制的に最前面かつクリック可能にする */
-button, 
-select, 
-input, 
-textarea, 
-.interactive-card, 
-.checkbox-wrapper-46 {
+button, select, input, textarea, .interactive-card, .checkbox-wrapper-46 {
     position: relative;
-    z-index: 50 !important; /* 他の要素より手前に */
-    pointer-events: auto !important; /* クリックを強制的に有効化 */
+    z-index: 50 !important;
+    pointer-events: auto !important;
     cursor: pointer;
-    -webkit-tap-highlight-color: transparent; /* スマホでのタップハイライト削除 */
+    -webkit-tap-highlight-color: transparent;
 }
-
-/* 入力欄はテキスト選択カーソルにする */
-input[type="text"], textarea {
-    cursor: text !important;
-}
+input[type="text"], textarea { cursor: text !important; }
 
 /* ==========================================
    Interactive Card Animation (Click Fix)
    ========================================== */
-/* 配色変数定義 */
 #temp-card-container    { --card-anim-color: #3b82f6; }
 #humid-card-container   { --card-anim-color: #06b6d4; }
 #rain-card-container    { --card-anim-color: #6366f1; }
@@ -60,18 +49,11 @@ input[type="text"], textarea {
 .dark #rain-card-container    { --card-anim-color: #4f46e5; }
 .dark #weather-card-container { --card-anim-color: #ea580c; }
 
-/* カード本体 */
-.interactive-card {
-    transition: none;
-    /* 親要素がクリックを受け取る */
-}
+.interactive-card { transition: none; }
+/* 子要素のイベントを無効化し親に透過 */
+.interactive-card * { pointer-events: none !important; }
 
-/* カード内の子要素はクリックを透過させ、親(.interactive-card)にイベントを渡す */
-.interactive-card * {
-    pointer-events: none !important;
-}
-
-/* 背景アニメーション (四隅) */
+/* 背景アニメーション */
 .interactive-card::before, .interactive-card::after {
     content: ""; position: absolute; width: 0; height: 0;
     background-color: var(--card-anim-color);
@@ -80,8 +62,6 @@ input[type="text"], textarea {
 }
 .interactive-card::before { top: 0; right: 0; border-radius: 0 0 0 100%; }
 .interactive-card::after { bottom: 0; left: 0; border-radius: 0 100% 0 0; }
-
-/* 拡大状態 (共通) */
 .show-detail::before, .show-detail::after { width: 100%; height: 100%; border-radius: 0; }
 
 /* コンテンツ表示制御 */
@@ -96,21 +76,15 @@ input[type="text"], textarea {
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
-/* アニメーション発火時 (.show-detail) */
-.show-detail .view-front {
-    opacity: 0; transform: translate3d(0, -20px, 0) !important;
-}
+/* アニメーション発火時 */
+.show-detail .view-front { opacity: 0; transform: translate3d(0, -20px, 0) !important; }
 .show-detail .view-back {
     opacity: 1; transform: translate3d(0, 0, 0) !important;
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
+.show-detail .view-back *, .show-detail > div:first-child i { color: #ffffff !important; }
 
-/* 文字色強制白 */
-.show-detail .view-back *, .show-detail > div:first-child i {
-    color: #ffffff !important;
-}
-
-/* PCホバー設定 (スマホでは無効化) */
+/* PCホバー設定 */
 @media (hover: hover) {
     .interactive-card:hover::before, .interactive-card:hover::after { width: 100%; height: 100%; border-radius: 0; }
     .interactive-card:hover .view-front { opacity: 0; transform: translate3d(0, -20px, 0) !important; }
@@ -118,17 +92,11 @@ input[type="text"], textarea {
         opacity: 1; transform: translate3d(0, 0, 0) !important;
         transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
     }
-    .interactive-card:hover .view-back *, .interactive-card:hover > div:first-child i {
-        color: #ffffff !important;
-    }
-}
-
-.interactive-card > div:first-child i {
-    transition: color 0.2s ease; position: relative; z-index: 30;
+    .interactive-card:hover .view-back *, .interactive-card:hover > div:first-child i { color: #ffffff !important; }
 }
 
 /* ==========================================
-   Button Animations (Fixed)
+   Button Animations
    ========================================== */
 .btn-float-anim {
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
@@ -136,11 +104,9 @@ input[type="text"], textarea {
 @media (hover: hover) {
     .btn-float-anim:hover { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
 }
-/* スマホ用アクティブ状態 */
 .btn-float-anim.is-active { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
 .btn-float-anim:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2); }
 
-/* Ripple Button (Theme & Refresh) */
 .ripple-btn {
     position: relative; overflow: hidden;
     transition: color 0.2s ease-in, border-color 0.2s ease-in, background-color 0.2s ease-in;
@@ -162,12 +128,10 @@ input[type="text"], textarea {
 .ripple-btn.is-active { color: #ffffff; }
 .ripple-btn.is-active::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
 
-/* Individual Button Colors */
 .theme-btn { color: #1e293b; }
 .theme-btn::after { background-color: #1e293b; }
 @media (hover: hover) { .theme-btn:hover { border-color: #1e293b; } }
 .theme-btn.is-active { border-color: #1e293b; }
-
 .dark .theme-btn { background-color: #1e293b; color: #ffffff; border-color: #475569; }
 .dark .theme-btn::before, .dark .theme-btn::after { background-color: #ffffff; }
 @media (hover: hover) { .dark .theme-btn:hover { color: #1e293b; border-color: #ffffff; background-color: transparent; } }
@@ -214,8 +178,7 @@ input[type="text"], textarea {
 
 /* Scroll to Top */
 #scroll-to-top {
-  position: fixed; left: 0; bottom: 20px; z-index: 100; /* 高いZ-index */
-  transform: translateX(-150%);
+  position: fixed; left: 0; bottom: 20px; z-index: 100; transform: translateX(-150%);
   font-family: inherit; font-size: 16px; background: royalblue; color: white;
   padding: 0.7em 1em; padding-left: 0.9em; display: flex; align-items: center; border: none;
   border-radius: 0 16px 16px 0; overflow: hidden; transition: transform 0.3s ease-in-out, opacity 0.3s;
