@@ -210,9 +210,9 @@ const WeatherModule = {
 
     updateUI: (locationName, data) => {
         const current = data.current;
-        const daily = data.daily;
         const hourly = data.hourly;
-        
+        const daily = data.daily;
+
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
         currentWeatherData = {
@@ -439,15 +439,24 @@ const ChartModule = {
 const AIModule = {
     suggestOutfit: async () => {
         const btn = document.getElementById('ai-suggest-btn');
-        let scene = document.getElementById('scene-select').value;
-        const customScene = document.getElementById('scene-custom-input').value.trim();
-
-        if (scene === 'その他' && customScene) {
-            scene = customScene;
-        } else if (scene === 'その他' && !customScene) {
-            alert("シーンを入力してください。");
-            return;
+        const sceneInput = document.getElementById('scene-input').value;
+        const gender = document.getElementById('gender-select').value;
+        
+        // モード判定
+        const modes = document.getElementsByName('proposal-mode');
+        let mode = 'simple';
+        for(let m of modes){
+            if(m.checked) mode = m.value;
         }
+
+        // 入力値の取得
+        const preference = document.getElementById('preference-input').value;
+        const wardrobe = document.getElementById('wardrobe-input').value;
+
+        // シーンは入力必須か？ とりあえず空なら「特になし」になるようにAPI側で処理済だが
+        // バリデーション入れても良い
+        let scene = sceneInput.trim();
+        if(!scene) scene = "特になし";
 
         if (!currentWeatherData) {
             alert("先に地図をクリックして天気情報を取得してください。");
@@ -457,7 +466,6 @@ const AIModule = {
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
 
-        // Trigger animation on click
         ThemeModule.triggerButtonAnim(btn);
 
         try {
@@ -466,7 +474,11 @@ const AIModule = {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     weather_data: currentWeatherData,
-                    scene: scene
+                    mode: mode,
+                    scene: scene,
+                    gender: gender,
+                    preference: preference,
+                    wardrobe: wardrobe
                 })
             });
 
@@ -514,7 +526,6 @@ const ThemeModule = {
         const btnText = document.getElementById('theme-btn-text');
         
         toggleBtn.addEventListener('click', () => {
-            // Trigger animation
             ThemeModule.triggerButtonAnim(toggleBtn);
             
             document.documentElement.classList.toggle('dark');
@@ -534,25 +545,26 @@ const ThemeModule = {
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
                  ThemeModule.triggerButtonAnim(refreshBtn);
-                 // Logic is handled in listener below
             });
         }
 
-        const sceneSelect = document.getElementById('scene-select');
-        const customInput = document.getElementById('scene-custom-input');
+        // --- モード切替時の表示制御 ---
+        const modeRadios = document.getElementsByName('proposal-mode');
+        const detailedInputs = document.getElementById('detailed-inputs');
         
-        sceneSelect.addEventListener('change', () => {
-            if (sceneSelect.value === 'その他') {
-                customInput.classList.remove('hidden');
-                customInput.focus();
-            } else {
-                customInput.classList.add('hidden');
-            }
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'detailed') {
+                    detailedInputs.classList.remove('hidden');
+                } else {
+                    detailedInputs.classList.add('hidden');
+                }
+            });
         });
 
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
-            card._timeoutId = null; // Initialize property
+            card._timeoutId = null;
 
             card.addEventListener('click', () => {
                 if (card.classList.contains('show-detail')) {
@@ -586,7 +598,6 @@ const ThemeModule = {
         });
     },
 
-    // Helper to trigger button active state for mobile
     triggerButtonAnim: (btn) => {
         btn.classList.add('is-active');
         setTimeout(() => {
