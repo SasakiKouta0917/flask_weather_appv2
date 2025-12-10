@@ -602,13 +602,11 @@ const ThemeModule = {
             });
         });
 
-        // --- Scroll to Top Logic (Relaxed Condition) ---
+        // --- Scroll to Top Logic ---
         const scrollBtn = document.getElementById('scroll-to-top');
         if (scrollBtn) {
             window.addEventListener('scroll', () => {
                 const scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-                
-                // 修正: 判定を緩和 (100 -> 300)
                 if (scrollBottom < 300) {
                     scrollBtn.classList.add('show');
                 } else {
