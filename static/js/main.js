@@ -439,24 +439,23 @@ const ChartModule = {
 const AIModule = {
     suggestOutfit: async () => {
         const btn = document.getElementById('ai-suggest-btn');
-        const sceneInput = document.getElementById('scene-input').value;
+        let scene = document.getElementById('scene-select').value;
+        const customScene = document.getElementById('scene-custom-input').value.trim();
         const gender = document.getElementById('gender-select').value;
         
-        // モード判定
-        const modes = document.getElementsByName('proposal-mode');
-        let mode = 'simple';
-        for(let m of modes){
-            if(m.checked) mode = m.value;
-        }
+        // モード判定 (修正: querySelectorで確実に取得)
+        const selectedMode = document.querySelector('input[name="proposal-mode"]:checked');
+        const mode = selectedMode ? selectedMode.value : 'simple';
 
-        // 入力値の取得
         const preference = document.getElementById('preference-input').value;
         const wardrobe = document.getElementById('wardrobe-input').value;
 
-        // シーンは入力必須か？ とりあえず空なら「特になし」になるようにAPI側で処理済だが
-        // バリデーション入れても良い
-        let scene = sceneInput.trim();
-        if(!scene) scene = "特になし";
+        if (scene === 'その他' && customScene) {
+            scene = customScene;
+        } else if (scene === 'その他' && !customScene) {
+            alert("シーンを入力してください。");
+            return;
+        }
 
         if (!currentWeatherData) {
             alert("先に地図をクリックして天気情報を取得してください。");
@@ -520,21 +519,98 @@ const AIModule = {
 // ==========================================
 const ThemeModule = {
     init: () => {
-        // ... existing init code ...
         TimeModule.init();
 
-        // (既存のボタン・セレクト等のイベントリスナー) ...
         const toggleBtn = document.getElementById('theme-toggle-btn');
-        // ... (中略) ...
+        const btnText = document.getElementById('theme-btn-text');
         
+        toggleBtn.addEventListener('click', () => {
+            ThemeModule.triggerButtonAnim(toggleBtn);
+            
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            btnText.innerText = isDark ? 'ライト' : 'ダーク';
+            if(weatherChartInstance) {
+                const textColor = isDark ? '#e2e8f0' : '#666';
+                weatherChartInstance.options.scales.x.ticks.color = textColor;
+                weatherChartInstance.options.scales.y.ticks.color = textColor;
+                weatherChartInstance.options.plugins.legend.labels.color = textColor;
+                weatherChartInstance.data.datasets[0].datalabels.color = textColor;
+                weatherChartInstance.update();
+            }
+        });
+
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                 ThemeModule.triggerButtonAnim(refreshBtn);
+            });
+        }
+
+        // --- モード切替時の表示制御 (修正版) ---
+        const modeRadios = document.querySelectorAll('input[name="proposal-mode"]');
+        const detailedInputs = document.getElementById('detailed-inputs');
+
+        function updateInputs() {
+            const selected = document.querySelector('input[name="proposal-mode"]:checked');
+            if (selected && selected.value === 'detailed') {
+                detailedInputs.classList.remove('hidden');
+            } else {
+                detailedInputs.classList.add('hidden');
+            }
+        }
+        
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', updateInputs);
+        });
+        
+        // 初期化時にも実行
+        updateInputs();
+
+
+        const sceneSelect = document.getElementById('scene-select');
+        const customInput = document.getElementById('scene-custom-input');
+        
+        sceneSelect.addEventListener('change', () => {
+            if (sceneSelect.value === 'その他') {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+            }
+        });
+
+        // -----------------------------------------------------
+        // Interactive Card Click Logic (Toggle & 3s Auto-Close)
+        // -----------------------------------------------------
+        const cards = document.querySelectorAll('.interactive-card');
+        cards.forEach(card => {
+            card._timeoutId = null;
+
+            card.addEventListener('click', () => {
+                if (card.classList.contains('show-detail')) {
+                    card.classList.remove('show-detail');
+                    if (card._timeoutId) {
+                        clearTimeout(card._timeoutId);
+                        card._timeoutId = null;
+                    }
+                } 
+                else {
+                    card.classList.add('show-detail');
+                    if (card._timeoutId) clearTimeout(card._timeoutId);
+                    card._timeoutId = setTimeout(() => {
+                        card.classList.remove('show-detail');
+                        card._timeoutId = null;
+                    }, 3000);
+                }
+            });
+        });
+
         // --- Scroll to Top Logic ---
         const scrollBtn = document.getElementById('scroll-to-top');
         if (scrollBtn) {
             window.addEventListener('scroll', () => {
-                // ドキュメントの高さ - 表示領域の高さ - 現在のスクロール位置
                 const scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-                
-                // 最下部から100px以内なら表示
                 if (scrollBottom < 100) {
                     scrollBtn.classList.add('show');
                 } else {
@@ -543,20 +619,29 @@ const ThemeModule = {
             });
 
             scrollBtn.addEventListener('click', () => {
-                // アニメーション発火
-                scrollBtn.classList.add('is-active');
-                
-                // トップへスクロール
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                
-                // アニメーション終了後にクラスを外す (1秒後)
-                setTimeout(() => {
-                    scrollBtn.classList.remove('is-active');
-                }, 1000);
             });
         }
     },
-    // ... existing functions ...
+
+    triggerAutoShow: () => {
+        const cards = document.querySelectorAll('.interactive-card');
+        cards.forEach(card => {
+            card.classList.add('show-detail');
+            if (card._timeoutId) clearTimeout(card._timeoutId);
+            card._timeoutId = setTimeout(() => {
+                card.classList.remove('show-detail');
+                card._timeoutId = null;
+            }, 5000);
+        });
+    },
+
+    triggerButtonAnim: (btn) => {
+        btn.classList.add('is-active');
+        setTimeout(() => {
+            btn.classList.remove('is-active');
+        }, 500);
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
