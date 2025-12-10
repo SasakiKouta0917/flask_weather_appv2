@@ -564,6 +564,7 @@ const ThemeModule = {
             radio.addEventListener('change', updateInputs);
         });
         
+        // 初期化時にも実行
         updateInputs();
 
 
@@ -579,11 +580,16 @@ const ThemeModule = {
             }
         });
 
+        // -----------------------------------------------------
+        // Interactive Card Click Logic (Toggle & 3s Auto-Close)
+        // -----------------------------------------------------
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
             card._timeoutId = null;
 
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                e.stopPropagation(); // 重要: バブリング防止
+                
                 if (card.classList.contains('show-detail')) {
                     card.classList.remove('show-detail');
                     if (card._timeoutId) {
@@ -628,7 +634,7 @@ const ThemeModule = {
             card._timeoutId = setTimeout(() => {
                 card.classList.remove('show-detail');
                 card._timeoutId = null;
-            }, 5000);
+            }, 5000); // 5s after auto-show (total 10s mark)
         });
     },
 
