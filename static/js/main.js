@@ -438,7 +438,7 @@ const ChartModule = {
 // 4. AI Module
 // ==========================================
 const AIModule = {
-    // ダミーデータを返すヘルパー
+    // ダミーデータを返すヘルパー (新規追加)
     getDummyData: () => {
         return {
             "suggestion": "通信エラーが発生したか、AIが応答しませんでした。\n\n【標準的なアドバイス】\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n寒暖差がある場合は羽織るものを持つと安心です。(ダミーデータ)"
@@ -491,13 +491,11 @@ const AIModule = {
             });
 
             if (!response.ok) {
-                // サーバーエラー時もダミーを表示
                 console.warn("Server API Error, using dummy data.");
                 const dummy = AIModule.getDummyData();
                 AIModule.renderResult(dummy);
             } else {
                 const data = await response.json();
-                // サーバーが正常に返したが、中身がダミー指定の場合もある
                 AIModule.renderResult(data.suggestions);
             }
 
@@ -508,7 +506,6 @@ const AIModule = {
 
         } catch (error) {
             console.error("AI Fetch Error:", error);
-            // ネットワークエラー時などにダミーデータを表示
             const dummy = AIModule.getDummyData();
             AIModule.renderResult(dummy);
             
@@ -589,10 +586,8 @@ const ThemeModule = {
             });
         }
 
-        // --- モード切替時の表示制御 ---
         const modeRadios = document.querySelectorAll('input[name="proposal-mode"]');
         const detailedInputs = document.getElementById('detailed-inputs');
-
         function updateInputs() {
             const selected = document.querySelector('input[name="proposal-mode"]:checked');
             if (selected && selected.value === 'detailed') {
@@ -601,10 +596,7 @@ const ThemeModule = {
                 detailedInputs.classList.add('hidden');
             }
         }
-        
-        modeRadios.forEach(radio => {
-            radio.addEventListener('change', updateInputs);
-        });
+        modeRadios.forEach(radio => radio.addEventListener('change', updateInputs));
         updateInputs();
 
         const sceneSelect = document.getElementById('scene-select');
@@ -625,8 +617,6 @@ const ThemeModule = {
             card._timeoutId = null;
 
             card.addEventListener('click', (e) => {
-                // pointer-events制御によりバブリングの心配は減ったが、
-                // 明示的な処理として残す
                 if (card.classList.contains('show-detail')) {
                     card.classList.remove('show-detail');
                     if (card._timeoutId) {
