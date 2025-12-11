@@ -26,7 +26,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Clickable Elements Fix (Crucial)
+   【重要】クリック判定の強制修復 (Priority Fix)
    ========================================== */
 /* すべての操作可能な要素を強制的に最前面かつクリック可能にする */
 button, 
@@ -42,11 +42,6 @@ textarea,
     -webkit-tap-highlight-color: transparent; /* スマホでのタップハイライト削除 */
 }
 
-/* ★重要: ボタン内の子要素はクリックを親に譲る */
-button * {
-    pointer-events: none !important;
-}
-
 /* 入力欄はテキスト選択カーソルにする */
 input[type="text"], textarea {
     cursor: text !important;
@@ -55,6 +50,7 @@ input[type="text"], textarea {
 /* ==========================================
    Interactive Card Animation (Click Fix)
    ========================================== */
+/* 配色変数定義 */
 #temp-card-container    { --card-anim-color: #3b82f6; }
 #humid-card-container   { --card-anim-color: #06b6d4; }
 #rain-card-container    { --card-anim-color: #6366f1; }
@@ -64,9 +60,16 @@ input[type="text"], textarea {
 .dark #rain-card-container    { --card-anim-color: #4f46e5; }
 .dark #weather-card-container { --card-anim-color: #ea580c; }
 
-.interactive-card { transition: none; }
+/* カード本体 */
+.interactive-card {
+    transition: none;
+    /* 親要素がクリックを受け取る */
+}
+
 /* カード内の子要素はクリックを透過させ、親(.interactive-card)にイベントを渡す */
-.interactive-card * { pointer-events: none !important; }
+.interactive-card * {
+    pointer-events: none !important;
+}
 
 /* 背景アニメーション (四隅) */
 .interactive-card::before, .interactive-card::after {
@@ -101,11 +104,13 @@ input[type="text"], textarea {
     opacity: 1; transform: translate3d(0, 0, 0) !important;
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
+
+/* 文字色強制白 */
 .show-detail .view-back *, .show-detail > div:first-child i {
     color: #ffffff !important;
 }
 
-/* PCホバー設定 */
+/* PCホバー設定 (スマホでは無効化) */
 @media (hover: hover) {
     .interactive-card:hover::before, .interactive-card:hover::after { width: 100%; height: 100%; border-radius: 0; }
     .interactive-card:hover .view-front { opacity: 0; transform: translate3d(0, -20px, 0) !important; }
@@ -117,12 +122,13 @@ input[type="text"], textarea {
         color: #ffffff !important;
     }
 }
+
 .interactive-card > div:first-child i {
     transition: color 0.2s ease; position: relative; z-index: 30;
 }
 
 /* ==========================================
-   Button Animations
+   Button Animations (Fixed)
    ========================================== */
 .btn-float-anim {
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
@@ -130,9 +136,11 @@ input[type="text"], textarea {
 @media (hover: hover) {
     .btn-float-anim:hover { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
 }
+/* スマホ用アクティブ状態 */
 .btn-float-anim.is-active { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
 .btn-float-anim:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2); }
 
+/* New Reset Button (Gray Shadow) */
 .btn-float-anim-gray {
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
 }
@@ -142,6 +150,7 @@ input[type="text"], textarea {
 .btn-float-anim-gray.is-active { box-shadow: 0px 15px 20px rgba(107, 114, 128, 0.4); transform: translateY(-7px); }
 .btn-float-anim-gray:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(107, 114, 128, 0.2); }
 
+/* Ripple Button (Theme & Refresh) */
 .ripple-btn {
     position: relative; overflow: hidden;
     transition: color 0.2s ease-in, border-color 0.2s ease-in, background-color 0.2s ease-in;
@@ -163,6 +172,7 @@ input[type="text"], textarea {
 .ripple-btn.is-active { color: #ffffff; }
 .ripple-btn.is-active::after { top: -45%; transform: translateX(-50%) scaleY(1.3) scaleX(0.8); }
 
+/* Individual Button Colors */
 .theme-btn { color: #1e293b; }
 .theme-btn::after { background-color: #1e293b; }
 @media (hover: hover) { .theme-btn:hover { border-color: #1e293b; } }
