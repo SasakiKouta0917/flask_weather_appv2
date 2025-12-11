@@ -115,7 +115,6 @@
 /* ==========================================
    Button Animations (Fixed)
    ========================================== */
-/* AI Suggest Button (Purple Shadow) */
 .btn-float-anim {
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
 }
@@ -178,7 +177,7 @@
 /* Checkbox */
 .checkbox-wrapper-46 input { display: none; visibility: hidden; }
 .checkbox-wrapper-46 .cbx {
-    margin: auto; -webkit-user-select: none; user-select: none; cursor: pointer;
+    margin: auto; -webkit-user-select: none; user-select: none;
     display: flex; align-items: center;
 }
 .checkbox-wrapper-46 .cbx span { display: inline-block; vertical-align: middle; transform: translate3d(0, 0, 0); }
