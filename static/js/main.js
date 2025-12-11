@@ -226,27 +226,17 @@ const WeatherModule = {
             pressure: current.surface_pressure
         };
 
-        // DOM Elements
-        const elLocation = document.getElementById('location-name');
-        const elTemp = document.getElementById('current-temp');
-        const elHumid = document.getElementById('current-humidity');
-        const elRain = document.getElementById('current-rain');
-        const elDesc = document.getElementById('current-weather-desc');
-        const elMax = document.getElementById('temp-max');
-        const elMin = document.getElementById('temp-min');
-        const elPressure = document.getElementById('card-pressure');
-
-        if (elLocation) elLocation.innerText = locationName;
-        if (elTemp) elTemp.innerText = `${current.temperature_2m}℃`;
-        if (elHumid) elHumid.innerText = `${current.relative_humidity_2m}%`;
-        if (elRain) elRain.innerText = `${current.precipitation}mm`;
-        if (elDesc) elDesc.innerText = weatherDesc;
+        document.getElementById('location-name').innerText = locationName;
+        document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
+        document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
+        document.getElementById('current-rain').innerText = `${current.precipitation}mm`;
+        document.getElementById('current-weather-desc').innerText = weatherDesc;
         
-        if (elMax) elMax.innerText = daily.temperature_2m_max[0];
-        if (elMin) elMin.innerText = daily.temperature_2m_min[0];
-        if (elPressure) elPressure.innerText = `${current.surface_pressure}hPa`;
+        document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
+        document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
 
-        // 12時間データ解析
+        document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
+
         const now = new Date();
         now.setMinutes(0, 0, 0);
         let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
@@ -259,17 +249,12 @@ const WeatherModule = {
 
         const maxHumid = Math.max(...next12hHumid);
         const minHumid = Math.min(...next12hHumid);
+        document.getElementById('card-humid-max').innerText = `${maxHumid}%`;
+        document.getElementById('card-humid-min').innerText = `${minHumid}%`;
+
         const maxPrecip = Math.max(...next12hPrecip);
+        document.getElementById('card-rain-max').innerText = `${maxPrecip}mm`;
 
-        const elHumidMax = document.getElementById('card-humid-max');
-        const elHumidMin = document.getElementById('card-humid-min');
-        const elRainMax = document.getElementById('card-rain-max');
-        
-        if (elHumidMax) elHumidMax.innerText = `${maxHumid}%`;
-        if (elHumidMin) elHumidMin.innerText = `${minHumid}%`;
-        if (elRainMax) elRainMax.innerText = `${maxPrecip}mm`;
-
-        // 天気変化
         const currentCode = current.weather_code;
         let changeIndex = -1;
         for(let i = 0; i < next12hCodes.length; i++) {
@@ -279,17 +264,14 @@ const WeatherModule = {
             }
         }
 
-        const elTime = document.getElementById('card-weather-time');
-        const elVal = document.getElementById('card-weather-val');
-
-        if (changeIndex !== -1) {
+        if(changeIndex !== -1) {
             const nextCode = next12hCodes[changeIndex];
             const nextWeather = CONFIG.wmoCodes[nextCode] || '-';
-            if (elTime) elTime.innerText = `${changeIndex}時間後`;
-            if (elVal) elVal.innerText = nextWeather;
+            document.getElementById('card-weather-time').innerText = `${changeIndex}時間後`;
+            document.getElementById('card-weather-val').innerText = nextWeather;
         } else {
-            if (elTime) elTime.innerText = `当面`;
-            if (elVal) elVal.innerText = `変化なし`;
+            document.getElementById('card-weather-time').innerText = `当面`;
+            document.getElementById('card-weather-val').innerText = `変化なし`;
         }
 
         TimeModule.reset();
@@ -456,6 +438,13 @@ const ChartModule = {
 // 4. AI Module
 // ==========================================
 const AIModule = {
+    // ダミーデータを返すヘルパー
+    getDummyData: () => {
+        return {
+            "suggestion": "通信エラーが発生したか、AIが応答しませんでした。\n\n【標準的なアドバイス】\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n寒暖差がある場合は羽織るものを持つと安心です。(ダミーデータ)"
+        };
+    },
+
     suggestOutfit: async () => {
         const btn = document.getElementById('ai-suggest-btn');
         const resetBtn = document.getElementById('ai-reset-btn');
@@ -502,22 +491,31 @@ const AIModule = {
             });
 
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || "Server API Error");
+                // サーバーエラー時もダミーを表示
+                console.warn("Server API Error, using dummy data.");
+                const dummy = AIModule.getDummyData();
+                AIModule.renderResult(dummy);
+            } else {
+                const data = await response.json();
+                // サーバーが正常に返したが、中身がダミー指定の場合もある
+                AIModule.renderResult(data.suggestions);
             }
 
-            const data = await response.json();
-            AIModule.renderResult(data.suggestions);
-            
             btn.innerHTML = '<i class="fa-solid fa-robot"></i> 再取得';
             
             if (inputContainer) inputContainer.classList.add('hidden');
             if (resetBtn) resetBtn.classList.remove('hidden');
 
         } catch (error) {
-            console.error("AI Error:", error);
-            alert(`エラーが発生しました: ${error.message}`);
-            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 再試行';
+            console.error("AI Fetch Error:", error);
+            // ネットワークエラー時などにダミーデータを表示
+            const dummy = AIModule.getDummyData();
+            AIModule.renderResult(dummy);
+            
+            btn.innerHTML = '<i class="fa-solid fa-robot"></i> 再取得';
+            if (inputContainer) inputContainer.classList.add('hidden');
+            if (resetBtn) resetBtn.classList.remove('hidden');
+
         } finally {
             btn.disabled = false;
         }
@@ -591,8 +589,10 @@ const ThemeModule = {
             });
         }
 
+        // --- モード切替時の表示制御 ---
         const modeRadios = document.querySelectorAll('input[name="proposal-mode"]');
         const detailedInputs = document.getElementById('detailed-inputs');
+
         function updateInputs() {
             const selected = document.querySelector('input[name="proposal-mode"]:checked');
             if (selected && selected.value === 'detailed') {
@@ -601,7 +601,10 @@ const ThemeModule = {
                 detailedInputs.classList.add('hidden');
             }
         }
-        modeRadios.forEach(radio => radio.addEventListener('change', updateInputs));
+        
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', updateInputs);
+        });
         updateInputs();
 
         const sceneSelect = document.getElementById('scene-select');
@@ -622,9 +625,8 @@ const ThemeModule = {
             card._timeoutId = null;
 
             card.addEventListener('click', (e) => {
-                // 親へのバブリングは許容するが、イベント処理はここで行う
-                // pointer-events:none にした子要素からのイベントもバブリングしてくる
-                
+                // pointer-events制御によりバブリングの心配は減ったが、
+                // 明示的な処理として残す
                 if (card.classList.contains('show-detail')) {
                     card.classList.remove('show-detail');
                     if (card._timeoutId) {
@@ -683,8 +685,14 @@ document.addEventListener('DOMContentLoaded', () => {
     MapModule.init();
     ThemeModule.init();
 
-    // グローバルなイベントリスナーはThemeModule内で設定済みのものと重複しないよう注意
-    // ここでは冗長な設定を避け、モジュール内で完結させる
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
+            mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
+            MapModule.updateRadar();
+        });
+    }
 
     const aiBtn = document.getElementById('ai-suggest-btn');
     if (aiBtn) {
