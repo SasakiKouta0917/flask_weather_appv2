@@ -174,7 +174,7 @@ const MapModule = {
 const WeatherModule = {
     fetchData: async (lat, lng) => {
         const btn = document.getElementById('refresh-btn');
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
         
         try {
             const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
@@ -204,7 +204,7 @@ const WeatherModule = {
             console.error("Weather fetch error:", error);
             alert("天気情報の取得に失敗しました。");
         } finally {
-            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 更新';
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 更新';
         }
     },
 
@@ -226,17 +226,27 @@ const WeatherModule = {
             pressure: current.surface_pressure
         };
 
-        document.getElementById('location-name').innerText = locationName;
-        document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
-        document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
-        document.getElementById('current-rain').innerText = `${current.precipitation}mm`;
-        document.getElementById('current-weather-desc').innerText = weatherDesc;
+        // DOM Elements
+        const elLocation = document.getElementById('location-name');
+        const elTemp = document.getElementById('current-temp');
+        const elHumid = document.getElementById('current-humidity');
+        const elRain = document.getElementById('current-rain');
+        const elDesc = document.getElementById('current-weather-desc');
+        const elMax = document.getElementById('temp-max');
+        const elMin = document.getElementById('temp-min');
+        const elPressure = document.getElementById('card-pressure');
+
+        if (elLocation) elLocation.innerText = locationName;
+        if (elTemp) elTemp.innerText = `${current.temperature_2m}℃`;
+        if (elHumid) elHumid.innerText = `${current.relative_humidity_2m}%`;
+        if (elRain) elRain.innerText = `${current.precipitation}mm`;
+        if (elDesc) elDesc.innerText = weatherDesc;
         
-        document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
-        document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
+        if (elMax) elMax.innerText = daily.temperature_2m_max[0];
+        if (elMin) elMin.innerText = daily.temperature_2m_min[0];
+        if (elPressure) elPressure.innerText = `${current.surface_pressure}hPa`;
 
-        document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
-
+        // 12時間データ解析
         const now = new Date();
         now.setMinutes(0, 0, 0);
         let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
@@ -249,12 +259,17 @@ const WeatherModule = {
 
         const maxHumid = Math.max(...next12hHumid);
         const minHumid = Math.min(...next12hHumid);
-        document.getElementById('card-humid-max').innerText = `${maxHumid}%`;
-        document.getElementById('card-humid-min').innerText = `${minHumid}%`;
-
         const maxPrecip = Math.max(...next12hPrecip);
-        document.getElementById('card-rain-max').innerText = `${maxPrecip}mm`;
 
+        const elHumidMax = document.getElementById('card-humid-max');
+        const elHumidMin = document.getElementById('card-humid-min');
+        const elRainMax = document.getElementById('card-rain-max');
+        
+        if (elHumidMax) elHumidMax.innerText = `${maxHumid}%`;
+        if (elHumidMin) elHumidMin.innerText = `${minHumid}%`;
+        if (elRainMax) elRainMax.innerText = `${maxPrecip}mm`;
+
+        // 天気変化
         const currentCode = current.weather_code;
         let changeIndex = -1;
         for(let i = 0; i < next12hCodes.length; i++) {
@@ -264,14 +279,17 @@ const WeatherModule = {
             }
         }
 
-        if(changeIndex !== -1) {
+        const elTime = document.getElementById('card-weather-time');
+        const elVal = document.getElementById('card-weather-val');
+
+        if (changeIndex !== -1) {
             const nextCode = next12hCodes[changeIndex];
             const nextWeather = CONFIG.wmoCodes[nextCode] || '-';
-            document.getElementById('card-weather-time').innerText = `${changeIndex}時間後`;
-            document.getElementById('card-weather-val').innerText = nextWeather;
+            if (elTime) elTime.innerText = `${changeIndex}時間後`;
+            if (elVal) elVal.innerText = nextWeather;
         } else {
-            document.getElementById('card-weather-time').innerText = `当面`;
-            document.getElementById('card-weather-val').innerText = `変化なし`;
+            if (elTime) elTime.innerText = `当面`;
+            if (elVal) elVal.innerText = `変化なし`;
         }
 
         TimeModule.reset();
@@ -282,6 +300,7 @@ const WeatherModule = {
 
     renderWeeklyForecast: (daily) => {
         const container = document.getElementById('weekly-forecast-container');
+        if (!container) return;
         let html = '';
 
         for (let i = 0; i < daily.time.length; i++) {
@@ -439,6 +458,9 @@ const ChartModule = {
 const AIModule = {
     suggestOutfit: async () => {
         const btn = document.getElementById('ai-suggest-btn');
+        const resetBtn = document.getElementById('ai-reset-btn');
+        const inputContainer = document.getElementById('ai-input-container');
+
         let scene = document.getElementById('scene-select').value;
         const customScene = document.getElementById('scene-custom-input').value.trim();
         const gender = document.getElementById('gender-select').value;
@@ -463,7 +485,6 @@ const AIModule = {
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
-
         ThemeModule.triggerButtonAnim(btn);
 
         try {
@@ -487,7 +508,11 @@ const AIModule = {
 
             const data = await response.json();
             AIModule.renderResult(data.suggestions);
+            
             btn.innerHTML = '<i class="fa-solid fa-robot"></i> 再取得';
+            
+            if (inputContainer) inputContainer.classList.add('hidden');
+            if (resetBtn) resetBtn.classList.remove('hidden');
 
         } catch (error) {
             console.error("AI Error:", error);
@@ -510,6 +535,25 @@ const AIModule = {
                 <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap">${text}</p>
             </div>
         `;
+    },
+
+    reset: () => {
+        const resetBtn = document.getElementById('ai-reset-btn');
+        const inputContainer = document.getElementById('ai-input-container');
+        const resultArea = document.getElementById('ai-result-area');
+        
+        document.getElementById('scene-custom-input').value = "";
+        document.getElementById('preference-input').value = "";
+        document.getElementById('wardrobe-input').value = "";
+        
+        if (inputContainer) inputContainer.classList.remove('hidden');
+        if (resetBtn) resetBtn.classList.add('hidden');
+        
+        resultArea.innerHTML = `
+            <div class="bg-gray-50 dark:bg-slate-700/30 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 md:p-8 text-center text-sm md:text-base text-gray-400 dark:text-slate-500 h-full flex items-center justify-center flex-grow transition duration-500">
+                ここにAIからの提案が表示されます
+            </div>
+        `;
     }
 };
 
@@ -525,7 +569,6 @@ const ThemeModule = {
             const btnText = document.getElementById('theme-btn-text');
             toggleBtn.addEventListener('click', () => {
                 ThemeModule.triggerButtonAnim(toggleBtn);
-                
                 document.documentElement.classList.toggle('dark');
                 const isDark = document.documentElement.classList.contains('dark');
                 if (btnText) btnText.innerText = isDark ? 'ライト' : 'ダーク';
@@ -545,14 +588,11 @@ const ThemeModule = {
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
                  ThemeModule.triggerButtonAnim(refreshBtn);
-                 // Logic is handled in global listener
             });
         }
 
-        // --- モード切替時の表示制御 ---
         const modeRadios = document.querySelectorAll('input[name="proposal-mode"]');
         const detailedInputs = document.getElementById('detailed-inputs');
-
         function updateInputs() {
             const selected = document.querySelector('input[name="proposal-mode"]:checked');
             if (selected && selected.value === 'detailed') {
@@ -561,15 +601,11 @@ const ThemeModule = {
                 detailedInputs.classList.add('hidden');
             }
         }
-        
-        modeRadios.forEach(radio => {
-            radio.addEventListener('change', updateInputs);
-        });
+        modeRadios.forEach(radio => radio.addEventListener('change', updateInputs));
         updateInputs();
 
         const sceneSelect = document.getElementById('scene-select');
         const customInput = document.getElementById('scene-custom-input');
-        
         if (sceneSelect) {
             sceneSelect.addEventListener('change', () => {
                 if (sceneSelect.value === 'その他') {
@@ -581,15 +617,14 @@ const ThemeModule = {
             });
         }
 
-        // -----------------------------------------------------
-        // Interactive Card Click Logic (Toggle & 3s Auto-Close)
-        // -----------------------------------------------------
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
             card._timeoutId = null;
 
             card.addEventListener('click', (e) => {
-                // 親要素への伝播を止める必要はないが、明示的にクリックされたことを確認
+                // 親へのバブリングは許容するが、イベント処理はここで行う
+                // pointer-events:none にした子要素からのイベントもバブリングしてくる
+                
                 if (card.classList.contains('show-detail')) {
                     card.classList.remove('show-detail');
                     if (card._timeoutId) {
@@ -608,7 +643,6 @@ const ThemeModule = {
             });
         });
 
-        // --- Scroll to Top Logic ---
         const scrollBtn = document.getElementById('scroll-to-top');
         if (scrollBtn) {
             window.addEventListener('scroll', () => {
@@ -619,7 +653,6 @@ const ThemeModule = {
                     scrollBtn.classList.remove('show');
                 }
             });
-
             scrollBtn.addEventListener('click', () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
@@ -650,19 +683,21 @@ document.addEventListener('DOMContentLoaded', () => {
     MapModule.init();
     ThemeModule.init();
 
-    const refreshBtn = document.getElementById('refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
-            mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
-            MapModule.updateRadar();
-        });
-    }
+    // グローバルなイベントリスナーはThemeModule内で設定済みのものと重複しないよう注意
+    // ここでは冗長な設定を避け、モジュール内で完結させる
 
     const aiBtn = document.getElementById('ai-suggest-btn');
     if (aiBtn) {
         aiBtn.addEventListener('click', () => {
             AIModule.suggestOutfit();
+        });
+    }
+
+    const aiResetBtn = document.getElementById('ai-reset-btn');
+    if (aiResetBtn) {
+        aiResetBtn.addEventListener('click', () => {
+            ThemeModule.triggerButtonAnim(aiResetBtn);
+            AIModule.reset();
         });
     }
 });
