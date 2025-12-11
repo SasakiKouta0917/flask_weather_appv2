@@ -26,19 +26,29 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   Clickable Elements Fix (Crucial)
+   【重要】クリック判定の強制修復 (Priority Fix)
    ========================================== */
-/* すべてのインタラクティブ要素を最前面に持ってくる */
-.interactive-card, button, .checkbox-wrapper-46 {
+/* すべての操作可能な要素を強制的に最前面かつクリック可能にする */
+button, 
+select, 
+input, 
+textarea, 
+.interactive-card, 
+.checkbox-wrapper-46 {
     position: relative;
-    z-index: 30 !important; /* 他の装飾より上に */
-    pointer-events: auto !important; /* クリックを強制有効化 */
-    -webkit-tap-highlight-color: transparent;
+    z-index: 50 !important; /* 他の要素より手前に */
+    pointer-events: auto !important; /* クリックを強制的に有効化 */
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent; /* スマホでのタップハイライト削除 */
+}
+
+/* 入力欄はテキスト選択カーソルにする */
+input[type="text"], textarea {
+    cursor: text !important;
 }
 
 /* ==========================================
-   Interactive Card Animation (Mobile Fix Final)
+   Interactive Card Animation (Click Fix)
    ========================================== */
 /* 配色変数定義 */
 #temp-card-container    { --card-anim-color: #3b82f6; }
@@ -52,10 +62,13 @@
 
 /* カード本体 */
 .interactive-card {
-    position: relative;
-    z-index: 1;
     transition: none;
-    -webkit-tap-highlight-color: transparent;
+    /* 親要素がクリックを受け取る */
+}
+
+/* カード内の子要素はクリックを透過させ、親(.interactive-card)にイベントを渡す */
+.interactive-card * {
+    pointer-events: none !important;
 }
 
 /* 背景アニメーション (四隅) */
@@ -63,7 +76,7 @@
     content: ""; position: absolute; width: 0; height: 0;
     background-color: var(--card-anim-color);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    z-index: 0; /* コンテンツ(10)より下 */
+    z-index: 0; 
 }
 .interactive-card::before { top: 0; right: 0; border-radius: 0 0 0 100%; }
 .interactive-card::after { bottom: 0; left: 0; border-radius: 0 100% 0 0; }
@@ -73,14 +86,13 @@
 
 /* コンテンツ表示制御 */
 .view-front {
-    position: relative; z-index: 10; width: 100%; height: 100%; opacity: 1;
-    transform: translate3d(0, 0, 0); pointer-events: none; /* 親にクリックを譲る */
+    position: relative; z-index: 10; width: 100%; height: 100%;
+    opacity: 1; transform: translate3d(0, 0, 0);
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 .view-back {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 20; opacity: 0; transform: translate3d(0, 20px, 0);
-    pointer-events: none;
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
@@ -89,27 +101,30 @@
     opacity: 0; transform: translate3d(0, -20px, 0) !important;
 }
 .show-detail .view-back {
-    opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
+    opacity: 1; transform: translate3d(0, 0, 0) !important;
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
+
+/* 文字色強制白 */
 .show-detail .view-back *, .show-detail > div:first-child i {
     color: #ffffff !important;
 }
 
-/* PCホバー設定 */
+/* PCホバー設定 (スマホでは無効化) */
 @media (hover: hover) {
     .interactive-card:hover::before, .interactive-card:hover::after { width: 100%; height: 100%; border-radius: 0; }
     .interactive-card:hover .view-front { opacity: 0; transform: translate3d(0, -20px, 0) !important; }
     .interactive-card:hover .view-back {
-        opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
+        opacity: 1; transform: translate3d(0, 0, 0) !important;
         transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
     }
     .interactive-card:hover .view-back *, .interactive-card:hover > div:first-child i {
         color: #ffffff !important;
     }
 }
+
 .interactive-card > div:first-child i {
-    transition: color 0.2s ease; position: relative; z-index: 30; pointer-events: none;
+    transition: color 0.2s ease; position: relative; z-index: 30;
 }
 
 /* ==========================================
@@ -121,10 +136,11 @@
 @media (hover: hover) {
     .btn-float-anim:hover { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
 }
+/* スマホ用アクティブ状態 */
 .btn-float-anim.is-active { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
 .btn-float-anim:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2); }
 
-/* ★New: Reset Button (Gray Shadow) */
+/* New Reset Button (Gray Shadow) */
 .btn-float-anim-gray {
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
 }
@@ -133,7 +149,6 @@
 }
 .btn-float-anim-gray.is-active { box-shadow: 0px 15px 20px rgba(107, 114, 128, 0.4); transform: translateY(-7px); }
 .btn-float-anim-gray:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(107, 114, 128, 0.2); }
-
 
 /* Ripple Button (Theme & Refresh) */
 .ripple-btn {
