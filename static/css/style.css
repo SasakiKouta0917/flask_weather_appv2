@@ -26,7 +26,7 @@
 .delay-3 { animation-delay: 0.3s; }
 
 /* ==========================================
-   【重要】クリック判定の強制修復 (Priority Fix)
+   Clickable Elements Fix (Crucial)
    ========================================== */
 /* すべての操作可能な要素を強制的に最前面かつクリック可能にする */
 button, 
@@ -40,6 +40,11 @@ textarea,
     pointer-events: auto !important; /* クリックを強制的に有効化 */
     cursor: pointer;
     -webkit-tap-highlight-color: transparent; /* スマホでのタップハイライト削除 */
+}
+
+/* ★重要: ボタン内の子要素はクリックを親に譲る */
+button * {
+    pointer-events: none !important;
 }
 
 /* 入力欄はテキスト選択カーソルにする */
@@ -61,15 +66,9 @@ input[type="text"], textarea {
 .dark #weather-card-container { --card-anim-color: #ea580c; }
 
 /* カード本体 */
-.interactive-card {
-    transition: none;
-    /* 親要素がクリックを受け取る */
-}
-
+.interactive-card { transition: none; }
 /* カード内の子要素はクリックを透過させ、親(.interactive-card)にイベントを渡す */
-.interactive-card * {
-    pointer-events: none !important;
-}
+.interactive-card * { pointer-events: none !important; }
 
 /* 背景アニメーション (四隅) */
 .interactive-card::before, .interactive-card::after {
@@ -93,6 +92,7 @@ input[type="text"], textarea {
 .view-back {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 20; opacity: 0; transform: translate3d(0, 20px, 0);
+    pointer-events: none;
     transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
@@ -101,46 +101,36 @@ input[type="text"], textarea {
     opacity: 0; transform: translate3d(0, -20px, 0) !important;
 }
 .show-detail .view-back {
-    opacity: 1; transform: translate3d(0, 0, 0) !important;
+    opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
     transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
 }
-
-/* 文字色強制白 */
 .show-detail .view-back *, .show-detail > div:first-child i {
     color: #ffffff !important;
 }
 
-/* PCホバー設定 (スマホでは無効化) */
+/* PCホバー設定 */
 @media (hover: hover) {
     .interactive-card:hover::before, .interactive-card:hover::after { width: 100%; height: 100%; border-radius: 0; }
     .interactive-card:hover .view-front { opacity: 0; transform: translate3d(0, -20px, 0) !important; }
     .interactive-card:hover .view-back {
-        opacity: 1; transform: translate3d(0, 0, 0) !important;
+        opacity: 1; transform: translate3d(0, 0, 0) !important; pointer-events: auto;
         transition: opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
     }
     .interactive-card:hover .view-back *, .interactive-card:hover > div:first-child i {
         color: #ffffff !important;
     }
 }
-
 .interactive-card > div:first-child i {
-    transition: color 0.2s ease; position: relative; z-index: 30;
+    transition: color 0.2s ease; position: relative; z-index: 30; pointer-events: none;
 }
 
 /* ==========================================
    Button Animations (Fixed)
    ========================================== */
-.btn-float-anim {
-    box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
-}
-@media (hover: hover) {
-    .btn-float-anim:hover { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
-}
-/* スマホ用アクティブ状態 */
-.btn-float-anim.is-active { box-shadow: 0px 15px 20px rgba(147, 51, 234, 0.4); transform: translateY(-7px); }
-.btn-float-anim:active { transform: translateY(-1px); box-shadow: 0px 5px 10px rgba(147, 51, 234, 0.2); }
+/* btn-float-anim (Purple Shadow) - アニメーション削除済み、影のみ */
+/* .btn-float-anim { ... } 削除 */
 
-/* New Reset Button (Gray Shadow) */
+/* Reset Button (Gray Shadow) */
 .btn-float-anim-gray {
     box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1); transition: all 0.3s ease 0s;
 }
