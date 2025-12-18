@@ -33,10 +33,11 @@ def suggest_outfit_api():
     result = suggest_outfit(weather, options)
 
     # 結果に応じたステータスコードの設定
+    # エラー(dummy)でもフロント側で表示するため200を返す場合もあるが、
+    # ここでは明示的なエラーなら500、それ以外(dummy含む)は200とする
     status_code = 500 if result.get("type") == "error" else 200
 
     return jsonify(result), status_code
 
 if __name__ == '__main__':
-    app.run(debug=True)
     app.run(debug=True)
