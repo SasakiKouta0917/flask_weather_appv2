@@ -23,11 +23,8 @@ const CONFIG = {
         95: 'fa-bolt text-yellow-500', 96: 'fa-bolt text-yellow-500', 99: 'fa-bolt text-yellow-600'
     },
     weatherColors: {
-        sunny: 'rgb(255, 159, 64)',
-        cloudy: 'rgb(156, 163, 175)',
-        rain: 'rgb(59, 130, 246)',
-        snow: 'rgb(6, 182, 212)',
-        thunder: 'rgb(168, 85, 247)'
+        sunny: 'rgb(255, 159, 64)', cloudy: 'rgb(156, 163, 175)', rain: 'rgb(59, 130, 246)',
+        snow: 'rgb(6, 182, 212)', thunder: 'rgb(168, 85, 247)'
     }
 };
 
@@ -43,61 +40,109 @@ function getWeatherColor(code) {
     if ([95, 96, 99].includes(code)) return CONFIG.weatherColors.thunder;
     return CONFIG.weatherColors.rain;
 }
-
-function getWeatherIconClass(code) {
-    return CONFIG.weatherIcons[code] || 'fa-question text-gray-400';
-}
+function getWeatherIconClass(code) { return CONFIG.weatherIcons[code] || 'fa-question text-gray-400'; }
 
 // ==========================================
-// Time Module
+// Time & Theme Module (Helper Functions)
 // ==========================================
 const TimeModule = {
-    lastUpdated: null,
-    intervalId: null,
-    hasTriggeredAutoShow: false,
-
-    init: () => {
-        TimeModule.lastUpdated = new Date();
-        TimeModule.startTimer();
-    },
-
-    reset: () => {
-        TimeModule.lastUpdated = new Date();
-        TimeModule.hasTriggeredAutoShow = false;
-        TimeModule.updateDisplay();
-    },
-
-    startTimer: () => {
-        if (TimeModule.intervalId) clearInterval(TimeModule.intervalId);
-        TimeModule.intervalId = setInterval(TimeModule.updateDisplay, 1000);
-    },
-
+    lastUpdated: null, intervalId: null, hasTriggeredAutoShow: false,
+    init: () => { TimeModule.lastUpdated = new Date(); TimeModule.startTimer(); },
+    reset: () => { TimeModule.lastUpdated = new Date(); TimeModule.hasTriggeredAutoShow = false; TimeModule.updateDisplay(); },
+    startTimer: () => { if (TimeModule.intervalId) clearInterval(TimeModule.intervalId); TimeModule.intervalId = setInterval(TimeModule.updateDisplay, 1000); },
     updateDisplay: () => {
-        const now = new Date();
-        const diffMs = now - TimeModule.lastUpdated;
-        const diffSec = Math.floor(diffMs / 1000);
+        const now = new Date(); const diffMs = now - TimeModule.lastUpdated; const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec === 5 && !TimeModule.hasTriggeredAutoShow) { TimeModule.hasTriggeredAutoShow = true; ThemeModule.triggerAutoShow(); }
+        let text = diffSec < 60 ? `前回の更新から ${String(diffSec).padStart(2, '0')}秒` : 
+                   diffSec < 3600 ? `前回の更新から ${String(Math.floor(diffSec / 60)).padStart(2, '0')}分` : 
+                   `前回の更新から ${String(Math.floor(diffSec / 3600)).padStart(2, '0')}時間`;
+        const timerEl = document.getElementById('update-timer'); if (timerEl) timerEl.innerText = text;
+    }
+};
 
-        if (diffSec === 5 && !TimeModule.hasTriggeredAutoShow) {
-            TimeModule.hasTriggeredAutoShow = true;
-            ThemeModule.triggerAutoShow();
+const ThemeModule = {
+    init: () => {
+        TimeModule.init();
+        const toggleBtn = document.getElementById('theme-toggle-btn');
+        if (toggleBtn) {
+            const btnText = document.getElementById('theme-btn-text');
+            toggleBtn.addEventListener('click', () => {
+                ThemeModule.triggerButtonAnim(toggleBtn);
+                document.documentElement.classList.toggle('dark');
+                const isDark = document.documentElement.classList.contains('dark');
+                if (btnText) btnText.innerText = isDark ? 'ライト' : 'ダーク';
+                if(weatherChartInstance) {
+                    const textColor = isDark ? '#e2e8f0' : '#666';
+                    weatherChartInstance.options.scales.x.ticks.color = textColor;
+                    weatherChartInstance.options.scales.y.ticks.color = textColor;
+                    weatherChartInstance.options.plugins.legend.labels.color = textColor;
+                    weatherChartInstance.data.datasets[0].datalabels.color = textColor;
+                    weatherChartInstance.update();
+                }
+            });
         }
-
-        let text = "";
         
-        if (diffSec < 60) {
-            text = `前回の更新から ${String(diffSec).padStart(2, '0')}秒`;
-        } else if (diffSec < 3600) {
-            const min = Math.floor(diffSec / 60);
-            text = `前回の更新から ${String(min).padStart(2, '0')}分`;
-        } else {
-            const hour = Math.floor(diffSec / 3600);
-            text = `前回の更新から ${String(hour).padStart(2, '0')}時間`;
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => { ThemeModule.triggerButtonAnim(refreshBtn); });
         }
 
-        const timerEl = document.getElementById('update-timer');
-        if (timerEl) {
-            timerEl.innerText = text;
+        const modeRadios = document.querySelectorAll('input[name="proposal-mode"]');
+        const detailedInputs = document.getElementById('detailed-inputs');
+        function updateInputs() {
+            const selected = document.querySelector('input[name="proposal-mode"]:checked');
+            if (selected && selected.value === 'detailed') detailedInputs.classList.remove('hidden');
+            else detailedInputs.classList.add('hidden');
         }
+        modeRadios.forEach(radio => radio.addEventListener('change', updateInputs));
+        updateInputs();
+
+        const sceneSelect = document.getElementById('scene-select');
+        const customInput = document.getElementById('scene-custom-input');
+        if (sceneSelect) {
+            sceneSelect.addEventListener('change', () => {
+                if (sceneSelect.value === 'その他') { customInput.classList.remove('hidden'); customInput.focus(); }
+                else customInput.classList.add('hidden');
+            });
+        }
+
+        const cards = document.querySelectorAll('.interactive-card');
+        cards.forEach(card => {
+            card._timeoutId = null;
+            card.addEventListener('click', (e) => {
+                if (card.classList.contains('show-detail')) {
+                    card.classList.remove('show-detail');
+                    if (card._timeoutId) { clearTimeout(card._timeoutId); card._timeoutId = null; }
+                } else {
+                    card.classList.add('show-detail');
+                    if (card._timeoutId) clearTimeout(card._timeoutId);
+                    card._timeoutId = setTimeout(() => { card.classList.remove('show-detail'); card._timeoutId = null; }, 3000);
+                }
+            });
+        });
+
+        const scrollBtn = document.getElementById('scroll-to-top');
+        if (scrollBtn) {
+            window.addEventListener('scroll', () => {
+                const scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+                if (scrollBottom < 300) scrollBtn.classList.add('show'); else scrollBtn.classList.remove('show');
+            });
+            scrollBtn.addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+        }
+    },
+
+    triggerAutoShow: () => {
+        const cards = document.querySelectorAll('.interactive-card');
+        cards.forEach(card => {
+            card.classList.add('show-detail');
+            if (card._timeoutId) clearTimeout(card._timeoutId);
+            card._timeoutId = setTimeout(() => { card.classList.remove('show-detail'); card._timeoutId = null; }, 5000);
+        });
+    },
+
+    triggerButtonAnim: (btn) => {
+        btn.classList.add('is-active');
+        setTimeout(() => { btn.classList.remove('is-active'); }, 500);
     }
 };
 
@@ -105,67 +150,34 @@ const TimeModule = {
 // 1. Map Module
 // ==========================================
 const MapModule = {
-    rainLayer: null,
-    layerControl: null,
-
+    rainLayer: null, layerControl: null,
     init: async () => {
         mapInstance = L.map('map').setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
-
-        const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(mapInstance);
-
+        const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(mapInstance);
         MapModule.layerControl = L.control.layers({"Base Map": baseLayer}, {}).addTo(mapInstance);
         await MapModule.updateRadar();
-
         markerInstance = L.marker([CONFIG.defaultLat, CONFIG.defaultLng], {draggable: true}).addTo(mapInstance);
-        
-        mapInstance.on('click', (e) => {
-            MapModule.updateMarker(e.latlng.lat, e.latlng.lng);
+        mapInstance.on('click', (e) => { MapModule.updateMarker(e.latlng.lat, e.latlng.lng); });
+        markerInstance.on('dragend', (e) => { 
+            const pos = markerInstance.getLatLng(); 
+            MapModule.handleLocationUpdate(pos.lat, pos.lng); 
         });
-
-        markerInstance.on('dragend', (e) => {
-            const pos = markerInstance.getLatLng();
-            MapModule.handleLocationUpdate(pos.lat, pos.lng);
-        });
-
         MapModule.handleLocationUpdate(CONFIG.defaultLat, CONFIG.defaultLng);
     },
-
     updateRadar: async () => {
-        if (MapModule.rainLayer) {
-            mapInstance.removeLayer(MapModule.rainLayer);
-            MapModule.layerControl.removeLayer(MapModule.rainLayer);
-            MapModule.rainLayer = null;
-        }
-
+        if (MapModule.rainLayer) { mapInstance.removeLayer(MapModule.rainLayer); MapModule.layerControl.removeLayer(MapModule.rainLayer); MapModule.rainLayer = null; }
         try {
             const response = await fetch('https://tilecache.rainviewer.com/api/maps.json');
             const results = await response.json();
-            
             if (results && results.length > 0) {
                 const time = results[results.length - 1]; 
-                MapModule.rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
-                    opacity: 0.6,
-                    attribution: 'Radar data &copy; <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>'
-                });
-                MapModule.rainLayer.addTo(mapInstance);
-                MapModule.layerControl.addOverlay(MapModule.rainLayer, "RainViewer 雨雲");
+                MapModule.rainLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: 0.6, attribution: 'Radar data &copy; <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>' });
+                MapModule.rainLayer.addTo(mapInstance); MapModule.layerControl.addOverlay(MapModule.rainLayer, "RainViewer 雨雲");
             }
-        } catch (e) {
-            console.error("RainViewer update failed:", e);
-        }
+        } catch (e) { console.error("RainViewer update failed:", e); }
     },
-
-    updateMarker: (lat, lng) => {
-        markerInstance.setLatLng([lat, lng]);
-        MapModule.handleLocationUpdate(lat, lng);
-    },
-
-    handleLocationUpdate: (lat, lng) => {
-        document.getElementById('coordinates').innerText = `Lat: ${lat.toFixed(4)} / Lon: ${lng.toFixed(4)}`;
-        WeatherModule.fetchData(lat, lng);
-    }
+    updateMarker: (lat, lng) => { markerInstance.setLatLng([lat, lng]); MapModule.handleLocationUpdate(lat, lng); },
+    handleLocationUpdate: (lat, lng) => { document.getElementById('coordinates').innerText = `Lat: ${lat.toFixed(4)} / Lon: ${lng.toFixed(4)}`; WeatherModule.fetchData(lat, lng); }
 };
 
 // ==========================================
@@ -175,151 +187,79 @@ const WeatherModule = {
     fetchData: async (lat, lng) => {
         const btn = document.getElementById('refresh-btn');
         if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
-        
         try {
             const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=8`;
-            const weatherRes = await fetch(weatherUrl);
-            const weatherData = await weatherRes.json();
-
+            const weatherRes = await fetch(weatherUrl); const weatherData = await weatherRes.json();
             let locationName = "指定地点";
             const isKitakamiAcademy = Math.abs(lat - CONFIG.defaultLat) < 0.0005 && Math.abs(lng - CONFIG.defaultLng) < 0.0005;
-
-            if (isKitakamiAcademy) {
-                locationName = "北上コンピュータ・アカデミー";
-            } else {
+            if (isKitakamiAcademy) locationName = "北上コンピュータ・アカデミー";
+            else {
                 try {
                     const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
-                    const geoRes = await fetch(geoUrl);
-                    const geoData = await geoRes.json();
-                    const address = geoData.address;
-                    locationName = address.city || address.town || address.village || address.county || address.state || "指定地点";
-                } catch (e) {
-                    console.error("Geocoding failed", e);
-                }
+                    const geoRes = await fetch(geoUrl); const geoData = await geoRes.json();
+                    locationName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.county || geoData.address.state || "指定地点";
+                } catch (e) { console.error("Geocoding failed", e); }
             }
-
             WeatherModule.updateUI(locationName, weatherData);
-            
-        } catch (error) {
-            console.error("Weather fetch error:", error);
-            alert("天気情報の取得に失敗しました。");
-        } finally {
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 更新';
-        }
+        } catch (error) { console.error("Weather fetch error:", error); alert("天気情報の取得に失敗しました。"); }
+        finally { if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 更新'; }
     },
-
     updateUI: (locationName, data) => {
-        const current = data.current;
-        const hourly = data.hourly;
-        const daily = data.daily;
-
+        const current = data.current; const hourly = data.hourly; const daily = data.daily;
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
-
         currentWeatherData = {
-            location: locationName,
-            temp: current.temperature_2m,
-            humidity: current.relative_humidity_2m,
-            precipitation: current.precipitation,
-            weather: weatherDesc,
-            temp_max: daily.temperature_2m_max[0],
-            temp_min: daily.temperature_2m_min[0],
-            pressure: current.surface_pressure
+            location: locationName, temp: current.temperature_2m, humidity: current.relative_humidity_2m,
+            precipitation: current.precipitation, weather: weatherDesc,
+            temp_max: daily.temperature_2m_max[0], temp_min: daily.temperature_2m_min[0], pressure: current.surface_pressure
         };
-
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
         document.getElementById('current-rain').innerText = `${current.precipitation}mm`;
         document.getElementById('current-weather-desc').innerText = weatherDesc;
-        
         document.getElementById('temp-max').innerText = daily.temperature_2m_max[0];
         document.getElementById('temp-min').innerText = daily.temperature_2m_min[0];
-
         document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
-
-        const now = new Date();
-        now.setMinutes(0, 0, 0);
-        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
-        if(startIndex === -1) startIndex = 0;
         
+        // 12h calculations
+        const now = new Date(); now.setMinutes(0, 0, 0);
+        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime()); if(startIndex === -1) startIndex = 0;
         const endIndex = startIndex + 12;
         const next12hHumid = hourly.relative_humidity_2m.slice(startIndex, endIndex);
         const next12hPrecip = hourly.precipitation.slice(startIndex, endIndex);
         const next12hCodes = hourly.weather_code.slice(startIndex, endIndex);
-
-        const maxHumid = Math.max(...next12hHumid);
-        const minHumid = Math.min(...next12hHumid);
-        document.getElementById('card-humid-max').innerText = `${maxHumid}%`;
-        document.getElementById('card-humid-min').innerText = `${minHumid}%`;
-
-        const maxPrecip = Math.max(...next12hPrecip);
-        document.getElementById('card-rain-max').innerText = `${maxPrecip}mm`;
-
-        const currentCode = current.weather_code;
-        let changeIndex = -1;
-        for(let i = 0; i < next12hCodes.length; i++) {
-            if(next12hCodes[i] !== currentCode) {
-                changeIndex = i;
-                break;
-            }
-        }
-
-        if(changeIndex !== -1) {
-            const nextCode = next12hCodes[changeIndex];
-            const nextWeather = CONFIG.wmoCodes[nextCode] || '-';
-            document.getElementById('card-weather-time').innerText = `${changeIndex}時間後`;
-            document.getElementById('card-weather-val').innerText = nextWeather;
+        
+        document.getElementById('card-humid-max').innerText = `${Math.max(...next12hHumid)}%`;
+        document.getElementById('card-humid-min').innerText = `${Math.min(...next12hHumid)}%`;
+        document.getElementById('card-rain-max').innerText = `${Math.max(...next12hPrecip)}mm`;
+        
+        const currentCode = current.weather_code; let changeIndex = -1;
+        for(let i = 0; i < next12hCodes.length; i++) { if(next12hCodes[i] !== currentCode) { changeIndex = i; break; } }
+        
+        const elTime = document.getElementById('card-weather-time'); const elVal = document.getElementById('card-weather-val');
+        if (changeIndex !== -1) {
+            const nextCode = next12hCodes[changeIndex]; const nextWeather = CONFIG.wmoCodes[nextCode] || '-';
+            if (elTime) elTime.innerText = `${changeIndex}時間後`; if (elVal) elVal.innerText = nextWeather;
         } else {
-            document.getElementById('card-weather-time').innerText = `当面`;
-            document.getElementById('card-weather-val').innerText = `変化なし`;
+            if (elTime) elTime.innerText = `当面`; if (elVal) elVal.innerText = `変化なし`;
         }
-
         TimeModule.reset();
-
         WeatherModule.renderWeeklyForecast(daily);
         ChartModule.render(hourly);
     },
-
     renderWeeklyForecast: (daily) => {
-        const container = document.getElementById('weekly-forecast-container');
-        if (!container) return;
+        const container = document.getElementById('weekly-forecast-container'); if (!container) return;
         let html = '';
-
         for (let i = 0; i < daily.time.length; i++) {
-            const dateStr = daily.time[i]; 
-            const date = new Date(dateStr);
-            const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
-            const isToday = i === 0;
-            const displayDate = `${date.getMonth() + 1}/${date.getDate()}(${dayOfWeek})`;
-
-            const code = daily.weather_code[i];
-            const maxTemp = Math.round(daily.temperature_2m_max[i]);
-            const minTemp = Math.round(daily.temperature_2m_min[i]);
-            const precipProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0;
-            
-            const iconClass = getWeatherIconClass(code);
-            const weatherName = CONFIG.wmoCodes[code] || '-';
-
+            const date = new Date(daily.time[i]); const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+            const isToday = i === 0; const displayDate = `${date.getMonth() + 1}/${date.getDate()}(${dayOfWeek})`;
+            const code = daily.weather_code[i]; const iconClass = getWeatherIconClass(code); const weatherName = CONFIG.wmoCodes[code] || '-';
             html += `
                 <div class="flex items-center py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-slate-700/50 transition border-b border-gray-100 dark:border-slate-700/50 last:border-0">
-                    <div class="w-16 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">
-                        ${isToday ? '今日' : displayDate}
-                    </div>
-                    
-                    <div class="flex-1 flex items-center gap-2 pl-2 overflow-hidden">
-                        <i class="fa-solid ${iconClass} text-lg w-6 text-center"></i>
-                        <span class="text-xs text-gray-500 dark:text-slate-400 truncate">${weatherName}</span>
-                    </div>
-
-                    <div class="w-16 text-center">
-                        <span class="text-xs font-bold text-blue-500">${precipProb}%</span>
-                    </div>
-
-                    <div class="w-16 flex items-center justify-end text-sm">
-                        <span class="w-5 text-right text-blue-500 dark:text-blue-400 font-medium">${minTemp}°</span>
-                        <span class="w-3 text-center text-gray-300 dark:text-slate-600">/</span>
-                        <span class="w-5 text-right text-red-500 dark:text-red-400 font-bold">${maxTemp}°</span>
-                    </div>
+                    <div class="w-16 text-sm ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}">${isToday ? '今日' : displayDate}</div>
+                    <div class="flex-1 flex items-center gap-2 pl-2 overflow-hidden"><i class="fa-solid ${iconClass} text-lg w-6 text-center"></i><span class="text-xs text-gray-500 dark:text-slate-400 truncate">${weatherName}</span></div>
+                    <div class="w-16 text-center"><span class="text-xs font-bold text-blue-500">${daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0}%</span></div>
+                    <div class="w-16 flex items-center justify-end text-sm"><span class="w-5 text-right text-blue-500 dark:text-blue-400 font-medium">${Math.round(daily.temperature_2m_min[i])}°</span><span class="w-3 text-center text-gray-300 dark:text-slate-600">/</span><span class="w-5 text-right text-red-500 dark:text-red-400 font-bold">${Math.round(daily.temperature_2m_max[i])}°</span></div>
                 </div>
             `;
         }
@@ -335,49 +275,25 @@ const ChartModule = {
         const ctx = document.getElementById('weatherChart').getContext('2d');
         const isDark = document.documentElement.classList.contains('dark');
         const textColor = isDark ? '#e2e8f0' : '#666';
-
-        const now = new Date();
-        now.setMinutes(0, 0, 0); 
-
-        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
-        if(startIndex === -1) startIndex = 0;
-
+        const now = new Date(); now.setMinutes(0, 0, 0);
+        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime()); if(startIndex === -1) startIndex = 0;
         const sliceEnd = startIndex + 12;
         const labels = hourly.time.slice(startIndex, sliceEnd).map(t => t.slice(11, 16));
         const temps = hourly.temperature_2m.slice(startIndex, sliceEnd);
         const precipprobs = hourly.precipitation_probability.slice(startIndex, sliceEnd);
         const weatherCodes = hourly.weather_code.slice(startIndex, sliceEnd);
-
-        if (weatherChartInstance) {
-            weatherChartInstance.destroy();
-        }
-
+        if (weatherChartInstance) weatherChartInstance.destroy();
         weatherChartInstance = new Chart(ctx, {
-            type: 'line',
-            plugins: [ChartDataLabels],
+            type: 'line', plugins: [ChartDataLabels],
             data: {
                 labels: labels,
                 datasets: [
                     {
-                        label: '気温 (℃)',
-                        data: temps,
-                        segment: {
-                            borderColor: ctx => {
-                                const index = ctx.p1DataIndex;
-                                const code = weatherCodes[index];
-                                return getWeatherColor(code);
-                            }
-                        },
-                        borderColor: 'rgb(255, 99, 132)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                        yAxisID: 'y',
-                        tension: 0.4,
+                        label: '気温 (℃)', data: temps,
+                        segment: { borderColor: ctx => getWeatherColor(weatherCodes[ctx.p1DataIndex]) },
+                        borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.2)', yAxisID: 'y', tension: 0.4,
                         datalabels: {
-                            align: 'top',
-                            anchor: 'end',
-                            offset: 6,
-                            color: textColor,
-                            font: { size: 12, weight: 'bold' },
+                            align: 'top', anchor: 'end', offset: 6, color: textColor, font: { size: 12, weight: 'bold' },
                             formatter: (value, context) => {
                                 const index = context.dataIndex;
                                 if (index === 0) return CONFIG.wmoCodes[weatherCodes[index]];
@@ -387,48 +303,19 @@ const ChartModule = {
                         }
                     },
                     {
-                        label: '降水確率 (%)',
-                        data: precipprobs,
-                        type: 'bar',
-                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                        yAxisID: 'y1',
-                        datalabels: { display: false }
+                        label: '降水確率 (%)', data: precipprobs, type: 'bar', backgroundColor: 'rgba(54, 162, 235, 0.5)', yAxisID: 'y1', datalabels: { display: false }
                     }
                 ]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: {
-                    padding: { top: 25 }
-                },
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
+                responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } },
+                interaction: { mode: 'index', intersect: false },
                 scales: {
                     x: { ticks: { color: textColor } },
-                    y: {
-                        type: 'linear',
-                        display: true,
-                        position: 'left',
-                        ticks: { display: true, color: textColor },
-                        title: { display: false },
-                        suggestedMax: Math.max(...temps) + 2
-                    },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        grid: { drawOnChartArea: false },
-                        min: 0, max: 100,
-                        ticks: { display: false }, 
-                        title: { display: false }
-                    }
+                    y: { type: 'linear', display: true, position: 'left', ticks: { display: true, color: textColor }, title: { display: false }, suggestedMax: Math.max(...temps) + 2 },
+                    y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, min: 0, max: 100, ticks: { display: false }, title: { display: false } }
                 },
-                plugins: {
-                    legend: { labels: { color: textColor } }
-                }
+                plugins: { legend: { labels: { color: textColor } } }
             }
         });
     }
@@ -438,10 +325,119 @@ const ChartModule = {
 // 4. AI Module
 // ==========================================
 const AIModule = {
-    // ダミーデータを返すヘルパー (新規追加)
+    // ダミーデータを返すヘルパー
     getDummyData: () => {
         return {
-            "suggestion": "通信エラーが発生したか、AIが応答しませんでした。\n\n【標準的なアドバイス】\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n寒暖差がある場合は羽織るものを持つと安心です。(ダミーデータ)"
+            "suggestion": "通信エラーが発生したか、AIが応答しませんでした。\n\n【標準的なアドバイス】\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n寒暖差がある場合は羽織るものを持つと安心です。(ダミーデータ表示中)"
+        };
+    },
+
+    suggestOutfit: async () => {
+        const btn = document.getElementById('ai-suggest-btn');
+        const resetBtn = document.getElementById('ai-reset-btn');
+        const inputContainer = document.getElementById('ai-input-container');
+
+        let scene = document.getElementById('scene-select').value;
+        const customScene = document.getElementById('scene-custom-input').value.trim();
+        const gender = document.getElementById('gender-select').value;
+        const selectedMode = document.querySelector('input[name="proposal-mode"]:checked');
+        const mode = selectedMode ? selectedMode.value : 'simple';
+        const preference = document.getElementById('preference-input').value;
+        const wardrobe = document.getElementById('wardrobe-input').value;
+
+        if (scene === 'その他' && customScene) scene = customScene;
+        else if (scene === 'その他' && !customScene) { alert("シーンを入力してください。"); return; }
+        if (!currentWeatherData) { alert("先に地図をクリックして天気情報を取得してください。"); return; }
+
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
+
+        try {
+            const response = await fetch("/api/suggest_outfit", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ weather_data: currentWeatherData, mode: mode, scene: scene, gender: gender, preference: preference, wardrobe: wardrobe })
+            });
+
+            if (!response.ok) {
+                console.warn("Server API Error, using dummy data.");
+                AIModule.renderResult(AIModule.getDummyData());
+            } else {
+                const data = await response.json();
+                AIModule.renderResult(data.suggestions);
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-robot"></i> 再取得';
+            if (inputContainer) inputContainer.classList.add('hidden');
+            if (resetBtn) resetBtn.classList.remove('hidden');
+
+        } catch (error) {
+            console.error("AI Fetch Error:", error);
+            AIModule.renderResult(AIModule.getDummyData());
+            btn.innerHTML = '<i class="fa-solid fa-robot"></i> 再取得';
+            if (inputContainer) inputContainer.classList.add('hidden');
+            if (resetBtn) resetBtn.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+        }
+    },
+
+    renderResult: (data) => {
+        const resultArea = document.getElementById('ai-result-area');
+        const text = data.suggestion || "提案を取得できませんでした。";
+        resultArea.innerHTML = `<div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-6 shadow-sm fade-in-up"><h4 class="font-bold text-purple-600 dark:text-purple-400 mb-3 border-b border-purple-100 dark:border-slate-600 pb-2 flex items-center gap-2"><i class="fa-solid fa-shirt"></i> コーディネート提案</h4><p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap">${text}</p></div>`;
+    },
+
+    reset: () => {
+        const resetBtn = document.getElementById('ai-reset-btn');
+        const inputContainer = document.getElementById('ai-input-container');
+        const resultArea = document.getElementById('ai-result-area');
+        
+        document.getElementById('scene-custom-input').value = "";
+        document.getElementById('preference-input').value = "";
+        document.getElementById('wardrobe-input').value = "";
+        
+        if (inputContainer) inputContainer.classList.remove('hidden');
+        if (resetBtn) resetBtn.classList.add('hidden');
+        resultArea.innerHTML = `<div class="bg-gray-50 dark:bg-slate-700/30 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 md:p-8 text-center text-sm md:text-base text-gray-400 dark:text-slate-500 h-full flex items-center justify-center flex-grow transition duration-500">ここにAIからの提案が表示されます</div>`;
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    MapModule.init();
+    ThemeModule.init();
+
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
+            mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
+            MapModule.updateRadar();
+        });
+    }
+
+    const aiBtn = document.getElementById('ai-suggest-btn');
+    if (aiBtn) {
+        aiBtn.addEventListener('click', () => {
+            AIModule.suggestOutfit();
+        });
+    }
+
+    const aiResetBtn = document.getElementById('ai-reset-btn');
+    if (aiResetBtn) {
+        aiResetBtn.addEventListener('click', () => {
+            ThemeModule.triggerButtonAnim(aiResetBtn);
+            AIModule.reset();
+        });
+    }
+});
+
+// ==========================================
+// 4. AI Module
+// ==========================================
+const AIModule = {
+    // ダミーデータを返すヘルパー
+    getDummyData: () => {
+        return {
+            "suggestion": "通信エラーが発生したか、AIが応答しませんでした。\n\n【標準的なアドバイス】\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n寒暖差がある場合は羽織るものを持つと安心です。(ダミーデータ表示中)"
         };
     },
 
@@ -474,7 +470,6 @@ const AIModule = {
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
-        ThemeModule.triggerButtonAnim(btn);
 
         try {
             const response = await fetch("/api/suggest_outfit", {
@@ -564,6 +559,7 @@ const ThemeModule = {
             const btnText = document.getElementById('theme-btn-text');
             toggleBtn.addEventListener('click', () => {
                 ThemeModule.triggerButtonAnim(toggleBtn);
+                
                 document.documentElement.classList.toggle('dark');
                 const isDark = document.documentElement.classList.contains('dark');
                 if (btnText) btnText.innerText = isDark ? 'ライト' : 'ダーク';
@@ -588,6 +584,7 @@ const ThemeModule = {
 
         const modeRadios = document.querySelectorAll('input[name="proposal-mode"]');
         const detailedInputs = document.getElementById('detailed-inputs');
+
         function updateInputs() {
             const selected = document.querySelector('input[name="proposal-mode"]:checked');
             if (selected && selected.value === 'detailed') {
@@ -596,11 +593,17 @@ const ThemeModule = {
                 detailedInputs.classList.add('hidden');
             }
         }
-        modeRadios.forEach(radio => radio.addEventListener('change', updateInputs));
+        
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', updateInputs);
+        });
+        
         updateInputs();
+
 
         const sceneSelect = document.getElementById('scene-select');
         const customInput = document.getElementById('scene-custom-input');
+        
         if (sceneSelect) {
             sceneSelect.addEventListener('change', () => {
                 if (sceneSelect.value === 'その他') {
@@ -645,6 +648,7 @@ const ThemeModule = {
                     scrollBtn.classList.remove('show');
                 }
             });
+
             scrollBtn.addEventListener('click', () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
