@@ -3,12 +3,10 @@ import google.generativeai as genai
 import json
 
 # APIキーの設定（環境変数から読み込み）
-# 🔧 修正: GOOGLE_API_KEY を使用
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 genai.configure(api_key=GOOGLE_API_KEY)
 
 def suggest_outfit(weather, options):
-    # ... 以下は同じ ...
     # 天気情報の展開
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
@@ -82,8 +80,8 @@ def suggest_outfit(weather, options):
     prompt = base_info + instruction + format_instruction
 
     try:
-        # Gemini APIを使用
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Gemini APIを使用（修正: models/ プレフィックスを追加）
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         
         response = model.generate_content(
             prompt,
