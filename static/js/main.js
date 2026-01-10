@@ -438,7 +438,6 @@ const ChartModule = {
 // 4. AI Module
 // ==========================================
 const AIModule = {
-    // ダミーデータを返すヘルパー (新規追加)
     getDummyData: () => {
         return {
             "suggestion": "通信エラーが発生したか、AIが応答しませんでした。\n\n【標準的なアドバイス】\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n寒暖差がある場合は羽織るものを持つと安心です。(ダミーデータ)"
@@ -450,22 +449,24 @@ const AIModule = {
         const resetBtn = document.getElementById('ai-reset-btn');
         const inputContainer = document.getElementById('ai-input-container');
 
-        let scene = document.getElementById('scene-select').value;
-        const customScene = document.getElementById('scene-custom-input').value.trim();
-        const gender = document.getElementById('gender-select').value;
+        // 🔧 修正: HTMLに存在する正しいIDを使用
+        const sceneInput = document.getElementById('scene-input');
+        const scene = sceneInput ? sceneInput.value.trim() : '';
+        
+        const genderSelect = document.getElementById('gender-select');
+        const gender = genderSelect ? genderSelect.value : 'unspecified';
         
         const selectedMode = document.querySelector('input[name="proposal-mode"]:checked');
         const mode = selectedMode ? selectedMode.value : 'simple';
 
-        const preference = document.getElementById('preference-input').value;
-        const wardrobe = document.getElementById('wardrobe-input').value;
+        const preferenceInput = document.getElementById('preference-input');
+        const preference = preferenceInput ? preferenceInput.value : '';
+        
+        const wardrobeInput = document.getElementById('wardrobe-input');
+        const wardrobe = wardrobeInput ? wardrobeInput.value : '';
 
-        if (scene === 'その他' && customScene) {
-            scene = customScene;
-        } else if (scene === 'その他' && !customScene) {
-            alert("シーンを入力してください。");
-            return;
-        }
+        // シーンが空の場合は「特になし」として処理
+        const finalScene = scene || '特になし';
 
         if (!currentWeatherData) {
             alert("先に地図をクリックして天気情報を取得してください。");
@@ -483,7 +484,7 @@ const AIModule = {
                 body: JSON.stringify({
                     weather_data: currentWeatherData,
                     mode: mode,
-                    scene: scene,
+                    scene: finalScene,
                     gender: gender,
                     preference: preference,
                     wardrobe: wardrobe
@@ -537,9 +538,13 @@ const AIModule = {
         const inputContainer = document.getElementById('ai-input-container');
         const resultArea = document.getElementById('ai-result-area');
         
-        document.getElementById('scene-custom-input').value = "";
-        document.getElementById('preference-input').value = "";
-        document.getElementById('wardrobe-input').value = "";
+        const sceneInput = document.getElementById('scene-input');
+        const preferenceInput = document.getElementById('preference-input');
+        const wardrobeInput = document.getElementById('wardrobe-input');
+        
+        if (sceneInput) sceneInput.value = "";
+        if (preferenceInput) preferenceInput.value = "";
+        if (wardrobeInput) wardrobeInput.value = "";
         
         if (inputContainer) inputContainer.classList.remove('hidden');
         if (resetBtn) resetBtn.classList.add('hidden');
@@ -599,19 +604,6 @@ const ThemeModule = {
         modeRadios.forEach(radio => radio.addEventListener('change', updateInputs));
         updateInputs();
 
-        const sceneSelect = document.getElementById('scene-select');
-        const customInput = document.getElementById('scene-custom-input');
-        if (sceneSelect) {
-            sceneSelect.addEventListener('change', () => {
-                if (sceneSelect.value === 'その他') {
-                    customInput.classList.remove('hidden');
-                    customInput.focus();
-                } else {
-                    customInput.classList.add('hidden');
-                }
-            });
-        }
-
         const cards = document.querySelectorAll('.interactive-card');
         cards.forEach(card => {
             card._timeoutId = null;
@@ -656,46 +648,4 @@ const ThemeModule = {
         cards.forEach(card => {
             card.classList.add('show-detail');
             if (card._timeoutId) clearTimeout(card._timeoutId);
-            card._timeoutId = setTimeout(() => {
-                card.classList.remove('show-detail');
-                card._timeoutId = null;
-            }, 5000);
-        });
-    },
-
-    triggerButtonAnim: (btn) => {
-        btn.classList.add('is-active');
-        setTimeout(() => {
-            btn.classList.remove('is-active');
-        }, 500);
-    }
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-    MapModule.init();
-    ThemeModule.init();
-
-    const refreshBtn = document.getElementById('refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
-            mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
-            MapModule.updateRadar();
-        });
-    }
-
-    const aiBtn = document.getElementById('ai-suggest-btn');
-    if (aiBtn) {
-        aiBtn.addEventListener('click', () => {
-            AIModule.suggestOutfit();
-        });
-    }
-
-    const aiResetBtn = document.getElementById('ai-reset-btn');
-    if (aiResetBtn) {
-        aiResetBtn.addEventListener('click', () => {
-            ThemeModule.triggerButtonAnim(aiResetBtn);
-            AIModule.reset();
-        });
-    }
-});
+            card._time
