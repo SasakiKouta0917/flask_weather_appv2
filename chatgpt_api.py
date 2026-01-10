@@ -8,6 +8,8 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 # APIキーが設定されているか確認
 if not GOOGLE_API_KEY:
     print("[ERROR] GOOGLE_API_KEY is not set in environment variables!")
+else:
+    print(f"[INFO] API Key found (length: {len(GOOGLE_API_KEY)})")
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
@@ -84,47 +86,69 @@ def suggest_outfit(weather, options):
 
     prompt = base_info + instruction + format_instruction
 
-    try:
-        # Gemini APIを使用（モデル名を短縮形に変更）
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=1000,
+    # 試すモデル名のリスト（優先順位順）
+    model_names = [
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash',
+        'gemini-pro',
+        'gemini-1.0-pro'
+    ]
+
+    last_error = None
+    
+    for model_name in model_names:
+        try:
+            print(f"[INFO] Trying model: {model_name}")
+            
+            # Gemini APIを使用
+            model = genai.GenerativeModel(model_name)
+            
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=1000,
+                )
             )
-        )
 
-        content = response.text.strip()
-        
-        # マークダウンのコードブロックを削除
-        clean_json = content.replace("```json", "").replace("```", "").strip()
-        
-        # JSONをパース
-        suggestions = json.loads(clean_json)
+            content = response.text.strip()
+            print(f"[SUCCESS] Model {model_name} worked!")
+            
+            # マークダウンのコードブロックを削除
+            clean_json = content.replace("```json", "").replace("```", "").strip()
+            
+            # JSONをパース
+            suggestions = json.loads(clean_json)
 
-        return {
-            "type": "success",
-            "suggestions": suggestions
-        }
-
-    except json.JSONDecodeError as e:
-        print(f"JSON Parse Error in gemini_api: {e}")
-        print(f"Response content: {content if 'content' in locals() else 'No content'}")
-        return {
-            "type": "error",
-            "suggestions": {
-                "suggestion": f"AI応答の解析に失敗しました。\n\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。(JSON解析エラー)"
+            return {
+                "type": "success",
+                "suggestions": suggestions
             }
-        }
-    except Exception as e:
-        print(f"Error in gemini_api: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-            "type": "error",
-            "suggestions": {
-                "suggestion": "通信エラーが発生しました。天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。(ダミーデータ)"
+
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] JSON Parse Error with model {model_name}: {e}")
+            print(f"Response content: {content if 'content' in locals() else 'No content'}")
+            # JSON解析エラーの場合は次のモデルは試さず、エラーを返す
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": f"AI応答の解析に失敗しました。\n\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。(JSON解析エラー)"
+                }
             }
+        except Exception as e:
+            print(f"[ERROR] Failed with model {model_name}: {e}")
+            last_error = e
+            # 次のモデルを試す
+            continue
+    
+    # すべてのモデルで失敗した場合
+    print(f"[ERROR] All models failed. Last error: {last_error}")
+    import traceback
+    traceback.print_exc()
+    
+    return {
+        "type": "error",
+        "suggestions": {
+            "suggestion": f"通信エラーが発生しました。天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n\nエラー詳細: {str(last_error)[:100]}"
         }
+    }
