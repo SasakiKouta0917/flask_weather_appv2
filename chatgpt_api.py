@@ -1,19 +1,22 @@
 import os
-import google.generativeai as genai
 import json
 import traceback
+import google.generativeai as genai
 
-# APIキーの設定（環境変数から読み込み）
+# --- API初期化設定 ---
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# APIキー確認
 if not GOOGLE_API_KEY:
-    print("[ERROR] GOOGLE_API_KEY is not set!")
+    print("[ERROR] GOOGLE_API_KEY is not set in environment variables!")
 else:
-    genai.configure(api_key=GOOGLE_API_KEY)
+    # transport='rest' を指定することで、v1betaエラー(404)を回避し安定させます
+    genai.configure(api_key=GOOGLE_API_KEY, transport='rest')
 
 def suggest_outfit(weather, options):
-    # --- 1. 情報の展開 ---
+    """
+    天候情報とユーザーの要望からGeminiに服装提案をさせる関数
+    """
+    # 1. パラメータの展開
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
     temp_min = weather.get("temp_min")
@@ -29,52 +32,40 @@ def suggest_outfit(weather, options):
 
     gender_str = "メンズ" if gender == "mens" else "レディース" if gender == "ladies" else "ユニセックス"
 
-    # --- 2. プロンプト作成 ---
-    # JSONモードを使うため、プロンプトでの「JSON形式で...」という細かい指示は削除してシンプルにします
+    # 2. プロンプト構築
+    prompt = f"""
+あなたはプロのファッションスタイリストです。以下の条件に合わせて1つのまとまった服装提案を作成してください。
+
+# 天気条件
+- 天気: {weather_desc}
+- 気温: {temp}℃ (最高:{temp_max}℃ / 最低:{temp_min}℃)
+- 湿度: {humidity}%, 降水: {precipitation}mm
+
+# ユーザー条件
+- 性別タイプ: {gender_str}
+- 利用シーン: {scene}
+- 好み/気分: {preference}
+- 手持ちの服: {wardrobe}
+
+# 指示
+- 天候に適した快適さと、シーンに合うおしゃれさを両立させてください。
+- 時間帯による気温変化への対応（羽織りもの等）も含めてください。
+- 文章は400文字程度で、親しみやすく丁寧な口調にしてください。
+"""
+
+    # 3. Gemini API 呼び出し
+    # モデル名は 'models/gemini-1.5-flash' とフルパスで指定
+    model_name = 'models/gemini-1.5-flash'
     
-    base_instruction = f"""
-    あなたはプロのスタイリストです。以下の天気と条件に合わせて最適な服装を提案してください。
-
-    # 天気情報
-    - 天気: {weather_desc}, 気温: {temp}℃ (最高:{temp_max} / 最低:{temp_min})
-    - 湿度: {humidity}%, 降水: {precipitation}mm
-
-    # 条件
-    - 対象: {gender_str}
-    - シーン: {scene}
-    """
-
-    if mode == "detailed":
-        detail_instruction = f"""
-        # 要望
-        - 気分: {preference}
-        - 手持ち服: {wardrobe}
-        
-        # 指示
-        手持ちの服を優先的に使い、気温や天気を考慮した具体的なコーディネートを提案してください。
-        """
-    else:
-        detail_instruction = f"""
-        # 指示
-        具体的な商品名は避け、「厚手のアウター」「通気性の良いシャツ」のように機能性や素材感を重視した抽象的な表現で提案してください。
-        """
-
-    final_prompt = base_instruction + detail_instruction + "\n\nこの内容で、以下のJSONスキーマに従って出力してください。"
-
-    # --- 3. Gemini API 呼び出し ---
-    # 確実に動くモデルを1つだけ指定
-    model_name = 'gemini-1.5-flash'
-
     try:
         print(f"[INFO] Using model: {model_name}")
         model = genai.GenerativeModel(model_name)
 
+        # JSONモードを強制し、解析エラーを防ぐ
         response = model.generate_content(
-            final_prompt,
+            prompt,
             generation_config=genai.GenerationConfig(
                 temperature=0.7,
-                max_output_tokens=1000,
-                # ★重要: これで確実にJSONが返ってきます
                 response_mime_type="application/json",
                 response_schema={
                     "type": "OBJECT",
@@ -83,7 +74,7 @@ def suggest_outfit(weather, options):
                     }
                 }
             ),
-            # ★重要: 服装（肌の露出など）に関する誤判定を防ぐ
+            # 安全フィルターによるブロック（空の応答）を防止
             safety_settings=[
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
                 {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -92,21 +83,25 @@ def suggest_outfit(weather, options):
             ]
         )
 
-        # JSONモードなのでそのままパース可能
+        # 応答の解析
+        if not response.text:
+            raise ValueError("Empty response from API")
+            
         result = json.loads(response.text)
-        
+        print(f"[SUCCESS] Style suggestion generated via {model_name}")
+
         return {
             "type": "success",
             "suggestions": result
         }
 
     except Exception as e:
-        print(f"[ERROR] Gemini API Error: {e}")
+        print(f"[ERROR] Gemini API Error: {str(e)}")
         traceback.print_exc()
         
         return {
             "type": "error",
             "suggestions": {
-                "suggestion": "申し訳ありません。AIの通信中にエラーが発生しました。天気予報を確認してお出かけください。"
+                "suggestion": "AIとの通信中にエラーが発生しました。気温に合わせた服装でお出かけください。"
             }
         }
