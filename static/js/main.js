@@ -648,4 +648,46 @@ const ThemeModule = {
         cards.forEach(card => {
             card.classList.add('show-detail');
             if (card._timeoutId) clearTimeout(card._timeoutId);
-            card._time
+            card._timeoutId = setTimeout(() => {
+                card.classList.remove('show-detail');
+                card._timeoutId = null;
+            }, 5000);
+        });
+    },
+
+    triggerButtonAnim: (btn) => {
+        btn.classList.add('is-active');
+        setTimeout(() => {
+            btn.classList.remove('is-active');
+        }, 500);
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    MapModule.init();
+    ThemeModule.init();
+
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
+            mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
+            MapModule.updateRadar();
+        });
+    }
+
+    const aiBtn = document.getElementById('ai-suggest-btn');
+    if (aiBtn) {
+        aiBtn.addEventListener('click', () => {
+            AIModule.suggestOutfit();
+        });
+    }
+
+    const aiResetBtn = document.getElementById('ai-reset-btn');
+    if (aiResetBtn) {
+        aiResetBtn.addEventListener('click', () => {
+            ThemeModule.triggerButtonAnim(aiResetBtn);
+            AIModule.reset();
+        });
+    }
+});
