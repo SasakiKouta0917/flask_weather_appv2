@@ -3,10 +3,12 @@ import google.generativeai as genai
 import json
 
 # APIキーの設定（環境変数から読み込み）
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
+# 🔧 修正: GOOGLE_API_KEY を使用
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+genai.configure(api_key=GOOGLE_API_KEY)
 
 def suggest_outfit(weather, options):
+    # ... 以下は同じ ...
     # 天気情報の展開
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
