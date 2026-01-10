@@ -4,6 +4,11 @@ import json
 
 # APIキーの設定（環境変数から読み込み）
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+
+# APIキーが設定されているか確認
+if not GOOGLE_API_KEY:
+    print("[ERROR] GOOGLE_API_KEY is not set in environment variables!")
+
 genai.configure(api_key=GOOGLE_API_KEY)
 
 def suggest_outfit(weather, options):
@@ -80,12 +85,12 @@ def suggest_outfit(weather, options):
     prompt = base_info + instruction + format_instruction
 
     try:
-        # Gemini APIを使用（修正: models/ プレフィックスを追加）
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        # Gemini APIを使用（モデル名を短縮形に変更）
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         response = model.generate_content(
             prompt,
-            generation_config=genai.types.GenerationConfig(
+            generation_config=genai.GenerationConfig(
                 temperature=0.7,
                 max_output_tokens=1000,
             )
@@ -106,7 +111,7 @@ def suggest_outfit(weather, options):
 
     except json.JSONDecodeError as e:
         print(f"JSON Parse Error in gemini_api: {e}")
-        print(f"Response content: {content}")
+        print(f"Response content: {content if 'content' in locals() else 'No content'}")
         return {
             "type": "error",
             "suggestions": {
@@ -115,6 +120,8 @@ def suggest_outfit(weather, options):
         }
     except Exception as e:
         print(f"Error in gemini_api: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "type": "error",
             "suggestions": {
