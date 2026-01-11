@@ -183,11 +183,19 @@ input[type="text"], textarea {
 @media (hover: hover) { .dark .theme-btn:hover { color: #1e293b; border-color: #ffffff; background-color: transparent; } }
 .dark .theme-btn.is-active { color: #1e293b; border-color: #ffffff; background-color: transparent; }
 
+/* 更新ボタン（緑色） */
 .refresh-btn { color: #4b5563; }
 .refresh-btn::after { background-color: #22c55e; }
 @media (hover: hover) { .refresh-btn:hover { border-color: #22c55e; } }
 .refresh-btn.is-active { border-color: #22c55e; }
 .dark .refresh-btn { background-color: #334155; color: #e2e8f0; border-color: #475569; }
+
+/* 🔵 現在地ボタン専用（水色） */
+.geolocation-btn { color: #4b5563; }
+.geolocation-btn::after { background-color: #06b6d4; }
+@media (hover: hover) { .geolocation-btn:hover { border-color: #06b6d4; } }
+.geolocation-btn.is-active { border-color: #06b6d4; }
+.dark .geolocation-btn { background-color: #334155; color: #e2e8f0; border-color: #475569; }
 
 /* Checkbox */
 .checkbox-wrapper-46 input { display: none; visibility: hidden; }
