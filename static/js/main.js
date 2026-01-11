@@ -710,32 +710,32 @@ const AIModule = {
     },
 
     renderResult: (data) => {
-        const resultArea = document.getElementById('ai-result-area');
-        const text = data.suggestion || "提案を取得できませんでした。";
+    const resultArea = document.getElementById('ai-result-area');
+    const text = data.suggestion || "提案を取得できませんでした。";
 
-        resultArea.innerHTML = `
-            <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-6 shadow-sm fade-in-up">
-                <div class="flex items-center justify-between mb-3 border-b border-purple-100 dark:border-slate-600 pb-2">
-                    <h4 class="font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2">
-                        <i class="fa-solid fa-shirt"></i> コーディネート提案
-                    </h4>
-                    <button onclick="AIModule.copyToClipboard()" class="text-gray-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 transition">
-                        <i class="fa-solid fa-copy"></i>
-                    </button>
-                </div>
-                <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap mb-4">${text}</p>
-                <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-slate-600">
-                    <span class="text-xs text-gray-500 dark:text-slate-400">この提案は役に立ちましたか?</span>
-                    <button onclick="AIModule.rateSuggestion('good')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-full text-sm transition">
-                        <i class="fa-solid fa-thumbs-up"></i> 良い
-                    </button>
-                    <button onclick="AIModule.rateSuggestion('bad')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-full text-sm transition">
-                        <i class="fa-solid fa-thumbs-down"></i> 悪い
-                    </button>
-                </div>
+    resultArea.innerHTML = `
+        <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-6 shadow-sm fade-in-up">
+            <div class="flex items-center justify-between mb-3 border-b border-purple-100 dark:border-slate-600 pb-2">
+                <h4 class="font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                    <i class="fa-solid fa-shirt"></i> コーディネート提案
+                </h4>
+                <button onclick="AIModule.copyToClipboard()" class="text-gray-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 transition">
+                    <i class="fa-solid fa-copy"></i>
+                </button>
             </div>
-        `;
-    },
+            <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap mb-4">${text}</p>
+            <div class="flex items-center justify-end gap-2 md:gap-3 pt-3 border-t border-gray-100 dark:border-slate-600">
+                <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:inline">この提案は役に立ちましたか?</span>
+                <button onclick="AIModule.rateSuggestion('good')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-full text-sm transition">
+                    <i class="fa-solid fa-thumbs-up"></i><span class="hidden sm:inline ml-1">良い</span>
+                </button>
+                <button onclick="AIModule.rateSuggestion('bad')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-full text-sm transition">
+                    <i class="fa-solid fa-thumbs-down"></i><span class="hidden sm:inline ml-1">悪い</span>
+                </button>
+            </div>
+        </div>
+    `;
+},
 
     copyToClipboard: () => {
         const resultArea = document.getElementById('ai-result-area');
