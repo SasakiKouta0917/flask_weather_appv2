@@ -62,31 +62,35 @@
         </section>
 
         <!-- 2. Current Weather (PC: 右列上段・高さ260px固定) -->
-        <div class="order-2 lg:order-2 lg:col-span-7 bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-600 fade-in-up delay-1 transition-colors duration-300 shadow-sm lg:h-[260px] flex flex-col justify-between">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
-                <div>
-                    <h2 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-slate-100" id="location-name">地点を選択してください</h2>
-                    <p class="text-gray-500 dark:text-slate-400 text-xs md:text-sm" id="coordinates">Lat: - / Lon: -</p>
-                </div>
-                
-                <div class="flex gap-2 self-end sm:self-auto items-center flex-wrap">
-                    <span id="update-timer" class="text-[10px] md:text-xs text-gray-400 dark:text-slate-500 mr-2 font-mono whitespace-nowrap">
-                        前回の更新から 00秒
-                    </span>
-                    <!-- 現在地取得ボタン -->
-                    <button id="geolocation-btn" class="ripple-btn refresh-btn px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 transform active:scale-95 shadow-sm">
-                        <i class="fa-solid fa-location-crosshairs"></i> <span class="whitespace-nowrap">現在地</span>
-                    </button>
-                    <button id="theme-toggle-btn" class="ripple-btn theme-btn px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 shadow-sm transform active:scale-95">
-                        <i class="fa-solid fa-moon dark:hidden"></i>
-                        <i class="fa-solid fa-sun hidden dark:inline"></i>
-                        <span id="theme-btn-text" class="whitespace-nowrap">ダーク</span>
-                    </button>
-                    <button id="refresh-btn" class="ripple-btn refresh-btn px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center gap-2 transform active:scale-95 shadow-sm">
-                        <i class="fa-solid fa-rotate-right"></i> <span class="whitespace-nowrap">更新</span>
-                    </button>
-                </div>
-            </div>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
+    <div>
+        <h2 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-slate-100" id="location-name">地点を選択してください</h2>
+        <p class="text-gray-500 dark:text-slate-400 text-xs md:text-sm" id="coordinates">Lat: - / Lon: -</p>
+    </div>
+    
+    <div class="flex flex-col items-end gap-2 w-full sm:w-auto">
+        <!-- ボタン行 (スマホで3つ横並び) -->
+        <div class="flex gap-2 items-center w-full sm:w-auto">
+            <!-- 現在地取得ボタン -->
+            <button id="geolocation-btn" class="ripple-btn refresh-btn flex-1 sm:flex-initial px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center justify-center gap-2 transform active:scale-95 shadow-sm">
+                <i class="fa-solid fa-location-crosshairs"></i> <span class="hidden sm:inline whitespace-nowrap">現在地</span>
+            </button>
+            <button id="theme-toggle-btn" class="ripple-btn theme-btn flex-1 sm:flex-initial px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center justify-center gap-2 shadow-sm transform active:scale-95">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:inline"></i>
+                <span id="theme-btn-text" class="hidden sm:inline whitespace-nowrap">ダーク</span>
+            </button>
+            <button id="refresh-btn" class="ripple-btn refresh-btn flex-1 sm:flex-initial px-3 py-1.5 md:px-4 md:py-2 text-sm rounded-lg flex items-center justify-center gap-2 transform active:scale-95 shadow-sm">
+                <i class="fa-solid fa-rotate-right"></i> <span class="hidden sm:inline whitespace-nowrap">更新</span>
+            </button>
+        </div>
+        
+        <!-- タイマー表示 (ボタンの下) -->
+        <span id="update-timer" class="text-[10px] md:text-xs text-gray-400 dark:text-slate-500 font-mono whitespace-nowrap self-end">
+            前回の更新から 00秒
+        </span>
+    </div>
+</div>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-center" id="current-weather-box">
                 <!-- Temp -->
