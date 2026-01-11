@@ -9,7 +9,12 @@ def suggest_outfit(weather, options):
     
     if not api_key:
         print("[ERROR] GOOGLE_API_KEY is not set!")
-        return {"type": "error", "suggestions": {"suggestion": "APIキーが設定されていません。"}}
+        return {
+            "type": "error",
+            "suggestions": {"suggestion": "APIキーが設定されていません。管理者に連絡してください。"}
+        }
+    
+    print(f"[INFO] API Key loaded: {api_key[:15]}...")
 
     # 天気情報の展開
     temp = weather.get("temp")
@@ -83,11 +88,8 @@ def suggest_outfit(weather, options):
 
     prompt = base_info + instruction + format_instruction
 
-    # --- v1beta エンドポイントを使用（AI Studio APIキー対応） ---
-    host = "generativelanguage.googleapis.com"
-    # v1beta を使用（AI Studioのキーはこちら）
-    path = "/v1beta/models/gemini-1.5-flash:generateContent"
-    url = f"https://{host}{path}?key={api_key}"
+    # --- Google AI Studio APIキー用 v1beta エンドポイント ---
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     headers = {"Content-Type": "application/json"}
     
@@ -100,60 +102,84 @@ def suggest_outfit(weather, options):
     }
 
     try:
-        print("[INFO] Gemini 1.5 Flash (v1beta) を実行中")
+        print("[INFO] Sending request to Gemini API (v1beta)...")
         response = requests.post(url, headers=headers, json=payload, timeout=30)
         
+        print(f"[INFO] Response status: {response.status_code}")
+        
         if response.status_code != 200:
-            error_detail = response.text
-            print(f"[ERROR] Gemini API Error: {response.status_code}")
-            print(f"[ERROR] Response: {error_detail}")
+            error_text = response.text
+            print(f"[ERROR] API Error Response: {error_text}")
             
-            # エラーメッセージを解析
+            # エラー詳細を抽出
             try:
                 error_json = response.json()
-                error_msg = error_json.get('error', {}).get('message', 'Unknown error')
-                print(f"[ERROR] Message: {error_msg}")
+                error_message = error_json.get('error', {}).get('message', 'Unknown error')
+                print(f"[ERROR] Error message: {error_message}")
             except:
-                pass
+                error_message = "詳細不明"
             
             return {
                 "type": "error",
                 "suggestions": {
-                    "suggestion": f"AI通信エラーが発生しました。(エラーコード: {response.status_code})"
+                    "suggestion": f"AI通信エラーが発生しました。\n\nエラー詳細: {error_message}\n\n管理者に連絡してください。"
                 }
             }
 
         data = response.json()
+        print(f"[DEBUG] Response data keys: {data.keys()}")
         
         # レスポンス構造を確認
-        if 'candidates' in data and len(data['candidates']) > 0:
-            parts = data['candidates'][0].get('content', {}).get('parts', [])
-            if parts and 'text' in parts[0]:
-                content = parts[0]['text'].strip()
-            else:
-                print(f"[ERROR] Unexpected response structure: {data}")
-                return {
-                    "type": "error",
-                    "suggestions": {
-                        "suggestion": "AIから有効な回答が得られませんでした。"
-                    }
-                }
-        else:
-            print(f"[ERROR] No candidates in response: {data}")
+        if 'candidates' not in data:
+            print(f"[ERROR] No 'candidates' in response: {data}")
             return {
                 "type": "error",
                 "suggestions": {
-                    "suggestion": "AIから有効な回答が得られませんでした。"
+                    "suggestion": "AIから有効な回答が得られませんでした。もう一度お試しください。"
                 }
             }
-            
-        print(f"[SUCCESS] Gemini API returned response")
+        
+        if len(data['candidates']) == 0:
+            print(f"[ERROR] Empty candidates array")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "AIから回答がありませんでした。もう一度お試しください。"
+                }
+            }
+        
+        # テキスト抽出
+        candidate = data['candidates'][0]
+        if 'content' not in candidate:
+            print(f"[ERROR] No 'content' in candidate: {candidate}")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "AI応答の形式が不正です。"
+                }
+            }
+        
+        parts = candidate['content'].get('parts', [])
+        if not parts or 'text' not in parts[0]:
+            print(f"[ERROR] No text in parts: {parts}")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "AI応答にテキストが含まれていません。"
+                }
+            }
+        
+        content = parts[0]['text'].strip()
+        print(f"[SUCCESS] Got response from Gemini API")
+        print(f"[DEBUG] Response text (first 100 chars): {content[:100]}")
 
-        # クリーニングとJSONパース
+        # JSONクリーニング
         clean_json = content.replace("```json", "").replace("```", "").strip()
         
+        # JSONパース
         try:
             suggestions = json.loads(clean_json)
+            print(f"[SUCCESS] JSON parsed successfully")
         except json.JSONDecodeError as e:
             print(f"[ERROR] JSON Parse Error: {e}")
             print(f"[ERROR] Content: {clean_json[:200]}")
@@ -170,28 +196,28 @@ def suggest_outfit(weather, options):
         }
 
     except requests.exceptions.Timeout:
-        print("[ERROR] Request timeout")
+        print("[ERROR] Request timeout (30s)")
         return {
             "type": "error",
             "suggestions": {
-                "suggestion": "リクエストがタイムアウトしました。もう一度お試しください。"
+                "suggestion": "リクエストがタイムアウトしました。ネットワーク接続を確認して、もう一度お試しください。"
             }
         }
     except requests.exceptions.RequestException as e:
-        print(f"[ERROR] Request Error: {e}")
+        print(f"[ERROR] Request Exception: {e}")
         traceback.print_exc()
         return {
             "type": "error",
             "suggestions": {
-                "suggestion": "通信エラーが発生しました。"
+                "suggestion": "通信エラーが発生しました。ネットワーク接続を確認してください。"
             }
         }
     except Exception as e:
-        print(f"[ERROR] System Error: {e}")
+        print(f"[ERROR] Unexpected Error: {e}")
         traceback.print_exc()
         return {
             "type": "error",
             "suggestions": {
-                "suggestion": "予期せぬエラーが発生しました。"
+                "suggestion": f"予期せぬエラーが発生しました。管理者に連絡してください。\n\nエラー: {str(e)[:100]}"
             }
         }
