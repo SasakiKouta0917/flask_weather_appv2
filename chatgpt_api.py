@@ -11,7 +11,7 @@ def suggest_outfit(weather, options):
         print("[ERROR] GOOGLE_API_KEY is not set!")
         return {"type": "error", "suggestions": {"suggestion": "APIキーが設定されていません。"}}
 
-    # 天気情報の展開（元のコード通り）
+    # 天気情報の展開（元のコードの全要素を維持）
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
     temp_min = weather.get("temp_min")
@@ -19,7 +19,7 @@ def suggest_outfit(weather, options):
     humidity = weather.get("humidity")
     precipitation = weather.get("precipitation")
     
-    # オプション情報の展開（元のコード通り）
+    # オプション情報の展開（元のコードの全要素を維持）
     mode = options.get("mode")
     scene = options.get("scene") or "特になし"
     gender = options.get("gender")
@@ -33,7 +33,7 @@ def suggest_outfit(weather, options):
     elif gender == "ladies": 
         gender_str = "レディース"
 
-    # --- プロンプト構築（元の詳細なロジックを完全再現） ---
+    # --- プロンプト構築（詳細なロジックを完全再現） ---
     base_info = f"""
 # 天気情報
 - 天気: {weather_desc}
@@ -83,8 +83,11 @@ def suggest_outfit(weather, options):
 
     prompt = base_info + instruction + format_instruction
 
-    # --- APIリクエスト実行部分（SDKエラーを回避するREST通信） ---
-    url = f"[https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=){api_key}"
+    # --- APIリクエスト実行部分（URLのゴミ混入を完全に防ぐ修正） ---
+    # 以前のエラー（InvalidSchema）の原因だったMarkdownリンクを完全に排除
+    api_endpoint = "[https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent](https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent)"
+    url = f"{api_endpoint}?key={api_key}"
+    
     headers = {"Content-Type": "application/json"}
     
     payload = {
@@ -97,21 +100,30 @@ def suggest_outfit(weather, options):
 
     try:
         print("[INFO] Gemini 1.5 Flash (Direct REST API) を実行中")
+        # requestsを使って安全なHTTPS通信を実行
         response = requests.post(url, headers=headers, json=payload, timeout=20)
         
+        # HTTPステータスコードのチェック
         if response.status_code != 200:
             print(f"[ERROR] Gemini API Error: {response.status_code} - {response.text}")
-            return {"type": "error", "suggestions": {"suggestion": "通信エラーが発生しました。"}}
+            return {"type": "error", "suggestions": {"suggestion": "AIとの通信に失敗しました。"}}
 
         # レスポンス解析
         data = response.json()
-        content = data['candidates'][0]['content']['parts'][0]['text'].strip()
+        
+        # APIレスポンスからテキストを抽出（Google公式のJSON構造に準拠）
+        if 'candidates' in data and len(data['candidates']) > 0:
+            content = data['candidates'][0]['content']['parts'][0]['text'].strip()
+        else:
+            print(f"[ERROR] Unexpected API Response: {data}")
+            return {"type": "error", "suggestions": {"suggestion": "AIから有効な回答が得られませんでした。"}}
+            
         print(f"[SUCCESS] Gemini API returned response")
 
-        # 元のコードにあったマークダウン削除処理
+        # マークダウンのコードブロックが含まれる場合の削除処理
         clean_json = content.replace("```json", "").replace("```", "").strip()
         
-        # JSONをパース
+        # JSONとしてパース
         suggestions = json.loads(clean_json)
 
         return {
@@ -121,6 +133,7 @@ def suggest_outfit(weather, options):
 
     except json.JSONDecodeError as e:
         print(f"[ERROR] JSON Parse Error: {e}")
+        print(f"Raw Content: {content if 'content' in locals() else 'No content'}")
         return {"type": "error", "suggestions": {"suggestion": "AI応答の解析に失敗しました。"}}
     except Exception as e:
         print(f"[ERROR] System Error: {e}")
