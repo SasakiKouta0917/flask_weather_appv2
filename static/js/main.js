@@ -435,13 +435,24 @@ const ChartModule = {
 };
 
 // ==========================================
-// 4. AI Module
+// 4. AI Module (Rate Limit対応・完全版)
 // ==========================================
 const AIModule = {
+    countdownTimer: null, // カウントダウンタイマーID
+
     getDummyData: () => {
         return {
             "suggestion": "通信エラーが発生したか、AIが応答しませんでした。\n\n【標準的なアドバイス】\n天気予報を確認し、気温の変化に対応しやすい服装でお出かけください。\n寒暖差がある場合は羽織るものを持つと安心です。(ダミーデータ)"
         };
+    },
+
+    formatTime: (seconds) => {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        if (minutes > 0) {
+            return `${minutes}分${secs}秒`;
+        }
+        return `${secs}秒`;
     },
 
     suggestOutfit: async () => {
@@ -449,7 +460,6 @@ const AIModule = {
         const resetBtn = document.getElementById('ai-reset-btn');
         const inputContainer = document.getElementById('ai-input-container');
 
-        // 🔧 修正: HTMLに存在する正しいIDを使用
         const sceneInput = document.getElementById('scene-input');
         const scene = sceneInput ? sceneInput.value.trim() : '';
         
@@ -465,7 +475,6 @@ const AIModule = {
         const wardrobeInput = document.getElementById('wardrobe-input');
         const wardrobe = wardrobeInput ? wardrobeInput.value : '';
 
-        // シーンが空の場合は「特になし」として処理
         const finalScene = scene || '特になし';
 
         if (!currentWeatherData) {
@@ -491,6 +500,27 @@ const AIModule = {
                 })
             });
 
+            // レート制限エラー (429)
+            if (response.status === 429) {
+                const errorData = await response.json();
+                const remainingTime = errorData.remaining_time || 0;
+                const timeStr = AIModule.formatTime(remainingTime);
+                
+                alert(`⏱️ リクエスト制限\n\n${errorData.message}\n\n残り待機時間: ${timeStr}`);
+                
+                AIModule.renderRateLimitError(errorData.message, remainingTime);
+                btn.innerHTML = '<i class="fa-solid fa-clock"></i> 待機中...';
+                
+                // 入力欄を非表示、リセットボタンを表示
+                if (inputContainer) inputContainer.classList.add('hidden');
+                if (resetBtn) resetBtn.classList.remove('hidden');
+                
+                // カウントダウンタイマーを開始
+                AIModule.startCountdown(remainingTime, btn);
+                return;
+            }
+
+            // その他のエラー
             if (!response.ok) {
                 console.warn("Server API Error, using dummy data.");
                 const dummy = AIModule.getDummyData();
@@ -519,6 +549,62 @@ const AIModule = {
         }
     },
 
+    startCountdown: (seconds, btn) => {
+        // 既存のタイマーをクリア
+        if (AIModule.countdownTimer) {
+            clearInterval(AIModule.countdownTimer);
+        }
+
+        let remaining = seconds;
+        
+        const updateButton = () => {
+            if (remaining > 0) {
+                const timeStr = AIModule.formatTime(remaining);
+                btn.innerHTML = `<i class="fa-solid fa-clock"></i> 待機中 (${timeStr})`;
+                remaining--;
+            } else {
+                // カウントダウン終了
+                clearInterval(AIModule.countdownTimer);
+                AIModule.countdownTimer = null;
+                btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
+                btn.disabled = false;
+            }
+        };
+        
+        btn.disabled = true;
+        updateButton(); // 即座に表示更新
+        AIModule.countdownTimer = setInterval(updateButton, 1000);
+    },
+
+    stopCountdown: () => {
+        // カウントダウンを停止
+        if (AIModule.countdownTimer) {
+            clearInterval(AIModule.countdownTimer);
+            AIModule.countdownTimer = null;
+        }
+    },
+
+    renderRateLimitError: (message, remainingTime) => {
+        const resultArea = document.getElementById('ai-result-area');
+        const timeStr = AIModule.formatTime(remainingTime);
+        
+        resultArea.innerHTML = `
+            <div class="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg p-6 shadow-sm fade-in-up">
+                <h4 class="font-bold text-orange-700 dark:text-orange-400 mb-3 border-b border-orange-200 dark:border-orange-700 pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-clock"></i> リクエスト制限
+                </h4>
+                <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed mb-4">${message}</p>
+                <div class="bg-white dark:bg-slate-800 rounded p-3 text-center">
+                    <p class="text-xs text-gray-500 dark:text-slate-400 mb-1">残り待機時間</p>
+                    <p class="text-2xl font-bold text-orange-600 dark:text-orange-400">${timeStr}</p>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-slate-400 mt-4">
+                    💡 ヒント: APIの使用量を節約するため、リクエスト間隔を設けています。
+                </p>
+            </div>
+        `;
+    },
+
     renderResult: (data) => {
         const resultArea = document.getElementById('ai-result-area');
         const text = data.suggestion || "提案を取得できませんでした。";
@@ -537,6 +623,7 @@ const AIModule = {
         const resetBtn = document.getElementById('ai-reset-btn');
         const inputContainer = document.getElementById('ai-input-container');
         const resultArea = document.getElementById('ai-result-area');
+        const btn = document.getElementById('ai-suggest-btn');
         
         const sceneInput = document.getElementById('scene-input');
         const preferenceInput = document.getElementById('preference-input');
@@ -548,6 +635,15 @@ const AIModule = {
         
         if (inputContainer) inputContainer.classList.remove('hidden');
         if (resetBtn) resetBtn.classList.add('hidden');
+        
+        // カウントダウンを停止
+        AIModule.stopCountdown();
+        
+        // ボタンを元に戻す
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
+            btn.disabled = false;
+        }
         
         resultArea.innerHTML = `
             <div class="bg-gray-50 dark:bg-slate-700/30 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 md:p-8 text-center text-sm md:text-base text-gray-400 dark:text-slate-500 h-full flex items-center justify-center flex-grow transition duration-500">
