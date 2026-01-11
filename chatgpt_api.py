@@ -11,7 +11,7 @@ def suggest_outfit(weather, options):
         print("[ERROR] GOOGLE_API_KEY is not set!")
         return {"type": "error", "suggestions": {"suggestion": "APIキーが設定されていません。"}}
 
-    # 天気情報の展開（全要素維持）
+    # 天気情報の展開
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
     temp_min = weather.get("temp_min")
@@ -19,7 +19,7 @@ def suggest_outfit(weather, options):
     humidity = weather.get("humidity")
     precipitation = weather.get("precipitation")
     
-    # オプション情報の展開（全要素維持）
+    # オプション情報の展開
     mode = options.get("mode")
     scene = options.get("scene") or "特になし"
     gender = options.get("gender")
@@ -33,7 +33,7 @@ def suggest_outfit(weather, options):
     elif gender == "ladies": 
         gender_str = "レディース"
 
-    # --- プロンプト構築（全要素維持） ---
+    # --- プロンプト構築 ---
     base_info = f"""
 # 天気情報
 - 天気: {weather_desc}
@@ -83,10 +83,10 @@ def suggest_outfit(weather, options):
 
     prompt = base_info + instruction + format_instruction
 
-    # --- APIリクエスト実行部分（URL構成を完全に分離して修正） ---
-    # 変数を分けて結合することで、Markdownの自動リンクによるゴミ混入を物理的に防ぎます
+    # --- v1beta エンドポイントを使用（AI Studio APIキー対応） ---
     host = "generativelanguage.googleapis.com"
-    path = "/v1/models/gemini-1.5-flash:generateContent"
+    # v1beta を使用（AI Studioのキーはこちら）
+    path = "/v1beta/models/gemini-1.5-flash:generateContent"
     url = f"https://{host}{path}?key={api_key}"
     
     headers = {"Content-Type": "application/json"}
@@ -100,34 +100,98 @@ def suggest_outfit(weather, options):
     }
 
     try:
-        print("[INFO] Gemini 1.5 Flash (Direct REST API) を実行中")
-        response = requests.post(url, headers=headers, json=payload, timeout=20)
+        print("[INFO] Gemini 1.5 Flash (v1beta) を実行中")
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
         
         if response.status_code != 200:
-            print(f"[ERROR] Gemini API Error: {response.status_code} - {response.text}")
-            return {"type": "error", "suggestions": {"suggestion": "AI通信エラーが発生しました。"}}
+            error_detail = response.text
+            print(f"[ERROR] Gemini API Error: {response.status_code}")
+            print(f"[ERROR] Response: {error_detail}")
+            
+            # エラーメッセージを解析
+            try:
+                error_json = response.json()
+                error_msg = error_json.get('error', {}).get('message', 'Unknown error')
+                print(f"[ERROR] Message: {error_msg}")
+            except:
+                pass
+            
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": f"AI通信エラーが発生しました。(エラーコード: {response.status_code})"
+                }
+            }
 
         data = response.json()
         
+        # レスポンス構造を確認
         if 'candidates' in data and len(data['candidates']) > 0:
-            content = data['candidates'][0]['content']['parts'][0]['text'].strip()
+            parts = data['candidates'][0].get('content', {}).get('parts', [])
+            if parts and 'text' in parts[0]:
+                content = parts[0]['text'].strip()
+            else:
+                print(f"[ERROR] Unexpected response structure: {data}")
+                return {
+                    "type": "error",
+                    "suggestions": {
+                        "suggestion": "AIから有効な回答が得られませんでした。"
+                    }
+                }
         else:
-            return {"type": "error", "suggestions": {"suggestion": "AIから有効な回答が得られませんでした。"}}
+            print(f"[ERROR] No candidates in response: {data}")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "AIから有効な回答が得られませんでした。"
+                }
+            }
             
         print(f"[SUCCESS] Gemini API returned response")
 
         # クリーニングとJSONパース
         clean_json = content.replace("```json", "").replace("```", "").strip()
-        suggestions = json.loads(clean_json)
+        
+        try:
+            suggestions = json.loads(clean_json)
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] JSON Parse Error: {e}")
+            print(f"[ERROR] Content: {clean_json[:200]}")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "AI応答の解析に失敗しました。もう一度お試しください。"
+                }
+            }
 
         return {
             "type": "success",
             "suggestions": suggestions
         }
 
-    except json.JSONDecodeError:
-        return {"type": "error", "suggestions": {"suggestion": "解析エラーが発生しました。"}}
+    except requests.exceptions.Timeout:
+        print("[ERROR] Request timeout")
+        return {
+            "type": "error",
+            "suggestions": {
+                "suggestion": "リクエストがタイムアウトしました。もう一度お試しください。"
+            }
+        }
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR] Request Error: {e}")
+        traceback.print_exc()
+        return {
+            "type": "error",
+            "suggestions": {
+                "suggestion": "通信エラーが発生しました。"
+            }
+        }
     except Exception as e:
         print(f"[ERROR] System Error: {e}")
         traceback.print_exc()
-        return {"type": "error", "suggestions": {"suggestion": "予期せぬエラーが発生しました。"}}
+        return {
+            "type": "error",
+            "suggestions": {
+                "suggestion": "予期せぬエラーが発生しました。"
+            }
+        }
