@@ -4,20 +4,14 @@ import requests
 import traceback
 
 def suggest_outfit(weather, options):
+    # APIキーの設定（環境変数から読み込み）
     api_key = os.environ.get("GOOGLE_API_KEY")
     
     if not api_key:
         print("[ERROR] GOOGLE_API_KEY is not set!")
         return {"type": "error", "suggestions": {"suggestion": "APIキーが設定されていません。"}}
 
-    # --- 1. 接続設定 ---
-    url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
-    headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key
-    }
-
-    # --- 2. データの展開 ---
+    # 天気情報の展開（元のコード通り）
     temp = weather.get("temp")
     temp_max = weather.get("temp_max")
     temp_min = weather.get("temp_min")
@@ -25,83 +19,110 @@ def suggest_outfit(weather, options):
     humidity = weather.get("humidity")
     precipitation = weather.get("precipitation")
     
+    # オプション情報の展開（元のコード通り）
     mode = options.get("mode")
     scene = options.get("scene") or "特になし"
     gender = options.get("gender")
     preference = options.get("preference") or "特になし"
     wardrobe = options.get("wardrobe") or "特になし"
 
-    gender_str = "レディース" if gender == "ladies" else "メンズ" if gender == "mens" else "指定なし(ユニセックス)"
+    # 性別・スタイルの表示用文字列
+    gender_str = "指定なし(ユニセックス)"
+    if gender == "mens": 
+        gender_str = "メンズ"
+    elif gender == "ladies": 
+        gender_str = "レディース"
 
-    # --- 3. プロンプト構築 ---
+    # --- プロンプト構築（元の詳細なロジックを完全再現） ---
     base_info = f"""
-天気情報：{weather_desc}、気温：{temp}℃ (最高:{temp_max} / 最低:{temp_min})、湿度：{humidity}%、降水：{precipitation}mm
-条件：利用シーンは「{scene}」、対象は「{gender_str}」です。
+# 天気情報
+- 天気: {weather_desc}
+- 気温: {temp}℃ (最高:{temp_max}℃ / 最低:{temp_min}℃)
+- 湿度: {humidity}%
+- 降水量: {precipitation}mm
+
+# 基本条件
+- 利用シーン: {scene}
+- スタイル対象: {gender_str}
 """
 
     if mode == "detailed":
-        instruction = f"要望：{preference}、手持ちの服：{wardrobe}。これらを考慮して具体的に提案してください。"
-    else:
-        instruction = "天気とシーンから、具体的な商品名は避けて、服装の方向性を提案してください。"
-
-    prompt = f"""
-{base_info}
-{instruction}
+        instruction = f"""
+# ユーザーの要望データ
+- **着たい服・気分**: {preference}
+- **手持ちの服リスト**: {wardrobe}
 
 # 指示
-上記条件に合う服装の提案を400文字程度の文章で作成してください。
-出力は必ず以下のJSON形式のみで行ってください。
-
-{{
-  "suggestion": "ここに提案文章を記述"
-}}
+1. ユーザーの「着たい服」を可能な限り取り入れたコーディネートを考えてください。
+2. 「手持ちの服リスト」にあるアイテムを優先的に組み合わせてください。リストにないアイテムが必要な場合は「買い足し推奨」や「あれば良いもの」として提案してください。
+3. 天気(特に気温や雨)を考慮し、快適に過ごせる工夫を具体的にアドバイスしてください。
+4. アイテム名は具体的に挙げて提案してください。
+"""
+    else:
+        instruction = f"""
+# 指示
+1. 天気情報と利用シーンから、最適な服装の「方向性」を提案してください。
+2. **具体的な商品名やピンポイントな色・形(例:「ユニクロの黒ダウン」など)は避けてください。**
+3. 代わりに「厚手の防寒アウター」「風を通さない素材」「明るい色味のトップス」のように、**抽象的かつ機能性や雰囲気を重視した表現**で提案してください。
+4. ユーザーが自分のクローゼットから服を選びやすくなるような、道しるべとなるアドバイスにしてください。
 """
 
-    # --- 4. リクエスト送信 (API仕様に合わせた形式) ---
+    format_instruction = """
+# 出力形式
+以下のJSON形式で出力してください。項目を分けず、時間帯(朝・昼・夜)の変化やまとめを含めた**ひとつのまとまった提案文章(400文字程度)**にしてください。
+
+{
+  "suggestion": "ここに提案文章を記述..."
+}
+
+# 制約
+- 指示の復唱はしない。
+- JSON以外の余計な文字は出力しない。
+- ```json のようなマークダウンも出力しない。
+"""
+
+    prompt = base_info + instruction + format_instruction
+
+    # --- APIリクエスト実行部分（SDKエラーを回避するREST通信） ---
+    url = f"[https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=){api_key}"
+    headers = {"Content-Type": "application/json"}
+    
     payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
+        "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.7,
-            # 直接APIを叩く際は snake_case を使用
-            "response_mime_type": "application/json"
+            "maxOutputTokens": 1000
         }
     }
 
     try:
-        print("[INFO] Gemini APIに修正版リクエストを送信中...")
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        print("[INFO] Gemini 1.5 Flash (Direct REST API) を実行中")
+        response = requests.post(url, headers=headers, json=payload, timeout=20)
         
         if response.status_code != 200:
-            print(f"[ERROR] APIエラー: {response.status_code}")
-            print(f"詳細: {response.text}")
-            return {"type": "error", "suggestions": {"suggestion": "AIとの接続に失敗しました。"}}
+            print(f"[ERROR] Gemini API Error: {response.status_code} - {response.text}")
+            return {"type": "error", "suggestions": {"suggestion": "通信エラーが発生しました。"}}
 
-        # 応答の解析
+        # レスポンス解析
         data = response.json()
-        content = data['candidates'][0]['content']['parts'][0]['text']
-        
-        # JSON部分だけを抽出する堅牢な処理
-        start_index = content.find('{')
-        end_index = content.rfind('}') + 1
-        if start_index != -1 and end_index != 0:
-            json_str = content[start_index:end_index]
-            suggestions = json.loads(json_str)
-        else:
-            # 万が一JSON形式でなかった場合の予備
-            suggestions = {"suggestion": content.strip()}
+        content = data['candidates'][0]['content']['parts'][0]['text'].strip()
+        print(f"[SUCCESS] Gemini API returned response")
 
-        print("[SUCCESS] Gemini APIから正常に応答を受け取りました")
+        # 元のコードにあったマークダウン削除処理
+        clean_json = content.replace("```json", "").replace("```", "").strip()
+        
+        # JSONをパース
+        suggestions = json.loads(clean_json)
+
         return {
             "type": "success",
             "suggestions": suggestions
         }
 
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] JSON Parse Error: {e}")
+        return {"type": "error", "suggestions": {"suggestion": "AI応答の解析に失敗しました。"}}
     except Exception as e:
-        print(f"[ERROR] 重大なエラー: {e}")
+        print(f"[ERROR] System Error: {e}")
         traceback.print_exc()
-        return {
-            "type": "error",
-            "suggestions": {"suggestion": "通信エラーが発生しました。時間を置いて再度お試しください。"}
-        }
+        return {"type": "error", "suggestions": {"suggestion": "予期せぬエラーが発生しました。"}}
