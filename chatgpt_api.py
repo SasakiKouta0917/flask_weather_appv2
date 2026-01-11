@@ -88,8 +88,9 @@ def suggest_outfit(weather, options):
 
     prompt = base_info + instruction + format_instruction
 
-    # --- Google AI Studio APIキー用 v1beta エンドポイント ---
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # --- 🔧 修正: 正しいモデル名に変更 ---
+    # v1beta エンドポイントで利用可能なモデル名を使用
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
     
     headers = {"Content-Type": "application/json"}
     
