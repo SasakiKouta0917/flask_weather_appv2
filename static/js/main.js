@@ -49,6 +49,82 @@ function getWeatherIconClass(code) {
 }
 
 // ==========================================
+// Favorite Locations Module
+// ==========================================
+const FavoriteModule = {
+    storageKey: 'weatherapp_favorites',
+    
+    getFavorites: () => {
+        const data = localStorage.getItem(FavoriteModule.storageKey);
+        return data ? JSON.parse(data) : [];
+    },
+    
+    saveFavorites: (favorites) => {
+        localStorage.setItem(FavoriteModule.storageKey, JSON.stringify(favorites));
+    },
+    
+    addFavorite: (lat, lng, name) => {
+        const favorites = FavoriteModule.getFavorites();
+        const id = Date.now();
+        favorites.push({ id, lat, lng, name });
+        FavoriteModule.saveFavorites(favorites);
+        FavoriteModule.render();
+    },
+    
+    removeFavorite: (id) => {
+        let favorites = FavoriteModule.getFavorites();
+        favorites = favorites.filter(f => f.id !== id);
+        FavoriteModule.saveFavorites(favorites);
+        FavoriteModule.render();
+    },
+    
+    render: () => {
+        const container = document.getElementById('favorite-locations');
+        const favorites = FavoriteModule.getFavorites();
+        
+        if (favorites.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 dark:text-slate-500 text-center py-2">登録なし</p>';
+            return;
+        }
+        
+        container.innerHTML = favorites.map(fav => `
+            <div class="flex items-center justify-between bg-gray-50 dark:bg-slate-700 p-2 rounded hover:bg-gray-100 dark:hover:bg-slate-600 transition">
+                <button onclick="FavoriteModule.jumpTo(${fav.lat}, ${fav.lng})" class="flex-1 text-left text-gray-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 truncate">
+                    <i class="fa-solid fa-location-dot text-blue-500 mr-1"></i>
+                    ${fav.name}
+                </button>
+                <button onclick="FavoriteModule.removeFavorite(${fav.id})" class="ml-2 text-red-500 hover:text-red-700">
+                    <i class="fa-solid fa-trash text-xs"></i>
+                </button>
+            </div>
+        `).join('');
+    },
+    
+    jumpTo: (lat, lng) => {
+        MapModule.updateMarker(lat, lng);
+        mapInstance.setView([lat, lng], 13);
+    },
+    
+    init: () => {
+        FavoriteModule.render();
+        
+        const addBtn = document.getElementById('add-favorite-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                const pos = markerInstance.getLatLng();
+                const locationName = document.getElementById('location-name').innerText || '地点';
+                
+                const customName = prompt('この地点の名前を入力してください:', locationName);
+                if (customName && customName.trim()) {
+                    FavoriteModule.addFavorite(pos.lat, pos.lng, customName.trim());
+                    alert('お気に入りに追加しました!');
+                }
+            });
+        }
+    }
+};
+
+// ==========================================
 // Time Module
 // ==========================================
 const TimeModule = {
@@ -165,6 +241,42 @@ const MapModule = {
     handleLocationUpdate: (lat, lng) => {
         document.getElementById('coordinates').innerText = `Lat: ${lat.toFixed(4)} / Lon: ${lng.toFixed(4)}`;
         WeatherModule.fetchData(lat, lng);
+    },
+
+    getCurrentLocation: () => {
+        const btn = document.getElementById('geolocation-btn');
+        
+        if (!navigator.geolocation) {
+            alert('このブラウザは位置情報に対応していません。');
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                MapModule.updateMarker(lat, lng);
+                mapInstance.setView([lat, lng], 13);
+                
+                btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> 現在地';
+                btn.disabled = false;
+            },
+            (error) => {
+                console.error('Geolocation error:', error);
+                alert('現在地の取得に失敗しました。位置情報の許可を確認してください。');
+                btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> 現在地';
+                btn.disabled = false;
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
     }
 };
 
@@ -433,12 +545,11 @@ const ChartModule = {
         });
     }
 };
-
 // ==========================================
 // 4. AI Module (Rate Limit対応・完全版)
 // ==========================================
 const AIModule = {
-    countdownTimer: null, // カウントダウンタイマーID
+    countdownTimer: null,
 
     getDummyData: () => {
         return {
@@ -500,7 +611,6 @@ const AIModule = {
                 })
             });
 
-            // レート制限エラー (429)
             if (response.status === 429) {
                 const errorData = await response.json();
                 const remainingTime = errorData.remaining_time || 0;
@@ -511,16 +621,13 @@ const AIModule = {
                 AIModule.renderRateLimitError(errorData.message, remainingTime);
                 btn.innerHTML = '<i class="fa-solid fa-clock"></i> 待機中...';
                 
-                // 入力欄を非表示、リセットボタンを表示
                 if (inputContainer) inputContainer.classList.add('hidden');
                 if (resetBtn) resetBtn.classList.remove('hidden');
                 
-                // カウントダウンタイマーを開始
                 AIModule.startCountdown(remainingTime, btn);
                 return;
             }
 
-            // その他のエラー
             if (!response.ok) {
                 console.warn("Server API Error, using dummy data.");
                 const dummy = AIModule.getDummyData();
@@ -550,7 +657,6 @@ const AIModule = {
     },
 
     startCountdown: (seconds, btn) => {
-        // 既存のタイマーをクリア
         if (AIModule.countdownTimer) {
             clearInterval(AIModule.countdownTimer);
         }
@@ -563,7 +669,6 @@ const AIModule = {
                 btn.innerHTML = `<i class="fa-solid fa-clock"></i> 待機中 (${timeStr})`;
                 remaining--;
             } else {
-                // カウントダウン終了
                 clearInterval(AIModule.countdownTimer);
                 AIModule.countdownTimer = null;
                 btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
@@ -572,12 +677,11 @@ const AIModule = {
         };
         
         btn.disabled = true;
-        updateButton(); // 即座に表示更新
+        updateButton();
         AIModule.countdownTimer = setInterval(updateButton, 1000);
     },
 
     stopCountdown: () => {
-        // カウントダウンを停止
         if (AIModule.countdownTimer) {
             clearInterval(AIModule.countdownTimer);
             AIModule.countdownTimer = null;
@@ -611,12 +715,65 @@ const AIModule = {
 
         resultArea.innerHTML = `
             <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-6 shadow-sm fade-in-up">
-                <h4 class="font-bold text-purple-600 dark:text-purple-400 mb-3 border-b border-purple-100 dark:border-slate-600 pb-2 flex items-center gap-2">
-                    <i class="fa-solid fa-shirt"></i> コーディネート提案
-                </h4>
-                <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap">${text}</p>
+                <div class="flex items-center justify-between mb-3 border-b border-purple-100 dark:border-slate-600 pb-2">
+                    <h4 class="font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                        <i class="fa-solid fa-shirt"></i> コーディネート提案
+                    </h4>
+                    <button onclick="AIModule.copyToClipboard()" class="text-gray-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 transition">
+                        <i class="fa-solid fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap mb-4">${text}</p>
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-slate-600">
+                    <span class="text-xs text-gray-500 dark:text-slate-400">この提案は役に立ちましたか?</span>
+                    <button onclick="AIModule.rateSuggestion('good')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-full text-sm transition">
+                        <i class="fa-solid fa-thumbs-up"></i> 良い
+                    </button>
+                    <button onclick="AIModule.rateSuggestion('bad')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-full text-sm transition">
+                        <i class="fa-solid fa-thumbs-down"></i> 悪い
+                    </button>
+                </div>
             </div>
         `;
+    },
+
+    copyToClipboard: () => {
+        const resultArea = document.getElementById('ai-result-area');
+        const textElement = resultArea.querySelector('p');
+        
+        if (!textElement) {
+            alert('コピーする内容がありません。');
+            return;
+        }
+        
+        const text = textElement.innerText;
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('📋 クリップボードにコピーしました!');
+            }).catch(() => {
+                alert('❌ コピーに失敗しました。');
+            });
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('📋 クリップボードにコピーしました!');
+        }
+    },
+
+    rateSuggestion: (rating) => {
+        const ratingData = JSON.parse(localStorage.getItem('weatherapp_ratings') || '{"good": 0, "bad": 0}');
+        ratingData[rating]++;
+        localStorage.setItem('weatherapp_ratings', JSON.stringify(ratingData));
+        
+        const emoji = rating === 'good' ? '👍' : '👎';
+        alert(`${emoji} フィードバックありがとうございます!`);
+        
+        console.log('評価統計:', ratingData);
     },
 
     reset: () => {
@@ -636,10 +793,8 @@ const AIModule = {
         if (inputContainer) inputContainer.classList.remove('hidden');
         if (resetBtn) resetBtn.classList.add('hidden');
         
-        // カウントダウンを停止
         AIModule.stopCountdown();
         
-        // ボタンを元に戻す
         if (btn) {
             btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
             btn.disabled = false;
@@ -759,9 +914,13 @@ const ThemeModule = {
     }
 };
 
+// ==========================================
+// DOMContentLoaded
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     MapModule.init();
     ThemeModule.init();
+    FavoriteModule.init();
 
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
@@ -769,6 +928,14 @@ document.addEventListener('DOMContentLoaded', () => {
             MapModule.updateMarker(CONFIG.defaultLat, CONFIG.defaultLng);
             mapInstance.setView([CONFIG.defaultLat, CONFIG.defaultLng], 10);
             MapModule.updateRadar();
+        });
+    }
+
+    const geoBtn = document.getElementById('geolocation-btn');
+    if (geoBtn) {
+        geoBtn.addEventListener('click', () => {
+            ThemeModule.triggerButtonAnim(geoBtn);
+            MapModule.getCurrentLocation();
         });
     }
 
