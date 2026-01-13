@@ -93,7 +93,7 @@ def suggest_outfit(weather, options):
 以下のJSON形式で出力してください:
 
 {
-  "suggestion": "提案文章をここに記述（350〜450文字程度）"
+  "suggestion": "提案文章をここに記述（280〜320文字程度・簡潔に）"
 }
 
 # 制約
@@ -101,6 +101,7 @@ def suggest_outfit(weather, options):
 - JSON以外の余計な文字は出力しない
 - マークダウン記号（```json など）は使用しない
 - suggestionキーは必須
+- **文字数は必ず320文字以内に収めること（重要）**
 """
 
     prompt = base_info + instruction + format_instruction
@@ -126,7 +127,7 @@ def suggest_outfit(weather, options):
             "temperature": 0.7,
             "topP": 0.8,
             "topK": 40,
-            "maxOutputTokens": 2048,  # 1024 → 2048に増量（文字数確保）
+            "maxOutputTokens": 1536,  # 日本語320文字=約640トークン + JSON構造=約900トークン、余裕を持って1536
             "responseMimeType": "application/json"
         },
         "safetySettings": [
