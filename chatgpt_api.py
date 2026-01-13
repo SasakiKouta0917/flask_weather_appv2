@@ -7,14 +7,10 @@ def suggest_outfit(weather, options):
     """
     Gemini APIを使用して服装提案を行う
     
-    公式ドキュメント:
-    - https://ai.google.dev/gemini-api/docs
-    - https://ai.google.dev/gemini-api/docs/models/gemini
-    
-    2025年1月時点の動作保証版
-    - 無料枠: 課金なしで動作（15 RPM, 1500 RPD）
-    - モデル: gemini-1.5-flash（高速・低コスト）
-    - エンドポイント: v1beta（安定版）
+    2026年1月時点の最新情報:
+    - 利用可能モデル: gemini-2.5-flash, gemini-2.0-flash, gemini-2.5-pro
+    - gemini-1.5-flash は廃止済み
+    - 公式ドキュメント: https://ai.google.dev/gemini-api/docs/models
     """
     
     # APIキーの取得
@@ -29,7 +25,7 @@ def suggest_outfit(weather, options):
             }
         }
     
-    # APIキーの形式チェック（Google AI StudioのキーはAIzaで始まる）
+    # APIキーの形式チェック
     if not api_key.startswith("AIza"):
         print(f"[WARNING] API key format may be incorrect. Expected to start with 'AIza', got: {api_key[:4]}...")
     
@@ -109,15 +105,15 @@ def suggest_outfit(weather, options):
 
     prompt = base_info + instruction + format_instruction
 
-    # APIリクエスト設定
-    # 公式ドキュメント確認済み（2025年1月13日）
-    model_name = "gemini-1.5-flash"
+    # 🔧 2026年1月対応: 最新の利用可能モデルを使用
+    # 公式ドキュメント: https://ai.google.dev/gemini-api/docs/models
+    model_name = "gemini-2.5-flash"  # 最新の高速モデル
     base_url = "https://generativelanguage.googleapis.com"
     endpoint = f"{base_url}/v1beta/models/{model_name}:generateContent"
-    url = f"{endpoint}?key={api_key}"
     
     headers = {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key  # ヘッダーでも送信（推奨される方法）
     }
     
     payload = {
@@ -161,14 +157,13 @@ def suggest_outfit(weather, options):
         
         # リクエスト送信（タイムアウト60秒）
         response = requests.post(
-            url,
+            endpoint,
             headers=headers,
             json=payload,
             timeout=60
         )
         
         print(f"[INFO] Response status: {response.status_code}")
-        print(f"[DEBUG] Response headers: {dict(response.headers)}")
         
         # ステータスコード別エラーハンドリング
         if response.status_code == 400:
@@ -191,11 +186,12 @@ def suggest_outfit(weather, options):
             }
         
         if response.status_code == 404:
-            print(f"[ERROR] Not Found (404)")
+            error_detail = response.text[:500]
+            print(f"[ERROR] Not Found (404): {error_detail}")
             return {
                 "type": "error",
                 "suggestions": {
-                    "suggestion": f"❌ モデル '{model_name}' が見つかりません。\n\nサーバー設定を確認してください。\n（エラーコード: 404）"
+                    "suggestion": f"❌ モデル '{model_name}' が見つかりません。\n\n現在のAPIキーで利用可能なモデルを確認してください。\n（エラーコード: 404）"
                 }
             }
         
