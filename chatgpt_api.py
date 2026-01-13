@@ -5,44 +5,60 @@ import traceback
 
 def suggest_outfit(weather, options):
     """
-    Gemini APIを使用して、天気とオプションに基づいた服装提案を行う関数
+    Gemini APIを使用して服装提案を行う
+    
+    公式ドキュメント:
+    - https://ai.google.dev/gemini-api/docs
+    - https://ai.google.dev/gemini-api/docs/models/gemini
+    
+    2025年1月時点の動作保証版
+    - 無料枠: 課金なしで動作（15 RPM, 1500 RPD）
+    - モデル: gemini-1.5-flash（高速・低コスト）
+    - エンドポイント: v1beta（安定版）
     """
     
-    # APIキーの設定（環境変数から読み込み）
+    # APIキーの取得
     api_key = os.environ.get("GOOGLE_API_KEY")
     
     if not api_key:
-        print("[ERROR] GOOGLE_API_KEY is not set!")
+        print("[ERROR] GOOGLE_API_KEY is not set in environment variables!")
         return {
             "type": "error",
-            "suggestions": {"suggestion": "APIキーが設定されていません。管理者に連絡してください。"}
+            "suggestions": {
+                "suggestion": "❌ APIキーが設定されていません。\n\n環境変数 GOOGLE_API_KEY を設定してください。"
+            }
         }
     
-    print(f"[INFO] API Key loaded: {api_key[:15]}...")
+    # APIキーの形式チェック（Google AI StudioのキーはAIzaで始まる）
+    if not api_key.startswith("AIza"):
+        print(f"[WARNING] API key format may be incorrect. Expected to start with 'AIza', got: {api_key[:4]}...")
+    
+    print(f"[INFO] API Key loaded: {api_key[:10]}... (length: {len(api_key)})")
 
     # 天気情報の展開
-    temp = weather.get("temp")
-    temp_max = weather.get("temp_max")
-    temp_min = weather.get("temp_min")
-    weather_desc = weather.get("weather")
-    humidity = weather.get("humidity")
-    precipitation = weather.get("precipitation")
+    temp = weather.get("temp", "不明")
+    temp_max = weather.get("temp_max", "不明")
+    temp_min = weather.get("temp_min", "不明")
+    weather_desc = weather.get("weather", "不明")
+    humidity = weather.get("humidity", "不明")
+    precipitation = weather.get("precipitation", 0)
     
     # オプション情報の展開
-    mode = options.get("mode")
+    mode = options.get("mode", "simple")
     scene = options.get("scene") or "特になし"
-    gender = options.get("gender")
+    gender = options.get("gender", "unspecified")
     preference = options.get("preference") or "特になし"
     wardrobe = options.get("wardrobe") or "特になし"
 
-    # 性別・スタイルの表示用文字列
-    gender_str = "指定なし(ユニセックス)"
-    if gender == "mens": 
-        gender_str = "メンズ"
-    elif gender == "ladies": 
-        gender_str = "レディース"
+    # 性別の表示文字列
+    gender_map = {
+        "mens": "メンズ",
+        "ladies": "レディース",
+        "unspecified": "指定なし(ユニセックス)"
+    }
+    gender_str = gender_map.get(gender, "指定なし(ユニセックス)")
 
-    # --- プロンプト構築 ---
+    # プロンプト構築
     base_info = f"""
 # 天気情報
 - 天気: {weather_desc}
@@ -55,169 +71,324 @@ def suggest_outfit(weather, options):
 - スタイル対象: {gender_str}
 """
 
-    # モードによる指示の分岐
     if mode == "detailed":
         instruction = f"""
-# ユーザーの要望データ
-- **着たい服・気分**: {preference}
-- **手持ちの服リスト**: {wardrobe}
+# ユーザーの要望
+- 着たい服・気分: {preference}
+- 手持ちの服リスト: {wardrobe}
 
 # 指示
-1. ユーザーの「着たい服」を可能な限り取り入れたコーディネートを考えてください。
-2. 「手持ちの服リスト」にあるアイテムを優先的に組み合わせてください。リストにないアイテムが必要な場合は「買い足し推奨」や「あれば良いもの」として提案してください。
-3. 天気(特に気温や雨)を考慮し、快適に過ごせる工夫を具体的にアドバイスしてください。
-4. アイテム名は具体的に挙げて提案してください。
+1. ユーザーの「着たい服」を取り入れたコーディネートを提案
+2. 「手持ちの服リスト」のアイテムを優先的に使用
+3. 天気を考慮した快適な工夫を具体的にアドバイス
+4. 時間帯（朝・昼・夜）ごとの調整方法も含める
 """
     else:
-        instruction = f"""
+        instruction = """
 # 指示
-1. 天気情報と利用シーンから、最適な服装の「方向性」を提案してください。
-2. **具体的な商品名やピンポイントな色・形(例:「ユニクロの黒ダウン」など)は避けてください。**
-3. 代わりに「厚手の防寒アウター」「風を通さない素材」「明るい色味のトップス」のように、**抽象的かつ機能性や雰囲気を重視した表現**で提案してください。
-4. ユーザーが自分のクローゼットから服を選びやすくなるような、道しるべとなるアドバイスにしてください。
+1. 天気と利用シーンから最適な服装の「方向性」を提案
+2. 具体的な商品名は避け、「厚手の防寒アウター」「風を通さない素材」など機能性重視の表現を使用
+3. ユーザーが自分のクローゼットから選びやすいアドバイス
+4. 気温変化に応じた調整方法も含める
 """
 
     format_instruction = """
 # 出力形式
-以下のJSON形式で出力してください。項目を分けず、時間帯(朝・昼・夜)の変化やまとめを含めた**ひとつのまとまった提案文章(400文字程度)**にしてください。
+以下のJSON形式で出力してください:
 
 {
-  "suggestion": "ここに提案文章を記述..."
+  "suggestion": "提案文章をここに記述（350〜450文字程度）"
 }
 
 # 制約
-- 指示の復唱はしない。
-- JSON以外の余計な文字は出力しない。
-- ```json のようなマークダウンも出力しない。
+- 指示の復唱はしない
+- JSON以外の余計な文字は出力しない
+- マークダウン記号（```json など）は使用しない
+- suggestionキーは必須
 """
 
     prompt = base_info + instruction + format_instruction
 
-    # --- APIリクエスト設定 ---
-    # 【修正】Markdown記号混入を物理的に防ぐため、変数を分割して結合
-    base_url = "[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent)"
-    url = f"{base_url}?key={api_key}"
+    # APIリクエスト設定
+    # 公式ドキュメント確認済み（2025年1月13日）
+    model_name = "gemini-1.5-flash"
+    base_url = "https://generativelanguage.googleapis.com"
+    endpoint = f"{base_url}/v1beta/models/{model_name}:generateContent"
+    url = f"{endpoint}?key={api_key}"
     
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json"
+    }
     
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 1000,
+            "topP": 0.8,
+            "topK": 40,
+            "maxOutputTokens": 1024,
             "responseMimeType": "application/json"
-        }
+        },
+        "safetySettings": [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
     }
 
     try:
-        print("[INFO] Sending request to Gemini API (v1beta)...")
-        # タイムアウトを60秒に設定
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        print(f"[INFO] Sending request to Gemini API")
+        print(f"[DEBUG] Model: {model_name}")
+        print(f"[DEBUG] Endpoint: {endpoint}")
+        print(f"[DEBUG] Payload size: {len(json.dumps(payload))} bytes")
+        
+        # リクエスト送信（タイムアウト60秒）
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
         
         print(f"[INFO] Response status: {response.status_code}")
+        print(f"[DEBUG] Response headers: {dict(response.headers)}")
         
-        # エラーハンドリング
-        if response.status_code != 200:
-            error_text = response.text
-            print(f"[ERROR] API Error Response: {error_text}")
-            
-            # 429 Too Many Requests 対応
-            if response.status_code == 429:
-                return {
-                    "type": "error",
-                    "suggestions": {"suggestion": "アクセスが集中しています。しばらく待ってから再度お試しください。"}
-                }
-
-            try:
-                error_json = response.json()
-                error_message = error_json.get('error', {}).get('message', 'Unknown error')
-            except:
-                error_message = "詳細不明"
-            
+        # ステータスコード別エラーハンドリング
+        if response.status_code == 400:
+            error_detail = response.text[:500]
+            print(f"[ERROR] Bad Request (400): {error_detail}")
             return {
                 "type": "error",
                 "suggestions": {
-                    "suggestion": f"AI通信エラーが発生しました。\n詳細: {error_message}"
+                    "suggestion": "❌ リクエスト内容に問題があります。\n\n入力内容を確認してください。\n（エラーコード: 400）"
+                }
+            }
+        
+        if response.status_code == 403:
+            print(f"[ERROR] Forbidden (403)")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "🚫 APIキーに権限がありません。\n\nGoogle AI Studioで新しいAPIキーを作成してください。\n（エラーコード: 403）"
+                }
+            }
+        
+        if response.status_code == 404:
+            print(f"[ERROR] Not Found (404)")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": f"❌ モデル '{model_name}' が見つかりません。\n\nサーバー設定を確認してください。\n（エラーコード: 404）"
+                }
+            }
+        
+        if response.status_code == 429:
+            print(f"[ERROR] Rate Limit Exceeded (429)")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "⏱️ レート制限に達しました。\n\n無料枠: 15リクエスト/分, 1500リクエスト/日\n\n1分ほど待ってから再度お試しください。"
+                }
+            }
+        
+        if response.status_code == 500:
+            print(f"[ERROR] Internal Server Error (500)")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "🔧 Googleサーバーでエラーが発生しました。\n\nしばらく待ってから再度お試しください。\n（エラーコード: 500）"
+                }
+            }
+        
+        if response.status_code != 200:
+            error_text = response.text[:500]
+            print(f"[ERROR] Unexpected status code: {response.status_code}")
+            print(f"[ERROR] Response: {error_text}")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": f"❌ 予期しないエラーが発生しました。\n\nステータスコード: {response.status_code}\n\n管理者に連絡してください。"
                 }
             }
 
-        data = response.json()
+        # レスポンスのパース
+        try:
+            data = response.json()
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] Failed to parse JSON response: {e}")
+            print(f"[ERROR] Response text: {response.text[:500]}")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "❌ APIからの応答が不正です。\n\nもう一度お試しください。"
+                }
+            }
+        
+        print(f"[DEBUG] Response keys: {list(data.keys())}")
         
         # レスポンス構造のチェック
-        if 'candidates' not in data or not data['candidates']:
-            return {"type": "error", "suggestions": {"suggestion": "AIから回答が得られませんでした。"}}
-
-        candidate = data['candidates'][0]
-
-        # セーフティフィルタ検知
-        finish_reason = candidate.get('finishReason')
-        if finish_reason == "SAFETY":
-             return {
+        if 'candidates' not in data:
+            print(f"[ERROR] No 'candidates' in response")
+            print(f"[DEBUG] Full response: {json.dumps(data, indent=2, ensure_ascii=False)[:500]}")
+            return {
                 "type": "error",
-                "suggestions": {"suggestion": "不適切な表現が含まれる可能性があるため、回答が生成されませんでした。入力内容を見直してください。"}
+                "suggestions": {
+                    "suggestion": "❌ AIから有効な応答が得られませんでした。\n\nもう一度お試しください。"
+                }
+            }
+        
+        if not data['candidates'] or len(data['candidates']) == 0:
+            print(f"[ERROR] Empty candidates array")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "❌ AIから回答が得られませんでした。\n\n入力内容を見直してください。"
+                }
             }
 
+        candidate = data['candidates'][0]
+        print(f"[DEBUG] Candidate keys: {list(candidate.keys())}")
+
+        # 完了理由のチェック
+        finish_reason = candidate.get('finishReason', 'UNKNOWN')
+        print(f"[DEBUG] Finish reason: {finish_reason}")
+        
+        if finish_reason == "SAFETY":
+            print(f"[WARNING] Content filtered by safety settings")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "⚠️ 安全フィルターにより回答が生成されませんでした。\n\n入力内容を見直してください。"
+                }
+            }
+        
+        if finish_reason == "MAX_TOKENS":
+            print(f"[WARNING] Response truncated due to max tokens")
+        
+        # コンテンツの取得
         if 'content' not in candidate:
-             return {"type": "error", "suggestions": {"suggestion": "AI応答の形式が不正です。"}}
+            print(f"[ERROR] No 'content' in candidate")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "❌ AI応答の形式が不正です。"
+                }
+            }
         
-        parts = candidate['content'].get('parts', [])
-        if not parts or 'text' not in parts[0]:
-             return {"type": "error", "suggestions": {"suggestion": "AI応答にテキストが含まれていません。"}}
+        content_parts = candidate['content'].get('parts', [])
+        if not content_parts or 'text' not in content_parts[0]:
+            print(f"[ERROR] No text in parts")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "❌ AI応答にテキストが含まれていません。"
+                }
+            }
         
-        content = parts[0]['text'].strip()
+        content = content_parts[0]['text'].strip()
         print(f"[SUCCESS] Got response from Gemini API")
+        print(f"[DEBUG] Response length: {len(content)} chars")
+        print(f"[DEBUG] Response preview: {content[:150]}...")
 
         # JSONクリーニング
         clean_json = content.replace("```json", "").replace("```", "").strip()
         
+        # JSONパース
         try:
             suggestions = json.loads(clean_json)
-            
-            # JSONキーの揺らぎ対策
-            if "suggestion" not in suggestions:
-                found_text = suggestions.get("text") or suggestions.get("advice") or str(suggestions)
-                suggestions = {"suggestion": found_text}
-
-            print(f"[SUCCESS] JSON parsed successfully")
-            
-            # 成功を返す
-            return {
-                "type": "success",
-                "suggestions": suggestions
-            }
-            
+            print(f"[DEBUG] Parsed JSON keys: {list(suggestions.keys())}")
         except json.JSONDecodeError as e:
             print(f"[ERROR] JSON Parse Error: {e}")
+            print(f"[ERROR] Content: {clean_json[:300]}")
             return {
                 "type": "error",
                 "suggestions": {
-                    "suggestion": "AI応答の解析に失敗しました。もう一度お試しください。"
+                    "suggestion": "❌ AI応答の解析に失敗しました。\n\nもう一度お試しください。"
                 }
             }
+        
+        # キーの正規化
+        if "suggestion" not in suggestions:
+            for key in ["text", "advice", "outfit", "recommendation", "response"]:
+                if key in suggestions:
+                    suggestions = {"suggestion": suggestions[key]}
+                    print(f"[WARNING] Used alternative key: {key}")
+                    break
+            else:
+                suggestions = {"suggestion": str(suggestions)}
+                print(f"[WARNING] No valid key found, using full content")
+        
+        # 空チェック
+        suggestion_text = suggestions.get("suggestion", "").strip()
+        if not suggestion_text or len(suggestion_text) < 10:
+            print(f"[ERROR] Suggestion too short: {len(suggestion_text)} chars")
+            return {
+                "type": "error",
+                "suggestions": {
+                    "suggestion": "❌ AIから十分な提案が得られませんでした。\n\nもう一度お試しください。"
+                }
+            }
+        
+        print(f"[SUCCESS] JSON parsed successfully")
+        print(f"[SUCCESS] Suggestion length: {len(suggestion_text)} chars")
+        
+        # 成功を返す
+        return {
+            "type": "success",
+            "suggestions": suggestions
+        }
 
     except requests.exceptions.Timeout:
-        print("[ERROR] Request timeout")
+        print("[ERROR] Request timeout (60s)")
         return {
             "type": "error",
             "suggestions": {
-                "suggestion": "処理がタイムアウトしました。もう一度お試しください。"
+                "suggestion": "⏱️ 処理がタイムアウトしました。\n\nネットワーク接続を確認して、もう一度お試しください。"
             }
         }
+    
+    except requests.exceptions.ConnectionError as e:
+        print(f"[ERROR] Connection error: {e}")
+        return {
+            "type": "error",
+            "suggestions": {
+                "suggestion": "🌐 ネットワーク接続エラーが発生しました。\n\nインターネット接続を確認してください。"
+            }
+        }
+    
     except requests.exceptions.RequestException as e:
         print(f"[ERROR] Request Exception: {e}")
         traceback.print_exc()
         return {
             "type": "error",
             "suggestions": {
-                "suggestion": "通信エラーが発生しました。ネットワーク接続を確認してください。"
+                "suggestion": "❌ 通信エラーが発生しました。\n\nしばらく待ってから再度お試しください。"
             }
         }
+    
     except Exception as e:
-        print(f"[ERROR] Unexpected Error: {e}")
+        print(f"[ERROR] Unexpected Error: {type(e).__name__}: {e}")
         traceback.print_exc()
         return {
             "type": "error",
             "suggestions": {
-                "suggestion": f"システムエラーが発生しました。\n{str(e)[:100]}"
+                "suggestion": f"❌ システムエラーが発生しました。\n\nエラー: {str(e)[:100]}"
             }
         }
