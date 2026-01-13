@@ -88,9 +88,8 @@ def suggest_outfit(weather, options):
 
     prompt = base_info + instruction + format_instruction
 
-    # --- 🔧 修正: 正しいモデル名に変更 ---
-    # v1beta エンドポイントで利用可能なモデル名を使用
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    # --- 🔧 修正箇所1: 正しいモデル名に変更 (-latest を削除) ---
+    url = f"[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=){api_key}"
     
     headers = {"Content-Type": "application/json"}
     
@@ -98,7 +97,9 @@ def suggest_outfit(weather, options):
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 1000
+            "maxOutputTokens": 1000,
+            # --- 🔧 修正箇所2: JSONモードを強制する設定を追加 (パースエラー防止) ---
+            "responseMimeType": "application/json"
         }
     }
 
@@ -128,7 +129,7 @@ def suggest_outfit(weather, options):
             }
 
         data = response.json()
-        print(f"[DEBUG] Response data keys: {data.keys()}")
+        # print(f"[DEBUG] Response data keys: {data.keys()}") # ログが多すぎる場合はコメントアウト推奨
         
         # レスポンス構造を確認
         if 'candidates' not in data:
@@ -175,6 +176,7 @@ def suggest_outfit(weather, options):
         print(f"[DEBUG] Response text (first 100 chars): {content[:100]}")
 
         # JSONクリーニング
+        # responseMimeTypeを指定しましたが、念のため既存のクリーニング処理も残しておきます
         clean_json = content.replace("```json", "").replace("```", "").strip()
         
         # JSONパース
