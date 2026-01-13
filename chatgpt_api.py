@@ -126,7 +126,7 @@ def suggest_outfit(weather, options):
             "temperature": 0.7,
             "topP": 0.8,
             "topK": 40,
-            "maxOutputTokens": 1024,
+            "maxOutputTokens": 2048,  # 1024 → 2048に増量（文字数確保）
             "responseMimeType": "application/json"
         },
         "safetySettings": [
@@ -277,6 +277,8 @@ def suggest_outfit(weather, options):
         
         if finish_reason == "MAX_TOKENS":
             print(f"[WARNING] Response truncated due to max tokens")
+            # MAX_TOKENSでも途切れている場合は、取得できた部分だけ使う
+            # JSONが不完全でもエラーにせず、フォールバック処理を試みる
         
         # コンテンツの取得
         if 'content' not in candidate:
@@ -306,6 +308,17 @@ def suggest_outfit(weather, options):
         # JSONクリーニング
         clean_json = content.replace("```json", "").replace("```", "").strip()
         
+        # MAX_TOKENSで途切れている場合のフォールバック処理
+        if finish_reason == "MAX_TOKENS":
+            # 不完全なJSONを修復
+            if not clean_json.endswith("}"):
+                # 途中で切れている文字列を閉じる
+                if clean_json.count('"') % 2 != 0:
+                    clean_json += '"'
+                clean_json += "\n}"
+            print(f"[WARNING] Attempting to repair truncated JSON")
+            print(f"[DEBUG] Repaired JSON: {clean_json[:200]}...")
+        
         # JSONパース
         try:
             suggestions = json.loads(clean_json)
@@ -313,6 +326,22 @@ def suggest_outfit(weather, options):
         except json.JSONDecodeError as e:
             print(f"[ERROR] JSON Parse Error: {e}")
             print(f"[ERROR] Content: {clean_json[:300]}")
+            
+            # MAX_TOKENSで途切れた場合の最終フォールバック
+            if finish_reason == "MAX_TOKENS":
+                # suggestionキーの値だけを抽出
+                import re
+                match = re.search(r'"suggestion"\s*:\s*"([^"]*)', clean_json)
+                if match:
+                    partial_text = match.group(1)
+                    print(f"[WARNING] Using partial text from truncated response: {len(partial_text)} chars")
+                    return {
+                        "type": "success",
+                        "suggestions": {
+                            "suggestion": partial_text + "...\n\n（応答が途中で切れました。もう一度お試しください）"
+                        }
+                    }
+            
             return {
                 "type": "error",
                 "suggestions": {
