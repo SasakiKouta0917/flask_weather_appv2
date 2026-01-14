@@ -994,7 +994,7 @@ const ThemeModule = {
 };
 
 // ==========================================
-// DOMContentLoaded
+// DOMContentLoaded（既存要素すべて保持）
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     MapModule.init();
@@ -1030,6 +1030,32 @@ document.addEventListener('DOMContentLoaded', () => {
         aiResetBtn.addEventListener('click', () => {
             ThemeModule.triggerButtonAnim(aiResetBtn);
             AIModule.reset();
+        });
+    }
+    
+    // ==========================================
+    // 折りたたみボタン機能（スマホ専用・新規追加）
+    // ==========================================
+    
+    // 天候推移の折りたたみ
+    const toggleChartBtn = document.getElementById('toggle-chart-btn');
+    const chartContent = document.getElementById('chart-content');
+
+    if (toggleChartBtn && chartContent) {
+        toggleChartBtn.addEventListener('click', () => {
+            toggleChartBtn.classList.toggle('active');
+            chartContent.classList.toggle('collapsed');
+        });
+    }
+
+    // 週間予報の折りたたみ
+    const toggleForecastBtn = document.getElementById('toggle-forecast-btn');
+    const forecastContent = document.getElementById('forecast-content');
+
+    if (toggleForecastBtn && forecastContent) {
+        toggleForecastBtn.addEventListener('click', () => {
+            toggleForecastBtn.classList.toggle('active');
+            forecastContent.classList.toggle('collapsed');
         });
     }
 });
