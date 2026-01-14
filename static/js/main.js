@@ -546,10 +546,12 @@ const ChartModule = {
     }
 };
 // ==========================================
-// 4. AI Module (Rate Limit対応・完全版)
+// 4. AI Module (Rate Limit対応・カウントダウン付き・完全版)
 // ==========================================
 const AIModule = {
     countdownTimer: null,
+    countdownInterval: null,
+    errorCountdownInterval: null, // エラー表示用カウントダウン
 
     getDummyData: () => {
         return {
@@ -657,8 +659,14 @@ const AIModule = {
     },
 
     startCountdown: (seconds, btn) => {
+        // 既存のタイマーをクリア
         if (AIModule.countdownTimer) {
-            clearInterval(AIModule.countdownTimer);
+            clearTimeout(AIModule.countdownTimer);
+            AIModule.countdownTimer = null;
+        }
+        if (AIModule.countdownInterval) {
+            clearInterval(AIModule.countdownInterval);
+            AIModule.countdownInterval = null;
         }
 
         let remaining = seconds;
@@ -669,28 +677,44 @@ const AIModule = {
                 btn.innerHTML = `<i class="fa-solid fa-clock"></i> 待機中 (${timeStr})`;
                 remaining--;
             } else {
-                clearInterval(AIModule.countdownTimer);
-                AIModule.countdownTimer = null;
+                AIModule.stopCountdown();
                 btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
                 btn.disabled = false;
             }
         };
         
+        // 初回実行
         btn.disabled = true;
         updateButton();
-        AIModule.countdownTimer = setInterval(updateButton, 1000);
+        
+        // 1秒ごとに更新
+        AIModule.countdownInterval = setInterval(updateButton, 1000);
+        
+        // 最終的なタイムアウト（バックアップ）
+        AIModule.countdownTimer = setTimeout(() => {
+            AIModule.stopCountdown();
+            btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
+            btn.disabled = false;
+        }, (seconds + 1) * 1000);
     },
 
     stopCountdown: () => {
         if (AIModule.countdownTimer) {
-            clearInterval(AIModule.countdownTimer);
+            clearTimeout(AIModule.countdownTimer);
             AIModule.countdownTimer = null;
+        }
+        if (AIModule.countdownInterval) {
+            clearInterval(AIModule.countdownInterval);
+            AIModule.countdownInterval = null;
         }
     },
 
     renderRateLimitError: (message, remainingTime) => {
         const resultArea = document.getElementById('ai-result-area');
         const timeStr = AIModule.formatTime(remainingTime);
+        
+        // カウントダウン表示用のID付きspan
+        const countdownId = 'countdown-display';
         
         resultArea.innerHTML = `
             <div class="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg p-6 shadow-sm fade-in-up">
@@ -700,42 +724,91 @@ const AIModule = {
                 <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed mb-4">${message}</p>
                 <div class="bg-white dark:bg-slate-800 rounded p-3 text-center">
                     <p class="text-xs text-gray-500 dark:text-slate-400 mb-1">残り待機時間</p>
-                    <p class="text-2xl font-bold text-orange-600 dark:text-orange-400">${timeStr}</p>
+                    <p id="${countdownId}" class="text-2xl font-bold text-orange-600 dark:text-orange-400">${timeStr}</p>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-slate-400 mt-4">
                     💡 ヒント: APIの使用量を節約するため、リクエスト間隔を設けています。
                 </p>
             </div>
         `;
+        
+        // エラー表示内のカウントダウンを開始
+        AIModule.startErrorCountdown(remainingTime, countdownId);
+    },
+    
+    startErrorCountdown: (seconds, elementId) => {
+        // 既存のエラーカウントダウンをクリア
+        if (AIModule.errorCountdownInterval) {
+            clearInterval(AIModule.errorCountdownInterval);
+            AIModule.errorCountdownInterval = null;
+        }
+        
+        let remaining = seconds;
+        
+        const updateDisplay = () => {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                // 要素が消えたらタイマー停止
+                if (AIModule.errorCountdownInterval) {
+                    clearInterval(AIModule.errorCountdownInterval);
+                    AIModule.errorCountdownInterval = null;
+                }
+                return;
+            }
+            
+            if (remaining > 0) {
+                const timeStr = AIModule.formatTime(remaining);
+                element.textContent = timeStr;
+                remaining--;
+            } else {
+                element.textContent = '0秒';
+                if (AIModule.errorCountdownInterval) {
+                    clearInterval(AIModule.errorCountdownInterval);
+                    AIModule.errorCountdownInterval = null;
+                }
+            }
+        };
+        
+        // 初回表示
+        updateDisplay();
+        
+        // 1秒ごとに更新
+        AIModule.errorCountdownInterval = setInterval(updateDisplay, 1000);
     },
 
     renderResult: (data) => {
-    const resultArea = document.getElementById('ai-result-area');
-    const text = data.suggestion || "提案を取得できませんでした。";
+        // エラー表示のカウントダウンをクリア
+        if (AIModule.errorCountdownInterval) {
+            clearInterval(AIModule.errorCountdownInterval);
+            AIModule.errorCountdownInterval = null;
+        }
+        
+        const resultArea = document.getElementById('ai-result-area');
+        const text = data.suggestion || "提案を取得できませんでした。";
 
-    resultArea.innerHTML = `
-        <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-6 shadow-sm fade-in-up">
-            <div class="flex items-center justify-between mb-3 border-b border-purple-100 dark:border-slate-600 pb-2">
-                <h4 class="font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2">
-                    <i class="fa-solid fa-shirt"></i> コーディネート提案
-                </h4>
-                <button onclick="AIModule.copyToClipboard()" class="text-gray-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 transition">
-                    <i class="fa-solid fa-copy"></i>
-                </button>
+        resultArea.innerHTML = `
+            <div class="bg-white dark:bg-slate-700 border border-purple-200 dark:border-slate-600 rounded-lg p-6 shadow-sm fade-in-up">
+                <div class="flex items-center justify-between mb-3 border-b border-purple-100 dark:border-slate-600 pb-2">
+                    <h4 class="font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                        <i class="fa-solid fa-shirt"></i> コーディネート提案
+                    </h4>
+                    <button onclick="AIModule.copyToClipboard()" class="text-gray-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 transition">
+                        <i class="fa-solid fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap mb-4">${text}</p>
+                <div class="flex items-center justify-end gap-2 md:gap-3 pt-3 border-t border-gray-100 dark:border-slate-600">
+                    <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:inline">この提案は役に立ちましたか?</span>
+                    <button onclick="AIModule.rateSuggestion('good')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-full text-sm transition">
+                        <i class="fa-solid fa-thumbs-up"></i><span class="hidden sm:inline ml-1">良い</span>
+                    </button>
+                    <button onclick="AIModule.rateSuggestion('bad')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-full text-sm transition">
+                        <i class="fa-solid fa-thumbs-down"></i><span class="hidden sm:inline ml-1">悪い</span>
+                    </button>
+                </div>
             </div>
-            <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed whitespace-pre-wrap mb-4">${text}</p>
-            <div class="flex items-center justify-end gap-2 md:gap-3 pt-3 border-t border-gray-100 dark:border-slate-600">
-                <span class="text-xs text-gray-500 dark:text-slate-400 hidden sm:inline">この提案は役に立ちましたか?</span>
-                <button onclick="AIModule.rateSuggestion('good')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-full text-sm transition">
-                    <i class="fa-solid fa-thumbs-up"></i><span class="hidden sm:inline ml-1">良い</span>
-                </button>
-                <button onclick="AIModule.rateSuggestion('bad')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-full text-sm transition">
-                    <i class="fa-solid fa-thumbs-down"></i><span class="hidden sm:inline ml-1">悪い</span>
-                </button>
-            </div>
-        </div>
-    `;
-},
+        `;
+    },
 
     copyToClipboard: () => {
         const resultArea = document.getElementById('ai-result-area');
@@ -793,7 +866,13 @@ const AIModule = {
         if (inputContainer) inputContainer.classList.remove('hidden');
         if (resetBtn) resetBtn.classList.add('hidden');
         
+        // すべてのタイマーをクリア
         AIModule.stopCountdown();
+        
+        if (AIModule.errorCountdownInterval) {
+            clearInterval(AIModule.errorCountdownInterval);
+            AIModule.errorCountdownInterval = null;
+        }
         
         if (btn) {
             btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
