@@ -253,3 +253,98 @@ body::before {
     background-size: 40px 40px; background-position: 0 0, 20px 20px; opacity: 0.6;
 }
 .dark body::before { display: none; }
+
+/* ==========================================
+   折りたたみボタン（スマホ専用）
+   ========================================== */
+.toggle-card-btn {
+    --btn_size: 2.2rem;
+    --triangle_size: 0.7rem;
+    
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #cbd5e1;
+    width: var(--btn_size);
+    height: var(--btn_size);
+    background-color: #ffffff;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.dark .toggle-card-btn {
+    background-color: #1e293b;
+    border-color: #475569;
+}
+
+/* 右上の三角形 */
+.toggle-card-btn::before {
+    position: absolute;
+    content: "";
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-width: 0 var(--triangle_size) var(--triangle_size) 0;
+    border-style: solid;
+    border-color: transparent #3b82f6 transparent transparent;
+    transition: all 0.3s ease;
+    z-index: 0;
+}
+
+.dark .toggle-card-btn::before {
+    border-color: transparent #60a5fa transparent transparent;
+}
+
+/* クリック時のアニメーション */
+.toggle-card-btn.active::before {
+    --triangle_size: calc(var(--btn_size) * 2);
+}
+
+/* アイコン */
+.toggle-card-btn > .plusIcon {
+    fill: #475569;
+    width: calc(var(--btn_size) * 0.6);
+    height: calc(var(--btn_size) * 0.6);
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.dark .toggle-card-btn > .plusIcon {
+    fill: #cbd5e1;
+}
+
+/* アクティブ時のアイコン */
+.toggle-card-btn.active > .plusIcon {
+    fill: #ffffff;
+    transform: rotate(45deg);
+}
+
+/* コンテンツの表示/非表示 */
+.collapsible-content {
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.5s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+.collapsible-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+/* PC版では常に表示 */
+@media (min-width: 768px) {
+    .toggle-card-btn {
+        display: none;
+    }
+    
+    .collapsible-content.collapsed {
+        max-height: 1000px;
+        opacity: 1;
+    }
+}
