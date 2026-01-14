@@ -330,11 +330,35 @@ body::before {
     overflow: hidden;
     transition: max-height 0.5s ease, opacity 0.3s ease;
     opacity: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .collapsible-content.collapsed {
-    max-height: 0;
+    max-height: 0 !important;
     opacity: 0;
+    overflow: hidden;
+}
+
+/* グラフコンテナの高さ維持 */
+#chart-content {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+}
+
+#chart-content.collapsed {
+    min-height: 0;
+}
+
+/* 週間予報の高さ維持 */
+#forecast-content {
+    flex: 1;
+    min-height: 400px;
+}
+
+#forecast-content.collapsed {
+    min-height: 0;
 }
 
 /* PC版では常に表示 */
@@ -344,7 +368,13 @@ body::before {
     }
     
     .collapsible-content.collapsed {
-        max-height: 1000px;
-        opacity: 1;
+        max-height: 1000px !important;
+        opacity: 1 !important;
+        overflow: visible;
+    }
+    
+    #chart-content.collapsed,
+    #forecast-content.collapsed {
+        min-height: 200px;
     }
 }
