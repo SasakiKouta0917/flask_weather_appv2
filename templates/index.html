@@ -295,6 +295,127 @@
             </div>
         </section>
 
+        <!-- 
+        既存のindex.htmlの</main>の直前（Weekly Forecastの後）に以下を追加してください
+        スマホ専用の掲示板セクション
+        -->
+
+        <!-- 6. 掲示板（スマホのみ表示） -->
+        <section class="order-6 col-span-full md:hidden bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 border-l-4 border-l-green-500 dark:border-l-green-600 fade-in-up shadow-sm">
+            <h3 class="font-bold text-lg text-gray-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-comments text-green-500"></i> みんなの掲示板
+                <span class="text-xs font-normal text-gray-400 dark:text-slate-500 ml-auto">β版</span>
+            </h3>
+    
+            <!-- 名前登録セクション -->
+            <div id="board-name-section" class="mb-4 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600">
+                 <div id="board-name-input-area">
+                    <label class="text-xs text-gray-500 dark:text-slate-400 font-bold mb-2 block">
+                        <i class="fa-solid fa-user"></i> 名前を登録（返信機能を使うには登録が必要）
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="board-username-input" placeholder="名前（20文字以内）" maxlength="20" class="flex-1 border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400">
+                        <button id="board-register-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold text-sm transition">
+                            登録
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
+                        ⚠️ 同じ名前は使用できません。名前なしでも投稿は可能ですが、返信はできません。
+                    </p>
+                </div>
+        
+                <div id="board-name-display-area" class="hidden">
+                    <p class="text-sm text-gray-700 dark:text-slate-200">
+                        <i class="fa-solid fa-user-check text-green-500"></i> 
+                        登録名: <span id="board-current-username" class="font-bold"></span>
+                    </p>
+                    <p class="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
+                        💡 セッション中は同じ名前が使用されます
+                    </p>
+                </div>
+            </div>
+    
+            <!-- 投稿フォーム -->
+            <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <label class="text-xs text-gray-500 dark:text-slate-400 font-bold mb-2 block">
+                    <i class="fa-solid fa-pen"></i> 新規投稿
+                </label>
+                <textarea id="board-post-content" rows="3" placeholder="投稿内容（300文字以内）" maxlength="300" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 resize-none"></textarea>
+        
+                <!-- 注意書きとチェックボックス -->
+                <div class="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded">
+                    <div class="checkbox-wrapper-46 mb-2">
+                        <input class="inp-cbx" id="board-confirm-checkbox" type="checkbox" />
+                        <label class="cbx" for="board-confirm-checkbox">
+                            <span><svg width="12px" height="10px" viewbox="0 0 12 10"><polyline points="1.5 6 4.5 9 10.5 1"></polyline></svg></span>
+                            <span class="text-xs text-gray-700 dark:text-slate-200">以下を確認しました</span>
+                        </label>
+                    </div>
+                    <p class="text-[10px] text-gray-600 dark:text-slate-400 leading-relaxed">
+                        ⚠️ この投稿が他人を傷つけたり、誹謗中傷、差別、脅迫、違法行為を助長する内容でないか、十分に確認した上で投稿してください。不適切な投稿は通報により非表示になり、アカウントが制限される場合があります。
+                    </p>
+                </div>
+        
+                <div class="flex items-center justify-between mt-2">
+                    <span id="board-char-count" class="text-xs text-gray-400 dark:text-slate-500">0 / 300</span>
+                    <button id="board-submit-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition" disabled>
+                        <i class="fa-solid fa-paper-plane"></i> 投稿
+                    </button>
+                </div>
+            </div>
+    
+            <!-- 返信フォーム（動的表示） -->
+            <div id="board-reply-form" class="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs text-gray-500 dark:text-slate-400 font-bold">
+                        <i class="fa-solid fa-reply"></i> 返信先: <span id="board-reply-to-username" class="text-purple-600 dark:text-purple-400"></span>
+                    </label>
+                    <button id="board-cancel-reply-btn" class="text-xs text-gray-500 hover:text-red-500 transition">
+                        <i class="fa-solid fa-times"></i> キャンセル
+                    </button>
+                </div>
+                <textarea id="board-reply-content" rows="2" placeholder="返信内容（300文字以内）" maxlength="300" class="w-full border border-gray-300 dark:border-slate-600 rounded p-2 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 resize-none"></textarea>
+        
+                <div class="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded">
+                    <div class="checkbox-wrapper-46 mb-2">
+                        <input class="inp-cbx" id="board-reply-confirm-checkbox" type="checkbox" />
+                        <label class="cbx" for="board-reply-confirm-checkbox">
+                            <span><svg width="12px" height="10px" viewbox="0 0 12 10"><polyline points="1.5 6 4.5 9 10.5 1"></polyline></svg></span>
+                            <span class="text-xs text-gray-700 dark:text-slate-200">注意事項を確認しました</span>
+                        </label>
+                    </div>
+                    <p class="text-[10px] text-gray-600 dark:text-slate-400">
+                        ⚠️ 不適切な返信は通報により制限されます
+                    </p>
+                </div>
+        
+                <div class="flex items-center justify-between mt-2">
+                    <span id="board-reply-char-count" class="text-xs text-gray-400 dark:text-slate-500">0 / 300</span>
+                    <button id="board-reply-submit-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition" disabled>
+                        <i class="fa-solid fa-paper-plane"></i> 返信を投稿
+                    </button>
+                </div>
+            </div>
+    
+            <!-- 更新情報 -->
+            <div class="flex items-center justify-between mb-2 px-1">
+                <span class="text-xs text-gray-400 dark:text-slate-500">
+                    <i class="fa-solid fa-clock"></i> 30秒ごとに自動更新
+                </span>
+                <button id="board-refresh-btn" class="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400">
+                    <i class="fa-solid fa-rotate-right"></i> 手動更新
+                </button>
+            </div>
+    
+            <!-- 投稿一覧 -->
+            <div id="board-posts-container" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                <div class="text-center text-sm text-gray-400 py-8">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p>読み込み中...</p>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- Scroll to Top Button -->
