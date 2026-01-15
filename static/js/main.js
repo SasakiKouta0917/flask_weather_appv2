@@ -1464,15 +1464,9 @@ document.addEventListener('DOMContentLoaded', () => {
             AIModule.reset();
         });
     }
-
-    // 掲示板の初期化（スマホのみ）
-    // ※修正箇所: インデントが深すぎたため、他のif文と同じ階層に戻しました
-    if (window.innerWidth < 768) {
-        BoardModule.init();
-    }
-});
+    
     // ==========================================
-    // 折りたたみボタン機能（スマホ専用・新規追加）
+    // 折りたたみボタン機能（スマホ専用）
     // ==========================================
     
     // 天候推移の折りたたみ
@@ -1496,17 +1490,11 @@ document.addEventListener('DOMContentLoaded', () => {
             forecastContent.classList.toggle('collapsed');
         });
     }
-});
-// ==========================================
-// DOMContentLoadedの既存コードに以下を追加
-// ==========================================
-/*
-document.addEventListener('DOMContentLoaded', () => {
-    // ... 既存の初期化処理 ...
     
-    // 掲示板の初期化（スマホのみ）
+    // ==========================================
+    // 🆕 掲示板の初期化（スマホのみ）
+    // ==========================================
     if (window.innerWidth < 768) {
         BoardModule.init();
     }
 });
-*/
