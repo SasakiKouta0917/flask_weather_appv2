@@ -4,44 +4,43 @@ from datetime import datetime, timedelta
 from collections import deque
 import time
 
+# 掲示板モジュールをインポート
+from board_api import (
+    board_register_name,
+    board_get_username,
+    board_create_post,
+    board_get_posts,
+    board_report_post
+)
+
 app = Flask(__name__)
 
 # ==========================================
-# レート制限システム
+# レート制限システム（既存）
 # ==========================================
 class RateLimiter:
     def __init__(self):
-        # IPアドレスごとの最終リクエスト時刻を記録
         self.last_request = {}
-        # IPアドレスごとの待機時間（秒）を記録
         self.wait_time = {}
-        # IPアドレスごとのリクエスト履歴（過去1時間）
         self.request_history = {}
-        
-        # 設定
-        self.initial_wait = 300  # 初回成功後: 5分 (300秒)
-        self.max_requests_per_hour = 50  # 1時間あたり最大50リクエスト
-        self.history_duration = 3600  # 履歴保持期間: 1時間 (3600秒)
+        self.initial_wait = 300
+        self.max_requests_per_hour = 50
+        self.history_duration = 3600
     
     def get_client_ip(self):
-        """クライアントのIPアドレスを取得"""
-        # プロキシ経由の場合も考慮
         if request.headers.get('X-Forwarded-For'):
             return request.headers.get('X-Forwarded-For').split(',')[0].strip()
         return request.remote_addr
     
     def clean_old_history(self, ip):
-        """1時間以上前のリクエスト履歴を削除"""
         if ip not in self.request_history:
             self.request_history[ip] = deque()
         
         now = time.time()
-        # 古い履歴を削除
         while self.request_history[ip] and now - self.request_history[ip][0] > self.history_duration:
             self.request_history[ip].popleft()
     
     def check_hourly_limit(self, ip):
-        """過去1時間のリクエスト数をチェック"""
         self.clean_old_history(ip)
         
         if ip not in self.request_history:
@@ -54,20 +53,12 @@ class RateLimiter:
         return True, count
     
     def check_rate_limit(self, ip):
-        """
-        レート制限をチェック
-        
-        Returns:
-            tuple: (許可するか, 残り待機時間, エラーメッセージ)
-        """
         now = time.time()
         
-        # 1時間あたりのリクエスト数チェック
         allowed, count = self.check_hourly_limit(ip)
         if not allowed:
             return False, 0, f"リクエスト上限に達しました。過去1時間に{count}件のリクエストが送信されています。1時間後に再試行してください。"
         
-        # 待機時間チェック
         if ip in self.last_request:
             elapsed = now - self.last_request[ip]
             required_wait = self.wait_time.get(ip, self.initial_wait)
@@ -87,28 +78,23 @@ class RateLimiter:
         return True, 0, ""
     
     def record_request(self, ip, success=True):
-        """リクエストを記録"""
         now = time.time()
         
-        # リクエスト履歴に追加
         if ip not in self.request_history:
             self.request_history[ip] = deque()
         self.request_history[ip].append(now)
         
-        # 成功したリクエストのみ待機時間を記録
         if success:
             self.last_request[ip] = now
             
-            # 待機時間を倍増（初回: 5分 → 10分 → 20分 → ...）
             if ip in self.wait_time:
-                self.wait_time[ip] = min(self.wait_time[ip] * 2, 3600)  # 最大1時間
+                self.wait_time[ip] = min(self.wait_time[ip] * 2, 3600)
             else:
                 self.wait_time[ip] = self.initial_wait
             
             print(f"[RATE LIMIT] IP: {ip} - Next wait time: {self.wait_time[ip]}秒")
     
     def get_stats(self, ip):
-        """統計情報を取得（デバッグ用）"""
         self.clean_old_history(ip)
         
         count = len(self.request_history.get(ip, []))
@@ -120,11 +106,10 @@ class RateLimiter:
             "max_requests_per_hour": self.max_requests_per_hour
         }
 
-# レート制限インスタンス
 rate_limiter = RateLimiter()
 
 # ==========================================
-# Routes
+# Routes（既存）
 # ==========================================
 @app.route('/')
 def index():
@@ -132,10 +117,8 @@ def index():
 
 @app.route('/api/suggest_outfit', methods=['POST'])
 def suggest_outfit_api():
-    # クライアントIPを取得
     client_ip = rate_limiter.get_client_ip()
     
-    # レート制限チェック
     allowed, remaining_time, error_msg = rate_limiter.check_rate_limit(client_ip)
     
     if not allowed:
@@ -144,13 +127,11 @@ def suggest_outfit_api():
             "error": "rate_limit_exceeded",
             "message": error_msg,
             "remaining_time": remaining_time
-        }), 429  # 429 Too Many Requests
+        }), 429
     
-    # リクエストデータを取得
     data = request.json
     weather = data.get('weather_data')
     
-    # 提案オプション情報の取得
     options = {
         "mode": data.get('mode', 'simple'),
         "scene": data.get('scene', ''),
@@ -162,10 +143,8 @@ def suggest_outfit_api():
     if not weather:
         return jsonify({"error": "No weather data provided"}), 400
     
-    # AI処理を実行
     result = suggest_outfit(weather, options)
     
-    # 結果に応じてレート制限を記録
     if result.get("type") == "success":
         rate_limiter.record_request(client_ip, success=True)
         print(f"[AI SUCCESS] IP: {client_ip}")
@@ -173,16 +152,37 @@ def suggest_outfit_api():
         rate_limiter.record_request(client_ip, success=False)
         print(f"[AI ERROR] IP: {client_ip} - Error occurred, wait time not increased")
     
-    # 結果に応じたステータスコードの設定
     status_code = 500 if result.get("type") == "error" else 200
     return jsonify(result), status_code
 
 @app.route('/api/rate_limit_stats', methods=['GET'])
 def rate_limit_stats():
-    """レート制限の統計情報を取得（デバッグ用）"""
     client_ip = rate_limiter.get_client_ip()
     stats = rate_limiter.get_stats(client_ip)
     return jsonify(stats)
+
+# ==========================================
+# 掲示板API（新規追加）
+# ==========================================
+@app.route('/api/board/register_name', methods=['POST'])
+def api_board_register_name():
+    return board_register_name()
+
+@app.route('/api/board/get_username', methods=['GET'])
+def api_board_get_username():
+    return board_get_username()
+
+@app.route('/api/board/create_post', methods=['POST'])
+def api_board_create_post():
+    return board_create_post()
+
+@app.route('/api/board/get_posts', methods=['GET'])
+def api_board_get_posts():
+    return board_get_posts()
+
+@app.route('/api/board/report_post', methods=['POST'])
+def api_board_report_post():
+    return board_report_post()
 
 if __name__ == '__main__':
     app.run(debug=True)
