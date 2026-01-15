@@ -1475,10 +1475,7 @@ document.addEventListener('DOMContentLoaded', () => {
             AIModule.reset();
         });
     }
-    
-    document.addEventListener('DOMContentLoaded', () => {
-    // ... 既存の初期化処理 ...
-    
+
     // 掲示板の初期化（スマホのみ）
     if (window.innerWidth < 768) {
         BoardModule.init();
