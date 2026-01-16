@@ -1,6 +1,6 @@
 """
-掲示板API - データ永続化対応版（JSON形式）
-サーバー再起動後もデータを保持
+掲示板API - Github自動バックアップ対応版
+既存のboard_api.pyを完全に置き換えてください
 """
 
 from flask import jsonify, request
@@ -11,6 +11,9 @@ import html
 import json
 import os
 from pathlib import Path
+import requests
+import base64
+import time
 
 class BoardModule:
     def __init__(self):
@@ -21,6 +24,19 @@ class BoardModule:
         self.reports_file = self.data_dir / 'reports.json'
         self.bans_file = self.data_dir / 'bans.json'
         self.rate_limit_file = self.data_dir / 'rate_limits.json'
+        
+        # Github設定
+        self.github_token = os.environ.get('GITHUB_TOKEN')
+        self.github_repo = os.environ.get('GITHUB_REPO')  # 例: 'username/repo-name'
+        self.github_api_base = 'https://api.github.com'
+        
+        # Github API使用可否チェック
+        self.use_github_backup = bool(self.github_token and self.github_repo)
+        
+        if self.use_github_backup:
+            print(f"[BOARD] Github backup enabled: {self.github_repo}")
+        else:
+            print("[BOARD] Github backup disabled (missing GITHUB_TOKEN or GITHUB_REPO)")
         
         # ディレクトリが存在しない場合は作成
         self.data_dir.mkdir(exist_ok=True)
@@ -36,55 +52,171 @@ class BoardModule:
         # データを読み込み
         self.load_data()
         
-        print("[BOARD] BoardModule initialized with persistent storage")
+        print("[BOARD] BoardModule initialized with Github auto-backup")
+    
+    def github_get_file(self, filepath):
+        """GithubからファイルのSHAとコンテンツを取得"""
+        if not self.use_github_backup:
+            return None, None
+        
+        url = f"{self.github_api_base}/repos/{self.github_repo}/contents/{filepath}"
+        headers = {
+            'Authorization': f'token {self.github_token}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                content = base64.b64decode(data['content']).decode('utf-8')
+                return data['sha'], content
+            elif response.status_code == 404:
+                # ファイルが存在しない（初回）
+                return None, None
+            else:
+                print(f"[BOARD] Github GET error: {response.status_code}")
+                return None, None
+                
+        except Exception as e:
+            print(f"[BOARD] Github GET exception: {e}")
+            return None, None
+    
+    def github_update_file(self, filepath, content, message, max_retries=3):
+        """Githubのファイルを更新（リトライ機能付き）"""
+        if not self.use_github_backup:
+            return False
+        
+        url = f"{self.github_api_base}/repos/{self.github_repo}/contents/{filepath}"
+        headers = {
+            'Authorization': f'token {self.github_token}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        for attempt in range(max_retries):
+            try:
+                # 現在のSHAを取得
+                sha, _ = self.github_get_file(filepath)
+                
+                # Base64エンコード
+                content_base64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+                
+                # データ準備
+                data = {
+                    'message': message,
+                    'content': content_base64,
+                    'branch': 'main'
+                }
+                
+                # SHAがあれば追加（更新時）
+                if sha:
+                    data['sha'] = sha
+                
+                # APIリクエスト
+                response = requests.put(url, json=data, headers=headers, timeout=15)
+                
+                if response.status_code in [200, 201]:
+                    print(f"[BOARD] Github backup success: {filepath}")
+                    return True
+                elif response.status_code == 409:
+                    # Conflict: リトライ
+                    print(f"[BOARD] Conflict detected, retry {attempt + 1}/{max_retries}")
+                    time.sleep(1)
+                    continue
+                else:
+                    print(f"[BOARD] Github backup error: {response.status_code}")
+                    print(f"[BOARD] Response: {response.text[:200]}")
+                    return False
+                    
+            except Exception as e:
+                print(f"[BOARD] Github backup exception (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+                return False
+        
+        print(f"[BOARD] Github backup failed after {max_retries} attempts")
+        return False
     
     def load_data(self):
-        """保存されたデータを読み込み"""
+        """保存されたデータを読み込み（Github優先）"""
         try:
-            # 投稿データ
-            if self.posts_file.exists():
-                with open(self.posts_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
+            # Githubからデータを取得を試みる
+            if self.use_github_backup:
+                print("[BOARD] Trying to load data from Github...")
+                
+                # 投稿データ
+                sha, content = self.github_get_file('board_data/posts.json')
+                if content:
+                    data = json.loads(content)
                     self.posts = data.get('posts', [])
                     self.next_post_id = data.get('next_post_id', 1)
-                print(f"[BOARD] Loaded {len(self.posts)} posts")
-            
-            # ユーザーデータ
-            if self.users_file.exists():
-                with open(self.users_file, 'r', encoding='utf-8') as f:
-                    self.users = json.load(f)
-                print(f"[BOARD] Loaded {len(self.users)} users")
-            
-            # 通報データ
-            if self.reports_file.exists():
-                with open(self.reports_file, 'r', encoding='utf-8') as f:
-                    self.reports = json.load(f)
-                    # キーを整数に変換
-                    self.reports = {int(k): v for k, v in self.reports.items()}
-                print(f"[BOARD] Loaded {len(self.reports)} reports")
-            
-            # BANデータ
-            if self.bans_file.exists():
-                with open(self.bans_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    # タイムスタンプをdatetimeに変換
+                    print(f"[BOARD] Loaded {len(self.posts)} posts from Github")
+                
+                # ユーザーデータ
+                sha, content = self.github_get_file('board_data/users.json')
+                if content:
+                    self.users = json.loads(content)
+                    print(f"[BOARD] Loaded {len(self.users)} users from Github")
+                
+                # 通報データ
+                sha, content = self.github_get_file('board_data/reports.json')
+                if content:
+                    data = json.loads(content)
+                    self.reports = {int(k): v for k, v in data.items()}
+                    print(f"[BOARD] Loaded {len(self.reports)} reports from Github")
+                
+                # BANデータ
+                sha, content = self.github_get_file('board_data/bans.json')
+                if content:
+                    data = json.loads(content)
+                    now = datetime.now()
                     self.banned_devices = {
                         device_id: datetime.fromisoformat(timestamp)
                         for device_id, timestamp in data.items()
+                        if datetime.fromisoformat(timestamp) > now
                     }
-                    # 期限切れのBANを削除
-                    now = datetime.now()
-                    self.banned_devices = {
-                        k: v for k, v in self.banned_devices.items()
-                        if v > now
-                    }
-                print(f"[BOARD] Loaded {len(self.banned_devices)} active bans")
+                    print(f"[BOARD] Loaded {len(self.banned_devices)} active bans from Github")
             
-            # レート制限データ
+            # ローカルファイルからも読み込み（フォールバック）
+            if self.posts_file.exists():
+                with open(self.posts_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Githubデータがなければローカルを使用
+                    if not self.posts:
+                        self.posts = data.get('posts', [])
+                        self.next_post_id = data.get('next_post_id', 1)
+                        print(f"[BOARD] Loaded {len(self.posts)} posts from local file")
+            
+            if self.users_file.exists():
+                with open(self.users_file, 'r', encoding='utf-8') as f:
+                    if not self.users:
+                        self.users = json.load(f)
+                        print(f"[BOARD] Loaded {len(self.users)} users from local file")
+            
+            if self.reports_file.exists():
+                with open(self.reports_file, 'r', encoding='utf-8') as f:
+                    if not self.reports:
+                        data = json.load(f)
+                        self.reports = {int(k): v for k, v in data.items()}
+                        print(f"[BOARD] Loaded {len(self.reports)} reports from local file")
+            
+            if self.bans_file.exists():
+                with open(self.bans_file, 'r', encoding='utf-8') as f:
+                    if not self.banned_devices:
+                        data = json.load(f)
+                        now = datetime.now()
+                        self.banned_devices = {
+                            device_id: datetime.fromisoformat(timestamp)
+                            for device_id, timestamp in data.items()
+                            if datetime.fromisoformat(timestamp) > now
+                        }
+                        print(f"[BOARD] Loaded {len(self.banned_devices)} active bans from local file")
+            
             if self.rate_limit_file.exists():
                 with open(self.rate_limit_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    # タイムスタンプをdatetimeに変換
                     now = datetime.now()
                     one_hour_ago = now - timedelta(hours=1)
                     self.post_count = {}
@@ -96,54 +228,92 @@ class BoardModule:
                         ]
                         if recent:
                             self.post_count[device_id] = recent
-                print(f"[BOARD] Loaded rate limit data for {len(self.post_count)} devices")
+                    print(f"[BOARD] Loaded rate limit data for {len(self.post_count)} devices")
             
             # 古いデータをクリーンアップ
             self.clean_old_posts()
             
         except Exception as e:
             print(f"[BOARD] Error loading data: {e}")
-            # エラーが発生しても初期化は続行
     
     def save_data(self):
-        """データをファイルに保存"""
+        """データをローカルとGithubの両方に保存"""
         try:
-            # 投稿データ
+            # ① ローカルファイルに保存（既存機能）
             with open(self.posts_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'posts': self.posts,
                     'next_post_id': self.next_post_id
                 }, f, ensure_ascii=False, indent=2)
             
-            # ユーザーデータ
             with open(self.users_file, 'w', encoding='utf-8') as f:
                 json.dump(self.users, f, ensure_ascii=False, indent=2)
             
-            # 通報データ
             with open(self.reports_file, 'w', encoding='utf-8') as f:
-                # キーを文字列に変換（JSONの制約）
                 reports_serializable = {str(k): v for k, v in self.reports.items()}
                 json.dump(reports_serializable, f, ensure_ascii=False, indent=2)
             
-            # BANデータ
             with open(self.bans_file, 'w', encoding='utf-8') as f:
-                # datetimeをISO形式文字列に変換
                 bans_serializable = {
                     device_id: timestamp.isoformat()
                     for device_id, timestamp in self.banned_devices.items()
                 }
                 json.dump(bans_serializable, f, ensure_ascii=False, indent=2)
             
-            # レート制限データ
             with open(self.rate_limit_file, 'w', encoding='utf-8') as f:
-                # datetimeをISO形式文字列に変換
                 rate_limit_serializable = {
                     device_id: [ts.isoformat() for ts in timestamps]
                     for device_id, timestamps in self.post_count.items()
                 }
                 json.dump(rate_limit_serializable, f, ensure_ascii=False, indent=2)
             
-            print("[BOARD] Data saved successfully")
+            print("[BOARD] Local data saved successfully")
+            
+            # ② Githubにバックアップ（新機能）
+            if self.use_github_backup:
+                # 投稿データ
+                posts_content = json.dumps({
+                    'posts': self.posts,
+                    'next_post_id': self.next_post_id
+                }, ensure_ascii=False, indent=2)
+                
+                self.github_update_file(
+                    'board_data/posts.json',
+                    posts_content,
+                    f'Auto backup: {len(self.posts)} posts'
+                )
+                
+                # ユーザーデータ
+                users_content = json.dumps(self.users, ensure_ascii=False, indent=2)
+                self.github_update_file(
+                    'board_data/users.json',
+                    users_content,
+                    f'Auto backup: {len(self.users)} users'
+                )
+                
+                # 通報データ
+                reports_content = json.dumps(
+                    {str(k): v for k, v in self.reports.items()},
+                    ensure_ascii=False,
+                    indent=2
+                )
+                self.github_update_file(
+                    'board_data/reports.json',
+                    reports_content,
+                    f'Auto backup: {len(self.reports)} reports'
+                )
+                
+                # BANデータ
+                bans_content = json.dumps(
+                    {device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()},
+                    ensure_ascii=False,
+                    indent=2
+                )
+                self.github_update_file(
+                    'board_data/bans.json',
+                    bans_content,
+                    f'Auto backup: {len(self.banned_devices)} bans'
+                )
             
         except Exception as e:
             print(f"[BOARD] Error saving data: {e}")
@@ -170,7 +340,7 @@ class BoardModule:
                 return True, remaining
             else:
                 del self.banned_devices[device_id]
-                self.save_data()  # BAN解除を保存
+                self.save_data()
         return False, 0
     
     def check_rate_limit(self, device_id):
@@ -178,7 +348,6 @@ class BoardModule:
         now = datetime.now()
         one_hour_ago = now - timedelta(hours=1)
         
-        # 古い記録を削除
         if device_id in self.post_count:
             self.post_count[device_id] = [
                 timestamp for timestamp in self.post_count[device_id]
@@ -187,7 +356,6 @@ class BoardModule:
         else:
             self.post_count[device_id] = []
         
-        # 10件以上チェック
         if len(self.post_count[device_id]) >= 10:
             oldest = min(self.post_count[device_id])
             remaining = (oldest + timedelta(hours=1) - now).total_seconds()
@@ -196,7 +364,7 @@ class BoardModule:
         return True, ""
     
     def contains_suspicious_link(self, content):
-        """怪しいリンク検出（/ または . が含まれ、かつURL形式の可能性）"""
+        """怪しいリンク検出"""
         url_patterns = [
             r'https?://',
             r'www\.',
@@ -216,14 +384,12 @@ class BoardModule:
         """古い投稿を削除（3日経過または100件超過）"""
         three_days_ago = datetime.now() - timedelta(days=3)
         
-        # 3日以上古い投稿を削除
         old_count = len(self.posts)
         self.posts = [
             post for post in self.posts
             if datetime.fromisoformat(post['timestamp']) > three_days_ago
         ]
         
-        # 100件を超えた場合、古い投稿から削除
         if len(self.posts) > 100:
             self.posts = sorted(self.posts, key=lambda x: x['timestamp'], reverse=True)[:100]
         
@@ -253,7 +419,7 @@ class BoardModule:
         safe_username = self.sanitize_text(username)
         self.users[device_id] = safe_username
         
-        self.save_data()  # 保存
+        self.save_data()
         return True, "名前を登録しました。"
     
     def get_username(self, device_id):
@@ -309,7 +475,7 @@ class BoardModule:
         self.post_count[device_id].append(datetime.now())
         
         self.clean_old_posts()
-        self.save_data()  # 保存
+        self.save_data()  # Githubに自動バックアップ
         
         print(f"[BOARD] New post created: ID={post['id']}, User={post['username']}, Suspicious={is_suspicious}")
         
@@ -347,7 +513,7 @@ class BoardModule:
             self.banned_devices[author_device_id] = datetime.now() + timedelta(hours=24)
             print(f"[BOARD] User banned for 24 hours: {author_device_id[:8]}...")
         
-        self.save_data()  # 保存
+        self.save_data()  # Githubに自動バックアップ
         return True, f"通報しました。（{post['report_count']}件）"
     
     def get_posts(self, device_id):
@@ -379,7 +545,7 @@ class BoardModule:
 # グローバルインスタンス
 board = BoardModule()
 
-# APIエンドポイント
+# APIエンドポイント（app.pyに追加する関数群）
 
 def board_register_name():
     """名前登録API"""
