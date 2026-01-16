@@ -983,8 +983,7 @@ const ThemeModule = {
 };
 
 // ==========================================
-// Board Module（掲示板機能）
-// main.jsの末尾（DOMContentLoadedの前）に追加してください
+// Board Module（掲示板機能・返信レイアウト改善版）
 // ==========================================
 
 const BoardModule = {
@@ -997,20 +996,17 @@ const BoardModule = {
         BoardModule.loadUsername();
         BoardModule.loadPosts();
         
-        // 30秒ごとに自動更新
         BoardModule.autoRefreshInterval = setInterval(() => {
-            BoardModule.loadPosts(true); // サイレント更新
+            BoardModule.loadPosts(true);
         }, 30000);
     },
     
     setupEventListeners: () => {
-        // 名前登録
         const registerBtn = document.getElementById('board-register-btn');
         if (registerBtn) {
             registerBtn.addEventListener('click', BoardModule.registerUsername);
         }
         
-        // 投稿内容の文字数カウント
         const postContent = document.getElementById('board-post-content');
         if (postContent) {
             postContent.addEventListener('input', (e) => {
@@ -1020,7 +1016,6 @@ const BoardModule = {
             });
         }
         
-        // 返信内容の文字数カウント
         const replyContent = document.getElementById('board-reply-content');
         if (replyContent) {
             replyContent.addEventListener('input', (e) => {
@@ -1030,7 +1025,6 @@ const BoardModule = {
             });
         }
         
-        // チェックボックス
         const confirmCheckbox = document.getElementById('board-confirm-checkbox');
         if (confirmCheckbox) {
             confirmCheckbox.addEventListener('change', BoardModule.updateSubmitButton);
@@ -1041,25 +1035,21 @@ const BoardModule = {
             replyConfirmCheckbox.addEventListener('change', BoardModule.updateReplySubmitButton);
         }
         
-        // 投稿ボタン
         const submitBtn = document.getElementById('board-submit-btn');
         if (submitBtn) {
             submitBtn.addEventListener('click', BoardModule.submitPost);
         }
         
-        // 返信投稿ボタン
         const replySubmitBtn = document.getElementById('board-reply-submit-btn');
         if (replySubmitBtn) {
             replySubmitBtn.addEventListener('click', BoardModule.submitReply);
         }
         
-        // 返信キャンセル
         const cancelReplyBtn = document.getElementById('board-cancel-reply-btn');
         if (cancelReplyBtn) {
             cancelReplyBtn.addEventListener('click', BoardModule.cancelReply);
         }
         
-        // 手動更新ボタン
         const refreshBtn = document.getElementById('board-refresh-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
@@ -1224,7 +1214,6 @@ const BoardModule = {
         document.getElementById('board-reply-form').classList.remove('hidden');
         document.getElementById('board-reply-content').focus();
         
-        // 返信フォームまでスクロール
         document.getElementById('board-reply-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
     
@@ -1278,26 +1267,24 @@ const BoardModule = {
             return;
         }
         
-        // 親投稿のみを抽出
         const parentPosts = posts.filter(p => !p.parent_id);
         
         let html = '';
         
         parentPosts.forEach(post => {
-            html += BoardModule.renderPost(post, posts);
+            const replies = posts.filter(p => p.parent_id === post.id);
+            html += BoardModule.renderPostWithReplies(post, replies);
         });
         
         container.innerHTML = html;
         
-        // イベントリスナーを再設定
         BoardModule.attachPostEventListeners();
     },
     
-    renderPost: (post, allPosts, isReply = false) => {
+    renderPostWithReplies: (post, replies) => {
         const date = new Date(post.timestamp);
         const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
         
-        // XSS対策：HTMLエスケープ済みのcontentをそのまま使用
         const contentHtml = post.content_hidden
             ? `<div class="bg-gray-100 dark:bg-slate-600 p-2 rounded text-xs text-gray-500 dark:text-slate-400 flex items-center justify-between">
                     <span>${post.content}</span>
@@ -1307,49 +1294,84 @@ const BoardModule = {
                </div>`
             : `<p class="text-sm text-gray-700 dark:text-slate-200 whitespace-pre-wrap break-words">${post.content}</p>`;
         
-        // 返信を取得
-        const replies = allPosts.filter(p => p.parent_id === post.id);
-        
-        let html = `
-            <div class="bg-white dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg p-3 transition hover:shadow-md ${isReply ? 'ml-6 mt-2 border-l-4 border-l-purple-300 dark:border-l-purple-700' : ''}">
-                <div class="flex items-start justify-between mb-2">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-user-circle text-gray-400 dark:text-slate-500"></i>
-                        <span class="font-semibold text-sm text-gray-700 dark:text-slate-200">${post.username}</span>
-                        ${post.is_own ? '<span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded">自分</span>' : ''}
-                        ${isReply ? '<span class="text-xs bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded"><i class="fa-solid fa-reply"></i></span>' : ''}
-                    </div>
-                    <span class="text-xs text-gray-400 dark:text-slate-500">${timeStr}</span>
-                </div>
-                
-                ${contentHtml}
-                
-                <div class="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100 dark:border-slate-600">
-                    <button class="reply-btn text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 transition" data-post-id="${post.id}" data-username="${post.username}">
-                        <i class="fa-solid fa-reply"></i> 返信
-                    </button>
-                    ${!post.is_own ? `
-                        <button class="report-btn text-xs text-red-500 hover:text-red-700 dark:text-red-400 transition" data-post-id="${post.id}">
-                            <i class="fa-solid fa-flag"></i> 通報${post.report_count > 0 ? `(${post.report_count})` : ''}
+        const repliesHtml = replies.map(reply => {
+            const replyDate = new Date(reply.timestamp);
+            const replyTimeStr = `${replyDate.getMonth() + 1}/${replyDate.getDate()} ${String(replyDate.getHours()).padStart(2, '0')}:${String(replyDate.getMinutes()).padStart(2, '0')}`;
+            
+            const replyContentHtml = reply.content_hidden
+                ? `<div class="bg-gray-100 dark:bg-slate-600 p-2 rounded text-xs text-gray-500 dark:text-slate-400 flex items-center justify-between">
+                        <span>${reply.content}</span>
+                        <button class="show-content-btn text-blue-500 hover:text-blue-700 dark:text-blue-400 ml-2 flex-shrink-0" data-post-id="${reply.id}">
+                            <i class="fa-solid fa-eye"></i> 内容を見る
                         </button>
-                    ` : ''}
-                    ${replies.length > 0 ? `
-                        <span class="text-xs text-gray-400 dark:text-slate-500">
-                            <i class="fa-solid fa-comment"></i> ${replies.length}件の返信
-                        </span>
-                    ` : ''}
+                   </div>`
+                : `<p class="text-sm text-gray-700 dark:text-slate-200 whitespace-pre-wrap break-words">${reply.content}</p>`;
+            
+            return `
+                <div class="bg-purple-50 dark:bg-purple-900/10 border-l-4 border-purple-300 dark:border-purple-700 rounded-r-lg p-3 transition hover:shadow-sm">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-reply text-purple-500 dark:text-purple-400 text-xs"></i>
+                            <i class="fa-solid fa-user-circle text-gray-400 dark:text-slate-500"></i>
+                            <span class="font-semibold text-sm text-gray-700 dark:text-slate-200">${reply.username}</span>
+                            ${reply.is_own ? '<span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded">自分</span>' : ''}
+                        </div>
+                        <span class="text-xs text-gray-400 dark:text-slate-500">${replyTimeStr}</span>
+                    </div>
+                    
+                    ${replyContentHtml}
+                    
+                    <div class="flex items-center gap-3 mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                        ${!reply.is_own ? `
+                            <button class="report-btn text-xs text-red-500 hover:text-red-700 dark:text-red-400 transition" data-post-id="${reply.id}">
+                                <i class="fa-solid fa-flag"></i> 通報${reply.report_count > 0 ? `(${reply.report_count})` : ''}
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        return `
+            <div class="bg-white dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden transition hover:shadow-md mb-3">
+                <!-- 親投稿 -->
+                <div class="p-3">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-user-circle text-gray-400 dark:text-slate-500"></i>
+                            <span class="font-semibold text-sm text-gray-700 dark:text-slate-200">${post.username}</span>
+                            ${post.is_own ? '<span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded">自分</span>' : ''}
+                        </div>
+                        <span class="text-xs text-gray-400 dark:text-slate-500">${timeStr}</span>
+                    </div>
+                    
+                    ${contentHtml}
+                    
+                    <div class="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100 dark:border-slate-600">
+                        <button class="reply-btn text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 transition" data-post-id="${post.id}" data-username="${post.username}">
+                            <i class="fa-solid fa-reply"></i> 返信
+                        </button>
+                        ${!post.is_own ? `
+                            <button class="report-btn text-xs text-red-500 hover:text-red-700 dark:text-red-400 transition" data-post-id="${post.id}">
+                                <i class="fa-solid fa-flag"></i> 通報${post.report_count > 0 ? `(${post.report_count})` : ''}
+                            </button>
+                        ` : ''}
+                        ${replies.length > 0 ? `
+                            <button class="toggle-replies-btn text-xs text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition font-semibold" data-post-id="${post.id}">
+                                <i class="fa-solid fa-chevron-down"></i> 返信を表示 (${replies.length}件)
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
                 
-                <!-- 返信一覧 -->
+                <!-- 返信一覧（デフォルト非表示） -->
                 ${replies.length > 0 ? `
-                    <div class="replies mt-2 space-y-2">
-                        ${replies.map(reply => BoardModule.renderPost(reply, allPosts, true)).join('')}
+                    <div class="replies-container hidden border-t border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/30 p-3 space-y-2" data-post-id="${post.id}">
+                        ${repliesHtml}
                     </div>
                 ` : ''}
             </div>
         `;
-        
-        return html;
     },
     
     attachPostEventListeners: () => {
@@ -1375,6 +1397,28 @@ const BoardModule = {
             btn.addEventListener('click', (e) => {
                 const postId = parseInt(e.currentTarget.dataset.postId);
                 BoardModule.showHiddenContent(postId);
+            });
+        });
+        
+        // 返信表示トグルボタン
+        document.querySelectorAll('.toggle-replies-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const postId = parseInt(e.currentTarget.dataset.postId);
+                const container = document.querySelector(`.replies-container[data-post-id="${postId}"]`);
+                const icon = e.currentTarget.querySelector('i');
+                
+                if (container.classList.contains('hidden')) {
+                    container.classList.remove('hidden');
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-up');
+                    e.currentTarget.innerHTML = `<i class="fa-solid fa-chevron-up"></i> 返信を非表示`;
+                } else {
+                    container.classList.add('hidden');
+                    icon.classList.remove('fa-chevron-up');
+                    icon.classList.add('fa-chevron-down');
+                    const replyCount = container.querySelectorAll('.bg-purple-50').length;
+                    e.currentTarget.innerHTML = `<i class="fa-solid fa-chevron-down"></i> 返信を表示 (${replyCount}件)`;
+                }
             });
         });
     },
