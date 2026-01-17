@@ -1,5 +1,5 @@
 """
-掲示板API - Github自動バックアップ対応版（修正版）
+掲示板API - Github自動バックアップ対応版
 2025年1月 GitHub REST API v3対応
 """
 
@@ -27,9 +27,9 @@ class BoardModule:
         
         # Github設定
         self.github_token = os.environ.get('GITHUB_TOKEN')
-        self.github_repo = os.environ.get('GITHUB_REPO')  # 例: 'username/repo-name'
+        self.github_repo = os.environ.get('GITHUB_REPO')
         self.github_api_base = 'https://api.github.com'
-        self.github_branch = 'main'  # デフォルトブランチ
+        self.github_branch = 'main'
         
         # 初期化ログ
         print("[BOARD] ==========================================")
@@ -42,7 +42,6 @@ class BoardModule:
         
         if self.use_github_backup:
             print(f"[BOARD] ✅ Github backup ENABLED: {self.github_repo}")
-            # デフォルトブランチを取得
             self.github_branch = self._get_default_branch()
             print(f"[BOARD] Using branch: {self.github_branch}")
         else:
@@ -144,34 +143,27 @@ class BoardModule:
             try:
                 print(f"[BOARD] 📤 Uploading to GitHub: {filepath} (attempt {attempt + 1}/{max_retries})")
                 
-                # 現在のSHAを取得
                 sha, _ = self.github_get_file(filepath)
-                
-                # Base64エンコード
                 content_base64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
                 
-                # データ準備
                 data = {
                     'message': message,
                     'content': content_base64,
                     'branch': self.github_branch
                 }
                 
-                # SHAがあれば追加（更新時）
                 if sha:
                     data['sha'] = sha
                     print(f"[BOARD] Updating existing file (SHA: {sha[:7]})")
                 else:
                     print(f"[BOARD] Creating new file")
                 
-                # APIリクエスト
                 response = requests.put(url, json=data, headers=headers, timeout=15)
                 
                 if response.status_code in [200, 201]:
                     print(f"[BOARD] ✅ GitHub backup success: {filepath}")
                     return True
                 elif response.status_code == 409:
-                    # Conflict: リトライ
                     print(f"[BOARD] ⚠️ Conflict detected (409), retrying...")
                     time.sleep(1)
                     continue
@@ -208,11 +200,9 @@ class BoardModule:
             
             loaded_from_github = False
             
-            # Githubからデータを取得を試みる
             if self.use_github_backup:
                 print("[BOARD] 🔍 Trying to load from GitHub...")
                 
-                # 投稿データ
                 sha, content = self.github_get_file('board_data/posts.json')
                 if content:
                     data = json.loads(content)
@@ -220,18 +210,15 @@ class BoardModule:
                     self.next_post_id = data.get('next_post_id', 1)
                     loaded_from_github = True
                 
-                # ユーザーデータ
                 sha, content = self.github_get_file('board_data/users.json')
                 if content:
                     self.users = json.loads(content)
                 
-                # 通報データ
                 sha, content = self.github_get_file('board_data/reports.json')
                 if content:
                     data = json.loads(content)
                     self.reports = {int(k): v for k, v in data.items()}
                 
-                # BANデータ
                 sha, content = self.github_get_file('board_data/bans.json')
                 if content:
                     data = json.loads(content)
@@ -245,7 +232,6 @@ class BoardModule:
                 if loaded_from_github:
                     print(f"[BOARD] ✅ Loaded from GitHub: {len(self.posts)} posts, {len(self.users)} users")
             
-            # ローカルファイルからも読み込み（フォールバック）
             if not loaded_from_github:
                 print("[BOARD] 📁 Loading from local files...")
                 
@@ -291,7 +277,6 @@ class BoardModule:
                 
                 print(f"[BOARD] ✅ Loaded from local: {len(self.posts)} posts, {len(self.users)} users")
             
-            # 古いデータをクリーンアップ
             self.clean_old_posts()
             
             print(f"[BOARD] 📊 Final state: {len(self.posts)} posts, {len(self.users)} users, {len(self.banned_devices)} active bans")
@@ -307,85 +292,33 @@ class BoardModule:
         try:
             print("[BOARD] 💾 Saving data...")
             
-            # ① ローカルファイルに保存
             with open(self.posts_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'posts': self.posts,
-                    'next_post_id': self.next_post_id
-                }, f, ensure_ascii=False, indent=2)
+                json.dump({'posts': self.posts, 'next_post_id': self.next_post_id}, f, ensure_ascii=False, indent=2)
             
             with open(self.users_file, 'w', encoding='utf-8') as f:
                 json.dump(self.users, f, ensure_ascii=False, indent=2)
             
             with open(self.reports_file, 'w', encoding='utf-8') as f:
-                reports_serializable = {str(k): v for k, v in self.reports.items()}
-                json.dump(reports_serializable, f, ensure_ascii=False, indent=2)
+                json.dump({str(k): v for k, v in self.reports.items()}, f, ensure_ascii=False, indent=2)
             
             with open(self.bans_file, 'w', encoding='utf-8') as f:
-                bans_serializable = {
-                    device_id: timestamp.isoformat()
-                    for device_id, timestamp in self.banned_devices.items()
-                }
-                json.dump(bans_serializable, f, ensure_ascii=False, indent=2)
+                json.dump({device_id: timestamp.isoformat() for device_id, timestamp in self.banned_devices.items()}, f, ensure_ascii=False, indent=2)
             
             with open(self.rate_limit_file, 'w', encoding='utf-8') as f:
-                rate_limit_serializable = {
-                    device_id: [ts.isoformat() for ts in timestamps]
-                    for device_id, timestamps in self.post_count.items()
-                }
-                json.dump(rate_limit_serializable, f, ensure_ascii=False, indent=2)
+                json.dump({device_id: [ts.isoformat() for ts in timestamps] for device_id, timestamps in self.post_count.items()}, f, ensure_ascii=False, indent=2)
             
             print("[BOARD] ✅ Local data saved")
             
-            # ② Githubにバックアップ
             if self.use_github_backup:
                 print("[BOARD] 🔄 Starting GitHub backup...")
                 
-                # 投稿データ
-                posts_content = json.dumps({
-                    'posts': self.posts,
-                    'next_post_id': self.next_post_id
-                }, ensure_ascii=False, indent=2)
-                
-                success = self.github_update_file(
-                    'board_data/posts.json',
-                    posts_content,
-                    f'Auto backup: {len(self.posts)} posts'
-                )
+                posts_content = json.dumps({'posts': self.posts, 'next_post_id': self.next_post_id}, ensure_ascii=False, indent=2)
+                success = self.github_update_file('board_data/posts.json', posts_content, f'Auto backup: {len(self.posts)} posts')
                 
                 if success:
-                    # ユーザーデータ
-                    users_content = json.dumps(self.users, ensure_ascii=False, indent=2)
-                    self.github_update_file(
-                        'board_data/users.json',
-                        users_content,
-                        f'Auto backup: {len(self.users)} users'
-                    )
-                    
-                    # 通報データ
-                    reports_content = json.dumps(
-                        {str(k): v for k, v in self.reports.items()},
-                        ensure_ascii=False,
-                        indent=2
-                    )
-                    self.github_update_file(
-                        'board_data/reports.json',
-                        reports_content,
-                        f'Auto backup: {len(self.reports)} reports'
-                    )
-                    
-                    # BANデータ
-                    bans_content = json.dumps(
-                        {device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()},
-                        ensure_ascii=False,
-                        indent=2
-                    )
-                    self.github_update_file(
-                        'board_data/bans.json',
-                        bans_content,
-                        f'Auto backup: {len(self.banned_devices)} bans'
-                    )
-                    
+                    self.github_update_file('board_data/users.json', json.dumps(self.users, ensure_ascii=False, indent=2), f'Auto backup: {len(self.users)} users')
+                    self.github_update_file('board_data/reports.json', json.dumps({str(k): v for k, v in self.reports.items()}, ensure_ascii=False, indent=2), f'Auto backup: {len(self.reports)} reports')
+                    self.github_update_file('board_data/bans.json', json.dumps({device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()}, ensure_ascii=False, indent=2), f'Auto backup: {len(self.banned_devices)} bans')
                     print("[BOARD] ✅ GitHub backup completed")
                 else:
                     print("[BOARD] ⚠️ GitHub backup failed (local data saved)")
@@ -396,7 +329,11 @@ class BoardModule:
             print(f"[BOARD] ❌ Error saving data: {e}")
             import traceback
             traceback.print_exc()
-    
+
+# ==========================================
+# BoardModule クラスメソッド
+# ==========================================
+
     def get_device_id(self):
         """デバイスIDを生成（IPアドレス + User-Agentのハッシュ）"""
         ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -555,7 +492,7 @@ class BoardModule:
         self.post_count[device_id].append(datetime.now())
         
         self.clean_old_posts()
-        self.save_data()  # ここでGithubに自動バックアップ
+        self.save_data()
         
         print(f"[BOARD] 📝 New post: ID={post['id']}, User={post['username']}, Suspicious={is_suspicious}")
         
@@ -593,7 +530,7 @@ class BoardModule:
             self.banned_devices[author_device_id] = datetime.now() + timedelta(hours=24)
             print(f"[BOARD] ⛔ User banned (24h): {author_device_id[:8]}...")
         
-        self.save_data()  # ここでGithubに自動バックアップ
+        self.save_data()
         return True, f"通報しました。（{post['report_count']}件）"
     
     def get_posts(self, device_id):
@@ -622,7 +559,14 @@ class BoardModule:
         
         return filtered_posts
 
-# APIエンドポイント
+# ==========================================
+# 🚨 重要：グローバルインスタンスの初期化
+# ==========================================
+board = BoardModule()
+
+# ==========================================
+# APIエンドポイント関数群
+# ==========================================
 
 def board_register_name():
     """名前登録API"""
