@@ -1,6 +1,6 @@
 """
-掲示板API - Github自動バックアップ対応版
-既存のboard_api.pyを完全に置き換えてください
+掲示板API - Github自動バックアップ対応版（修正版）
+2025年1月 GitHub REST API v3対応
 """
 
 from flask import jsonify, request
@@ -29,14 +29,30 @@ class BoardModule:
         self.github_token = os.environ.get('GITHUB_TOKEN')
         self.github_repo = os.environ.get('GITHUB_REPO')  # 例: 'username/repo-name'
         self.github_api_base = 'https://api.github.com'
+        self.github_branch = 'main'  # デフォルトブランチ
+        
+        # 初期化ログ
+        print("[BOARD] ==========================================")
+        print("[BOARD] BoardModule Initialization")
+        print(f"[BOARD] GITHUB_TOKEN: {'SET (' + self.github_token[:8] + '...)' if self.github_token else 'NOT SET'}")
+        print(f"[BOARD] GITHUB_REPO: {self.github_repo if self.github_repo else 'NOT SET'}")
         
         # Github API使用可否チェック
         self.use_github_backup = bool(self.github_token and self.github_repo)
         
         if self.use_github_backup:
-            print(f"[BOARD] Github backup enabled: {self.github_repo}")
+            print(f"[BOARD] ✅ Github backup ENABLED: {self.github_repo}")
+            # デフォルトブランチを取得
+            self.github_branch = self._get_default_branch()
+            print(f"[BOARD] Using branch: {self.github_branch}")
         else:
-            print("[BOARD] Github backup disabled (missing GITHUB_TOKEN or GITHUB_REPO)")
+            print("[BOARD] ⚠️ Github backup DISABLED")
+            if not self.github_token:
+                print("[BOARD]   → GITHUB_TOKEN is not set")
+            if not self.github_repo:
+                print("[BOARD]   → GITHUB_REPO is not set")
+        
+        print("[BOARD] ==========================================")
         
         # ディレクトリが存在しない場合は作成
         self.data_dir.mkdir(exist_ok=True)
@@ -51,8 +67,32 @@ class BoardModule:
         
         # データを読み込み
         self.load_data()
+    
+    def _get_default_branch(self):
+        """リポジトリのデフォルトブランチを取得"""
+        if not self.use_github_backup:
+            return 'main'
         
-        print("[BOARD] BoardModule initialized with Github auto-backup")
+        url = f"{self.github_api_base}/repos/{self.github_repo}"
+        headers = {
+            'Authorization': f'token {self.github_token}',
+            'Accept': 'application/vnd.github.v3+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                branch = data.get('default_branch', 'main')
+                print(f"[BOARD] Detected default branch: {branch}")
+                return branch
+            else:
+                print(f"[BOARD] Failed to get default branch (status {response.status_code}), using 'main'")
+                return 'main'
+        except Exception as e:
+            print(f"[BOARD] Error getting default branch: {e}, using 'main'")
+            return 'main'
     
     def github_get_file(self, filepath):
         """GithubからファイルのSHAとコンテンツを取得"""
@@ -62,40 +102,48 @@ class BoardModule:
         url = f"{self.github_api_base}/repos/{self.github_repo}/contents/{filepath}"
         headers = {
             'Authorization': f'token {self.github_token}',
-            'Accept': 'application/vnd.github.v3+json'
+            'Accept': 'application/vnd.github.v3+json',
+            'X-GitHub-Api-Version': '2022-11-28'
         }
         
+        params = {'ref': self.github_branch}
+        
         try:
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, params=params, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
                 content = base64.b64decode(data['content']).decode('utf-8')
+                print(f"[BOARD] ✅ Loaded from GitHub: {filepath} (SHA: {data['sha'][:7]})")
                 return data['sha'], content
             elif response.status_code == 404:
-                # ファイルが存在しない（初回）
+                print(f"[BOARD] ℹ️ File not found on GitHub: {filepath} (will create on first save)")
                 return None, None
             else:
-                print(f"[BOARD] Github GET error: {response.status_code}")
+                print(f"[BOARD] ⚠️ Github GET error: {response.status_code} - {response.text[:200]}")
                 return None, None
                 
         except Exception as e:
-            print(f"[BOARD] Github GET exception: {e}")
+            print(f"[BOARD] ❌ Github GET exception for {filepath}: {e}")
             return None, None
     
     def github_update_file(self, filepath, content, message, max_retries=3):
         """Githubのファイルを更新（リトライ機能付き）"""
         if not self.use_github_backup:
+            print(f"[BOARD] ⚠️ Skipping GitHub backup (disabled): {filepath}")
             return False
         
         url = f"{self.github_api_base}/repos/{self.github_repo}/contents/{filepath}"
         headers = {
             'Authorization': f'token {self.github_token}',
-            'Accept': 'application/vnd.github.v3+json'
+            'Accept': 'application/vnd.github.v3+json',
+            'X-GitHub-Api-Version': '2022-11-28'
         }
         
         for attempt in range(max_retries):
             try:
+                print(f"[BOARD] 📤 Uploading to GitHub: {filepath} (attempt {attempt + 1}/{max_retries})")
+                
                 # 現在のSHAを取得
                 sha, _ = self.github_get_file(filepath)
                 
@@ -106,45 +154,63 @@ class BoardModule:
                 data = {
                     'message': message,
                     'content': content_base64,
-                    'branch': 'main'
+                    'branch': self.github_branch
                 }
                 
                 # SHAがあれば追加（更新時）
                 if sha:
                     data['sha'] = sha
+                    print(f"[BOARD] Updating existing file (SHA: {sha[:7]})")
+                else:
+                    print(f"[BOARD] Creating new file")
                 
                 # APIリクエスト
                 response = requests.put(url, json=data, headers=headers, timeout=15)
                 
                 if response.status_code in [200, 201]:
-                    print(f"[BOARD] Github backup success: {filepath}")
+                    print(f"[BOARD] ✅ GitHub backup success: {filepath}")
                     return True
                 elif response.status_code == 409:
                     # Conflict: リトライ
-                    print(f"[BOARD] Conflict detected, retry {attempt + 1}/{max_retries}")
+                    print(f"[BOARD] ⚠️ Conflict detected (409), retrying...")
                     time.sleep(1)
                     continue
+                elif response.status_code == 404:
+                    print(f"[BOARD] ❌ Repository not found (404): {self.github_repo}")
+                    print(f"[BOARD] Please check GITHUB_REPO environment variable")
+                    return False
+                elif response.status_code == 401:
+                    print(f"[BOARD] ❌ Authentication failed (401): Invalid GITHUB_TOKEN")
+                    return False
+                elif response.status_code == 403:
+                    print(f"[BOARD] ❌ Permission denied (403): Check token scope (needs 'repo')")
+                    return False
                 else:
-                    print(f"[BOARD] Github backup error: {response.status_code}")
-                    print(f"[BOARD] Response: {response.text[:200]}")
+                    print(f"[BOARD] ❌ GitHub backup error: {response.status_code}")
+                    print(f"[BOARD] Response: {response.text[:300]}")
                     return False
                     
             except Exception as e:
-                print(f"[BOARD] Github backup exception (attempt {attempt + 1}): {e}")
+                print(f"[BOARD] ❌ GitHub backup exception (attempt {attempt + 1}): {e}")
                 if attempt < max_retries - 1:
                     time.sleep(1)
                     continue
                 return False
         
-        print(f"[BOARD] Github backup failed after {max_retries} attempts")
+        print(f"[BOARD] ❌ GitHub backup failed after {max_retries} attempts")
         return False
     
     def load_data(self):
-        """保存されたデータを読み込み（Github優先）"""
+        """保存されたデータを読み込み（Github優先、ローカルフォールバック）"""
         try:
+            print("[BOARD] ------------------------------------------")
+            print("[BOARD] Loading data...")
+            
+            loaded_from_github = False
+            
             # Githubからデータを取得を試みる
             if self.use_github_backup:
-                print("[BOARD] Trying to load data from Github...")
+                print("[BOARD] 🔍 Trying to load from GitHub...")
                 
                 # 投稿データ
                 sha, content = self.github_get_file('board_data/posts.json')
@@ -152,20 +218,18 @@ class BoardModule:
                     data = json.loads(content)
                     self.posts = data.get('posts', [])
                     self.next_post_id = data.get('next_post_id', 1)
-                    print(f"[BOARD] Loaded {len(self.posts)} posts from Github")
+                    loaded_from_github = True
                 
                 # ユーザーデータ
                 sha, content = self.github_get_file('board_data/users.json')
                 if content:
                     self.users = json.loads(content)
-                    print(f"[BOARD] Loaded {len(self.users)} users from Github")
                 
                 # 通報データ
                 sha, content = self.github_get_file('board_data/reports.json')
                 if content:
                     data = json.loads(content)
                     self.reports = {int(k): v for k, v in data.items()}
-                    print(f"[BOARD] Loaded {len(self.reports)} reports from Github")
                 
                 # BANデータ
                 sha, content = self.github_get_file('board_data/bans.json')
@@ -177,34 +241,31 @@ class BoardModule:
                         for device_id, timestamp in data.items()
                         if datetime.fromisoformat(timestamp) > now
                     }
-                    print(f"[BOARD] Loaded {len(self.banned_devices)} active bans from Github")
+                
+                if loaded_from_github:
+                    print(f"[BOARD] ✅ Loaded from GitHub: {len(self.posts)} posts, {len(self.users)} users")
             
             # ローカルファイルからも読み込み（フォールバック）
-            if self.posts_file.exists():
-                with open(self.posts_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    # Githubデータがなければローカルを使用
-                    if not self.posts:
+            if not loaded_from_github:
+                print("[BOARD] 📁 Loading from local files...")
+                
+                if self.posts_file.exists():
+                    with open(self.posts_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
                         self.posts = data.get('posts', [])
                         self.next_post_id = data.get('next_post_id', 1)
-                        print(f"[BOARD] Loaded {len(self.posts)} posts from local file")
-            
-            if self.users_file.exists():
-                with open(self.users_file, 'r', encoding='utf-8') as f:
-                    if not self.users:
+                
+                if self.users_file.exists():
+                    with open(self.users_file, 'r', encoding='utf-8') as f:
                         self.users = json.load(f)
-                        print(f"[BOARD] Loaded {len(self.users)} users from local file")
-            
-            if self.reports_file.exists():
-                with open(self.reports_file, 'r', encoding='utf-8') as f:
-                    if not self.reports:
+                
+                if self.reports_file.exists():
+                    with open(self.reports_file, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                         self.reports = {int(k): v for k, v in data.items()}
-                        print(f"[BOARD] Loaded {len(self.reports)} reports from local file")
-            
-            if self.bans_file.exists():
-                with open(self.bans_file, 'r', encoding='utf-8') as f:
-                    if not self.banned_devices:
+                
+                if self.bans_file.exists():
+                    with open(self.bans_file, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                         now = datetime.now()
                         self.banned_devices = {
@@ -212,34 +273,41 @@ class BoardModule:
                             for device_id, timestamp in data.items()
                             if datetime.fromisoformat(timestamp) > now
                         }
-                        print(f"[BOARD] Loaded {len(self.banned_devices)} active bans from local file")
-            
-            if self.rate_limit_file.exists():
-                with open(self.rate_limit_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    now = datetime.now()
-                    one_hour_ago = now - timedelta(hours=1)
-                    self.post_count = {}
-                    for device_id, timestamps in data.items():
-                        recent = [
-                            datetime.fromisoformat(ts)
-                            for ts in timestamps
-                            if datetime.fromisoformat(ts) > one_hour_ago
-                        ]
-                        if recent:
-                            self.post_count[device_id] = recent
-                    print(f"[BOARD] Loaded rate limit data for {len(self.post_count)} devices")
+                
+                if self.rate_limit_file.exists():
+                    with open(self.rate_limit_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        now = datetime.now()
+                        one_hour_ago = now - timedelta(hours=1)
+                        self.post_count = {}
+                        for device_id, timestamps in data.items():
+                            recent = [
+                                datetime.fromisoformat(ts)
+                                for ts in timestamps
+                                if datetime.fromisoformat(ts) > one_hour_ago
+                            ]
+                            if recent:
+                                self.post_count[device_id] = recent
+                
+                print(f"[BOARD] ✅ Loaded from local: {len(self.posts)} posts, {len(self.users)} users")
             
             # 古いデータをクリーンアップ
             self.clean_old_posts()
             
+            print(f"[BOARD] 📊 Final state: {len(self.posts)} posts, {len(self.users)} users, {len(self.banned_devices)} active bans")
+            print("[BOARD] ------------------------------------------")
+            
         except Exception as e:
-            print(f"[BOARD] Error loading data: {e}")
+            print(f"[BOARD] ❌ Error loading data: {e}")
+            import traceback
+            traceback.print_exc()
     
     def save_data(self):
         """データをローカルとGithubの両方に保存"""
         try:
-            # ① ローカルファイルに保存（既存機能）
+            print("[BOARD] 💾 Saving data...")
+            
+            # ① ローカルファイルに保存
             with open(self.posts_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'posts': self.posts,
@@ -267,56 +335,67 @@ class BoardModule:
                 }
                 json.dump(rate_limit_serializable, f, ensure_ascii=False, indent=2)
             
-            print("[BOARD] Local data saved successfully")
+            print("[BOARD] ✅ Local data saved")
             
-            # ② Githubにバックアップ（新機能）
+            # ② Githubにバックアップ
             if self.use_github_backup:
+                print("[BOARD] 🔄 Starting GitHub backup...")
+                
                 # 投稿データ
                 posts_content = json.dumps({
                     'posts': self.posts,
                     'next_post_id': self.next_post_id
                 }, ensure_ascii=False, indent=2)
                 
-                self.github_update_file(
+                success = self.github_update_file(
                     'board_data/posts.json',
                     posts_content,
                     f'Auto backup: {len(self.posts)} posts'
                 )
                 
-                # ユーザーデータ
-                users_content = json.dumps(self.users, ensure_ascii=False, indent=2)
-                self.github_update_file(
-                    'board_data/users.json',
-                    users_content,
-                    f'Auto backup: {len(self.users)} users'
-                )
-                
-                # 通報データ
-                reports_content = json.dumps(
-                    {str(k): v for k, v in self.reports.items()},
-                    ensure_ascii=False,
-                    indent=2
-                )
-                self.github_update_file(
-                    'board_data/reports.json',
-                    reports_content,
-                    f'Auto backup: {len(self.reports)} reports'
-                )
-                
-                # BANデータ
-                bans_content = json.dumps(
-                    {device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()},
-                    ensure_ascii=False,
-                    indent=2
-                )
-                self.github_update_file(
-                    'board_data/bans.json',
-                    bans_content,
-                    f'Auto backup: {len(self.banned_devices)} bans'
-                )
+                if success:
+                    # ユーザーデータ
+                    users_content = json.dumps(self.users, ensure_ascii=False, indent=2)
+                    self.github_update_file(
+                        'board_data/users.json',
+                        users_content,
+                        f'Auto backup: {len(self.users)} users'
+                    )
+                    
+                    # 通報データ
+                    reports_content = json.dumps(
+                        {str(k): v for k, v in self.reports.items()},
+                        ensure_ascii=False,
+                        indent=2
+                    )
+                    self.github_update_file(
+                        'board_data/reports.json',
+                        reports_content,
+                        f'Auto backup: {len(self.reports)} reports'
+                    )
+                    
+                    # BANデータ
+                    bans_content = json.dumps(
+                        {device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()},
+                        ensure_ascii=False,
+                        indent=2
+                    )
+                    self.github_update_file(
+                        'board_data/bans.json',
+                        bans_content,
+                        f'Auto backup: {len(self.banned_devices)} bans'
+                    )
+                    
+                    print("[BOARD] ✅ GitHub backup completed")
+                else:
+                    print("[BOARD] ⚠️ GitHub backup failed (local data saved)")
+            else:
+                print("[BOARD] ⏭️ GitHub backup skipped (not configured)")
             
         except Exception as e:
-            print(f"[BOARD] Error saving data: {e}")
+            print(f"[BOARD] ❌ Error saving data: {e}")
+            import traceback
+            traceback.print_exc()
     
     def get_device_id(self):
         """デバイスIDを生成（IPアドレス + User-Agentのハッシュ）"""
@@ -394,8 +473,8 @@ class BoardModule:
             self.posts = sorted(self.posts, key=lambda x: x['timestamp'], reverse=True)[:100]
         
         if len(self.posts) < old_count:
-            print(f"[BOARD] Cleaned {old_count - len(self.posts)} old posts")
-            self.save_data()
+            cleaned = old_count - len(self.posts)
+            print(f"[BOARD] 🧹 Cleaned {cleaned} old posts")
     
     def register_username(self, username, device_id):
         """ユーザー名登録"""
@@ -420,6 +499,7 @@ class BoardModule:
         self.users[device_id] = safe_username
         
         self.save_data()
+        print(f"[BOARD] 👤 New user registered: {safe_username}")
         return True, "名前を登録しました。"
     
     def get_username(self, device_id):
@@ -475,9 +555,9 @@ class BoardModule:
         self.post_count[device_id].append(datetime.now())
         
         self.clean_old_posts()
-        self.save_data()  # Githubに自動バックアップ
+        self.save_data()  # ここでGithubに自動バックアップ
         
-        print(f"[BOARD] New post created: ID={post['id']}, User={post['username']}, Suspicious={is_suspicious}")
+        print(f"[BOARD] 📝 New post: ID={post['id']}, User={post['username']}, Suspicious={is_suspicious}")
         
         return True, post
     
@@ -501,7 +581,7 @@ class BoardModule:
         
         if post['report_count'] >= 3:
             post['is_hidden'] = True
-            print(f"[BOARD] Post {post_id} hidden due to reports")
+            print(f"[BOARD] 🚫 Post {post_id} hidden (reports: {post['report_count']})")
         
         author_device_id = post['device_id']
         author_reported_posts = [
@@ -511,9 +591,9 @@ class BoardModule:
         
         if len(author_reported_posts) >= 1:
             self.banned_devices[author_device_id] = datetime.now() + timedelta(hours=24)
-            print(f"[BOARD] User banned for 24 hours: {author_device_id[:8]}...")
+            print(f"[BOARD] ⛔ User banned (24h): {author_device_id[:8]}...")
         
-        self.save_data()  # Githubに自動バックアップ
+        self.save_data()  # ここでGithubに自動バックアップ
         return True, f"通報しました。（{post['report_count']}件）"
     
     def get_posts(self, device_id):
@@ -542,10 +622,7 @@ class BoardModule:
         
         return filtered_posts
 
-# グローバルインスタンス
-board = BoardModule()
-
-# APIエンドポイント（app.pyに追加する関数群）
+# APIエンドポイント
 
 def board_register_name():
     """名前登録API"""
