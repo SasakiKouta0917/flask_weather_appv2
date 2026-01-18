@@ -330,10 +330,6 @@ class BoardModule:
             import traceback
             traceback.print_exc()
 
-# ==========================================
-# BoardModule クラスメソッド
-# ==========================================
-
     def get_device_id(self):
         """デバイスIDを生成（IPアドレス + User-Agentのハッシュ）"""
         ip = request.headers.get('X-Forwarded-For', request.remote_addr)
@@ -531,7 +527,7 @@ class BoardModule:
             print(f"[BOARD] ⛔ User banned (24h): {author_device_id[:8]}...")
         
         self.save_data()
-        return True, f"通報しました。（{post['report_count']}件）"
+        return True, f"通報しました。"
     
     def get_posts(self, device_id):
         """投稿一覧取得"""
@@ -552,6 +548,9 @@ class BoardModule:
             
             post_data['is_own'] = post_data['device_id'] == device_id
             del post_data['device_id']
+            
+            # 🔒 通報回数を非表示化（内部でのみカウント）
+            del post_data['report_count']
             
             filtered_posts.append(post_data)
         
