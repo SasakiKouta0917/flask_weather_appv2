@@ -983,7 +983,7 @@ const ThemeModule = {
 };
 
 // ==========================================
-// Board Module（掲示板機能・返信レイアウト改善版）
+// Board Module（掲示板機能・完全修正版）
 // ==========================================
 
 const BoardModule = {
@@ -1324,7 +1324,7 @@ const BoardModule = {
                     <div class="flex items-center gap-3 mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
                         ${!reply.is_own ? `
                             <button class="report-btn text-xs text-red-500 hover:text-red-700 dark:text-red-400 transition" data-post-id="${reply.id}">
-                                <i class="fa-solid fa-flag"></i> 通報${reply.report_count > 0 ? `(${reply.report_count})` : ''}
+                                <i class="fa-solid fa-flag"></i> 通報
                             </button>
                         ` : ''}
                     </div>
@@ -1353,7 +1353,7 @@ const BoardModule = {
                         </button>
                         ${!post.is_own ? `
                             <button class="report-btn text-xs text-red-500 hover:text-red-700 dark:text-red-400 transition" data-post-id="${post.id}">
-                                <i class="fa-solid fa-flag"></i> 通報${post.report_count > 0 ? `(${post.report_count})` : ''}
+                                <i class="fa-solid fa-flag"></i> 通報
                             </button>
                         ` : ''}
                         ${replies.length > 0 ? `
