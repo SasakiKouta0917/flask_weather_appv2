@@ -281,7 +281,7 @@ const MapModule = {
 };
 
 // ==========================================
-// 2. Weather Module
+// Weather Module（修正版）
 // ==========================================
 const WeatherModule = {
     fetchData: async (lat, lng) => {
@@ -327,6 +327,29 @@ const WeatherModule = {
 
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
+        // 🔧 新機能: 時系列データの整形
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
+        if(startIndex === -1) startIndex = 0;
+        
+        const endIndex = startIndex + 12;
+        const hourlyForecast = [];
+        
+        for (let i = startIndex; i < endIndex && i < hourly.time.length; i++) {
+            const time = new Date(hourly.time[i]);
+            const hoursFromNow = Math.floor((time - now) / (1000 * 60 * 60));
+            
+            hourlyForecast.push({
+                time: `${hoursFromNow}時間後`,
+                temperature: hourly.temperature_2m[i],
+                precipitation: hourly.precipitation[i],
+                precipitation_probability: hourly.precipitation_probability[i],
+                weather: CONFIG.wmoCodes[hourly.weather_code[i]] || '不明'
+            });
+        }
+
+        // 🔧 修正: currentWeatherDataに時系列データを追加
         currentWeatherData = {
             location: locationName,
             temp: current.temperature_2m,
@@ -335,9 +358,11 @@ const WeatherModule = {
             weather: weatherDesc,
             temp_max: daily.temperature_2m_max[0],
             temp_min: daily.temperature_2m_min[0],
-            pressure: current.surface_pressure
+            pressure: current.surface_pressure,
+            hourly_forecast: hourlyForecast  // 🔧 新規追加
         };
 
+        // 既存のUI更新処理
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
@@ -349,12 +374,6 @@ const WeatherModule = {
 
         document.getElementById('card-pressure').innerText = `${current.surface_pressure}hPa`;
 
-        const now = new Date();
-        now.setMinutes(0, 0, 0);
-        let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
-        if(startIndex === -1) startIndex = 0;
-        
-        const endIndex = startIndex + 12;
         const next12hHumid = hourly.relative_humidity_2m.slice(startIndex, endIndex);
         const next12hPrecip = hourly.precipitation.slice(startIndex, endIndex);
         const next12hCodes = hourly.weather_code.slice(startIndex, endIndex);
@@ -390,9 +409,13 @@ const WeatherModule = {
 
         WeatherModule.renderWeeklyForecast(daily);
         ChartModule.render(hourly);
+        
+        // 🔧 新機能: 時系列データの確認ログ
+        console.log('[WEATHER] Hourly forecast prepared:', hourlyForecast.length, 'hours');
     },
 
     renderWeeklyForecast: (daily) => {
+        // 既存のコードと同じ（変更なし）
         const container = document.getElementById('weekly-forecast-container');
         if (!container) return;
         let html = '';
