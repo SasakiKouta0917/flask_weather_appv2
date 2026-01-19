@@ -38,13 +38,17 @@ def suggest_outfit(weather, options):
     weather_desc = weather.get("weather", "不明")
     humidity = weather.get("humidity", "不明")
     precipitation = weather.get("precipitation", 0)
+    pressure = weather.get("pressure", "不明")
+    
+    # 🔧 新機能: 時系列データの取得
+    hourly_forecast = weather.get("hourly_forecast", [])
     
     # オプション情報の展開
     mode = options.get("mode", "simple")
     scene = options.get("scene") or "特になし"
     gender = options.get("gender", "unspecified")
-    outfit_detail = options.get("preference") or "特になし"  # 服装の詳細（旧: preference）
-    user_question = options.get("wardrobe") or "特になし"    # 質問・要望（旧: wardrobe）
+    outfit_detail = options.get("preference") or "特になし"
+    user_question = options.get("wardrobe") or "特になし"
 
     # 性別の表示文字列
     gender_map = {
@@ -54,13 +58,31 @@ def suggest_outfit(weather, options):
     }
     gender_str = gender_map.get(gender, "指定なし(ユニセックス)")
 
+    # 🔧 新機能: 時系列天候情報を整形
+    hourly_info = ""
+    if hourly_forecast and len(hourly_forecast) > 0:
+        hourly_info = "\n# 今後12時間の天候推移\n"
+        for i, hour_data in enumerate(hourly_forecast[:12]):  # 最大12時間分
+            time_label = hour_data.get("time", f"{i}時間後")
+            temp_h = hour_data.get("temperature", "不明")
+            precip_h = hour_data.get("precipitation", 0)
+            precip_prob_h = hour_data.get("precipitation_probability", 0)
+            weather_h = hour_data.get("weather", "不明")
+            
+            hourly_info += f"{time_label}: 気温{temp_h}℃, {weather_h}, 降水量{precip_h}mm, 降水確率{precip_prob_h}%\n"
+    else:
+        hourly_info = "\n# 今後の天候推移\n（データなし）\n"
+
     # プロンプト構築
     base_info = f"""
-# 天気情報
+# 現在の天気情報
 - 天気: {weather_desc}
 - 気温: {temp}℃ (最高:{temp_max}℃ / 最低:{temp_min}℃)
 - 湿度: {humidity}%
 - 降水量: {precipitation}mm
+- 気圧: {pressure}hPa
+
+{hourly_info}
 
 # 基本条件
 - 利用シーン: {scene}
@@ -101,13 +123,25 @@ def suggest_outfit(weather, options):
 
 上記に該当しない場合のみ、以下の手順で提案を行ってください。
 
-## 2. 服装の詳細の解釈
+## 2. 時系列データの活用
+「今後12時間の天候推移」のデータを必ず考慮してください：
+- ユーザーが「N時間後」「午後」「夕方」などの時間指定をした場合、該当時刻の天候を確認
+- 「散歩」「外出」などの活動時間を推測し、その時間帯の天候を重視
+- 天候が変化する場合（例：今は晴れだが3時間後に雨）は必ず言及
+- 気温の変化が大きい場合（5℃以上）は重ね着や脱ぎ着のアドバイス
+
+**例：**
+- 「2時間後に散歩」→ 2時間後の天候データを確認
+- 「今日の午後に外出」→ 現在から6時間後程度の天候を確認
+- 「夕方まで外出」→ 現在から12時間の天候推移全体を考慮
+
+## 3. 服装の詳細の解釈
 「服装の詳細」に入力された内容を以下のように処理：
 
 **具体的な服装が入力された場合：**
 - その服装を着用する前提で提案を行う
-- 現在の天候情報（気温: {temp}℃、天気: {weather_desc}、降水量: {precipitation}mm）と照らし合わせて適切かチェック
-- 不適切な場合は明確に「その服装は現在の天候には適していません」と伝え、理由を説明し、代替案を提示
+- 現在および今後の天候情報と照らし合わせて適切かチェック
+- 不適切な場合は明確に「その服装は○時間後の天候には適していません」と伝え、理由を説明し、代替案を提示
 
 **色や形だけの場合：**
 - できるだけユーザーの意図を汲み取り、その色・形を取り入れた提案を行う
@@ -115,19 +149,75 @@ def suggest_outfit(weather, options):
 
 **持ち物（傘、バッグなど）が含まれる場合：**
 - 持ち物も含めたトータルコーディネートを提案
-- 天候に応じて持ち物の適切性もアドバイス（例：雨予報なのに傘の記載がない場合は推奨）
+- 今後の天候に応じて持ち物の適切性もアドバイス（例：3時間後に雨予報なのに傘の記載がない場合は推奨）
 
-**判断が難しい場合：**
-- 可能な限り柔軟に解釈し、ユーザーの意図を尊重した提案を行う
-
-## 3. 質問・要望への対応
+## 4. 質問・要望への対応
 「質問・要望」が具体的な質問や条件である場合：
 - その質問に明確に答える
+- 時間指定がある場合は、該当時刻の天候データを参照
 - 複雑な条件（例：「動きやすく、かつフォーマル」など）も考慮
-- 予算や入手しやすさなどの制約があれば言及
 
-## 4. 時間帯ごとの調整
-朝・昼・夜で気温が変化する場合は、時間帯ごとの調整方法も提案
+## 5. 時間帯ごとの調整
+今後12時間の気温変化を確認し、必要に応じて：
+- 重ね着のアドバイス
+- 脱ぎ着しやすい服装の提案
+- 持ち運び用の上着やストールの推奨
+
+## 6. 最終確認と安全性チェック
+提案を出力する前に、以下を必ず確認してください：
+
+**内容の適切性チェック：**
+- 提案内容がGemini利用規約に違反していないか
+- 暴力的、性的、差別的、危険な表現が含まれていないか
+- 犯罪を助長する内容になっていないか
+- 他人を傷つける可能性のある内容ではないか
+
+上記に該当する場合は、代わりに「その提案・質問にはお答えできません」と返してください。
+
+**品質チェック：**
+- 現在の天気だけでなく、今後の推移も考慮しているか
+- 時間指定がある場合、該当時刻の天候を参照しているか
+- 実用的で実行可能な提案になっているか
+- 280〜320文字以内に収まっているか
+
+すべて問題なければ、提案を出力してください。
+"""
+    else:
+        instruction = f"""
+# 指示（おまかせモード）
+
+## 1. 時系列データの活用
+「今後12時間の天候推移」のデータを必ず考慮してください：
+- 現在だけでなく、今後の天候変化も提案に含める
+- 天候が変化する場合（例：現在晴れ→3時間後雨）は必ず言及
+- 気温の変化が大きい場合（5℃以上）は対応策を提案
+- 「利用シーン」に時間的要素がある場合（散歩、外出など）は、活動時間帯の天候を重視
+
+**例：**
+- 利用シーン「散歩」→ 通常1〜2時間の活動と推測し、その間の天候を確認
+- 利用シーン「通学」→ 往復を考慮し、帰宅時の天候もチェック
+- 利用シーン「デート」→ 長時間の外出を想定し、天候推移全体を考慮
+
+## 2. 基本的な服装提案
+現在および今後の天気情報と利用シーンから、最適な服装の「方向性」を提案してください。
+
+**注意点：**
+- 具体的な商品名は避け、「厚手の防寒アウター」「風を通さない素材」など機能性重視の表現を使用
+- ユーザーが自分のクローゼットから選びやすいアドバイス
+- 気温変化に応じた調整方法も含める（今後の推移データを活用）
+- 天候変化がある場合は、必ずその時刻と対応策を明記
+
+## 3. 服装の詳細が入力されている場合
+「服装の詳細」に内容がある場合（{outfit_detail}）：
+- その服装・アイテムを考慮に入れた提案を行う
+- 現在および今後の天候に対して適切かチェック
+- 不適切であれば理由を説明し、改善案を提示
+
+## 4. 質問・要望への対応
+「質問・要望」に内容がある場合（{user_question}）：
+- 服装提案に関連する質問であれば答える
+- 時間指定がある場合は、該当時刻の天候データを参照
+- 服装と無関係、犯罪助長、利用規約違反の内容は「その提案・質問にはお答えできません」と返す
 
 ## 5. 最終確認と安全性チェック
 提案を出力する前に、以下を必ず確認してください：
@@ -141,47 +231,7 @@ def suggest_outfit(weather, options):
 上記に該当する場合は、代わりに「その提案・質問にはお答えできません」と返してください。
 
 **品質チェック：**
-- 天気と気温を必ず考慮しているか
-- 実用的で実行可能な提案になっているか
-- 280〜320文字以内に収まっているか
-
-すべて問題なければ、提案を出力してください。
-"""
-    else:
-        instruction = f"""
-# 指示（おまかせモード）
-
-## 1. 基本的な服装提案
-天気情報と利用シーンから、最適な服装の「方向性」を提案してください。
-
-**注意点：**
-- 具体的な商品名は避け、「厚手の防寒アウター」「風を通さない素材」など機能性重視の表現を使用
-- ユーザーが自分のクローゼットから選びやすいアドバイス
-- 気温変化に応じた調整方法も含める
-
-## 2. 服装の詳細が入力されている場合
-「服装の詳細」に内容がある場合（{outfit_detail}）：
-- その服装・アイテムを考慮に入れた提案を行う
-- 現在の天候（気温: {temp}℃、天気: {weather_desc}）に対して適切かチェック
-- 不適切であれば理由を説明し、改善案を提示
-
-## 3. 質問・要望への対応
-「質問・要望」に内容がある場合（{user_question}）：
-- 服装提案に関連する質問であれば答える
-- 服装と無関係、犯罪助長、利用規約違反の内容は「その提案・質問にはお答えできません」と返す
-
-## 4. 最終確認と安全性チェック
-提案を出力する前に、以下を必ず確認してください：
-
-**内容の適切性チェック：**
-- 提案内容がGemini利用規約に違反していないか
-- 暴力的、性的、差別的、危険な表現が含まれていないか
-- 犯罪を助長する内容になっていないか
-- 他人を傷つける可能性のある内容ではないか
-
-上記に該当する場合は、代わりに「その提案・質問にはお答えできません」と返してください。
-
-**品質チェック：**
+- 現在の天気だけでなく、今後の推移も考慮しているか
 - 実用的で実行可能な提案になっているか
 - 280〜320文字以内に収まっているか
 
@@ -207,14 +257,13 @@ def suggest_outfit(weather, options):
     prompt = base_info + instruction + format_instruction
 
     # 🔧 2026年1月対応: 最新の利用可能モデルを使用
-    # 公式ドキュメント: https://ai.google.dev/gemini-api/docs/models
-    model_name = "gemini-2.5-flash"  # 最新の高速モデル
+    model_name = "gemini-2.5-flash"
     base_url = "https://generativelanguage.googleapis.com"
     endpoint = f"{base_url}/v1beta/models/{model_name}:generateContent"
     
     headers = {
         "Content-Type": "application/json",
-        "x-goog-api-key": api_key  # ヘッダーでも送信（推奨される方法）
+        "x-goog-api-key": api_key
     }
     
     payload = {
@@ -227,7 +276,7 @@ def suggest_outfit(weather, options):
             "temperature": 0.7,
             "topP": 0.8,
             "topK": 40,
-            "maxOutputTokens": 1536,  # 日本語320文字=約640トークン + JSON構造=約900トークン、余裕を持って1536
+            "maxOutputTokens": 1536,
             "responseMimeType": "application/json"
         },
         "safetySettings": [
@@ -253,10 +302,8 @@ def suggest_outfit(weather, options):
     try:
         print(f"[INFO] Sending request to Gemini API")
         print(f"[DEBUG] Model: {model_name}")
-        print(f"[DEBUG] Endpoint: {endpoint}")
-        print(f"[DEBUG] Payload size: {len(json.dumps(payload))} bytes")
+        print(f"[DEBUG] Hourly forecast data points: {len(hourly_forecast)}")
         
-        # リクエスト送信（タイムアウト60秒）
         response = requests.post(
             endpoint,
             headers=headers,
@@ -325,7 +372,6 @@ def suggest_outfit(weather, options):
                 }
             }
 
-        # レスポンスのパース
         try:
             data = response.json()
         except json.JSONDecodeError as e:
@@ -340,7 +386,6 @@ def suggest_outfit(weather, options):
         
         print(f"[DEBUG] Response keys: {list(data.keys())}")
         
-        # レスポンス構造のチェック
         if 'candidates' not in data:
             print(f"[ERROR] No 'candidates' in response")
             print(f"[DEBUG] Full response: {json.dumps(data, indent=2, ensure_ascii=False)[:500]}")
@@ -361,9 +406,6 @@ def suggest_outfit(weather, options):
             }
 
         candidate = data['candidates'][0]
-        print(f"[DEBUG] Candidate keys: {list(candidate.keys())}")
-
-        # 完了理由のチェック
         finish_reason = candidate.get('finishReason', 'UNKNOWN')
         print(f"[DEBUG] Finish reason: {finish_reason}")
         
@@ -376,12 +418,6 @@ def suggest_outfit(weather, options):
                 }
             }
         
-        if finish_reason == "MAX_TOKENS":
-            print(f"[WARNING] Response truncated due to max tokens")
-            # MAX_TOKENSでも途切れている場合は、取得できた部分だけ使う
-            # JSONが不完全でもエラーにせず、フォールバック処理を試みる
-        
-        # コンテンツの取得
         if 'content' not in candidate:
             print(f"[ERROR] No 'content' in candidate")
             return {
@@ -404,23 +440,16 @@ def suggest_outfit(weather, options):
         content = content_parts[0]['text'].strip()
         print(f"[SUCCESS] Got response from Gemini API")
         print(f"[DEBUG] Response length: {len(content)} chars")
-        print(f"[DEBUG] Response preview: {content[:150]}...")
 
-        # JSONクリーニング
         clean_json = content.replace("```json", "").replace("```", "").strip()
         
-        # MAX_TOKENSで途切れている場合のフォールバック処理
         if finish_reason == "MAX_TOKENS":
-            # 不完全なJSONを修復
             if not clean_json.endswith("}"):
-                # 途中で切れている文字列を閉じる
                 if clean_json.count('"') % 2 != 0:
                     clean_json += '"'
                 clean_json += "\n}"
             print(f"[WARNING] Attempting to repair truncated JSON")
-            print(f"[DEBUG] Repaired JSON: {clean_json[:200]}...")
         
-        # JSONパース
         try:
             suggestions = json.loads(clean_json)
             print(f"[DEBUG] Parsed JSON keys: {list(suggestions.keys())}")
@@ -428,9 +457,7 @@ def suggest_outfit(weather, options):
             print(f"[ERROR] JSON Parse Error: {e}")
             print(f"[ERROR] Content: {clean_json[:300]}")
             
-            # MAX_TOKENSで途切れた場合の最終フォールバック
             if finish_reason == "MAX_TOKENS":
-                # suggestionキーの値だけを抽出
                 import re
                 match = re.search(r'"suggestion"\s*:\s*"([^"]*)', clean_json)
                 if match:
@@ -450,7 +477,6 @@ def suggest_outfit(weather, options):
                 }
             }
         
-        # キーの正規化
         if "suggestion" not in suggestions:
             for key in ["text", "advice", "outfit", "recommendation", "response"]:
                 if key in suggestions:
@@ -461,7 +487,6 @@ def suggest_outfit(weather, options):
                 suggestions = {"suggestion": str(suggestions)}
                 print(f"[WARNING] No valid key found, using full content")
         
-        # 空チェック
         suggestion_text = suggestions.get("suggestion", "").strip()
         if not suggestion_text or len(suggestion_text) < 10:
             print(f"[ERROR] Suggestion too short: {len(suggestion_text)} chars")
@@ -475,7 +500,6 @@ def suggest_outfit(weather, options):
         print(f"[SUCCESS] JSON parsed successfully")
         print(f"[SUCCESS] Suggestion length: {len(suggestion_text)} chars")
         
-        # 成功を返す
         return {
             "type": "success",
             "suggestions": suggestions
