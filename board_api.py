@@ -1,6 +1,6 @@
 """
-掲示板API - Github自動バックアップ対応版
-2025年1月 GitHub REST API v3対応
+掲示板API - スマートバックアップ版
+2025年1月 - アクティビティ検知型30分バックアップ対応
 """
 
 from flask import jsonify, request
@@ -14,6 +14,7 @@ from pathlib import Path
 import requests
 import base64
 import time
+import threading
 
 class BoardModule:
     def __init__(self):
@@ -31,21 +32,28 @@ class BoardModule:
         self.github_api_base = 'https://api.github.com'
         self.github_branch = 'main'
         
+        # 🔧 新機能: スマートバックアップ設定
+        self.auto_backup_enabled = False  # 投稿時の即座バックアップは無効
+        self.scheduled_backup_enabled = bool(self.github_token and self.github_repo)
+        self.backup_interval_seconds = 1800  # 30分 = 1800秒
+        self.last_backup_time = None
+        self.backup_thread = None
+        
+        # 🔧 新機能: アクティビティ追跡
+        self.last_activity_time = datetime.now()  # 最後のユーザーアクション時刻
+        self.activity_lock = threading.Lock()  # スレッドセーフな更新
+        self.has_pending_changes = False  # 未バックアップの変更があるか
+        
         # 初期化ログ
         print("[BOARD] ==========================================")
-        print("[BOARD] BoardModule Initialization")
+        print("[BOARD] BoardModule Initialization (Smart Backup)")
         print(f"[BOARD] GITHUB_TOKEN: {'SET (' + self.github_token[:8] + '...)' if self.github_token else 'NOT SET'}")
         print(f"[BOARD] GITHUB_REPO: {self.github_repo if self.github_repo else 'NOT SET'}")
         
-        # Github API使用可否チェック
-        self.use_github_backup = bool(self.github_token and self.github_repo)
-        
-        if self.use_github_backup:
-            print(f"[BOARD] ✅ Github backup ENABLED: {self.github_repo}")
-            self.github_branch = self._get_default_branch()
-            print(f"[BOARD] Using branch: {self.github_branch}")
+        if self.scheduled_backup_enabled:
+            print(f"[BOARD] ✅ Smart backup ENABLED: Every {self.backup_interval_seconds // 60} minutes (if active)")
         else:
-            print("[BOARD] ⚠️ Github backup DISABLED")
+            print("[BOARD] ⚠️ Smart backup DISABLED")
             if not self.github_token:
                 print("[BOARD]   → GITHUB_TOKEN is not set")
             if not self.github_repo:
@@ -66,10 +74,27 @@ class BoardModule:
         
         # データを読み込み
         self.load_data()
+        
+        # 🔧 新機能: スマートバックアップスレッド開始
+        if self.scheduled_backup_enabled:
+            self.start_smart_backup()
+    
+    # 🔧 新機能: アクティビティ記録
+    def record_activity(self):
+        """ユーザーアクティビティを記録"""
+        with self.activity_lock:
+            self.last_activity_time = datetime.now()
+            print(f"[BOARD] 👤 Activity recorded at {self.last_activity_time.strftime('%H:%M:%S')}")
+    
+    def mark_changes_pending(self):
+        """未保存の変更をマーク"""
+        with self.activity_lock:
+            self.has_pending_changes = True
+            self.last_activity_time = datetime.now()
     
     def _get_default_branch(self):
         """リポジトリのデフォルトブランチを取得"""
-        if not self.use_github_backup:
+        if not self.github_token or not self.github_repo:
             return 'main'
         
         url = f"{self.github_api_base}/repos/{self.github_repo}"
@@ -95,7 +120,7 @@ class BoardModule:
     
     def github_get_file(self, filepath):
         """GithubからファイルのSHAとコンテンツを取得"""
-        if not self.use_github_backup:
+        if not self.github_token or not self.github_repo:
             return None, None
         
         url = f"{self.github_api_base}/repos/{self.github_repo}/contents/{filepath}"
@@ -128,7 +153,7 @@ class BoardModule:
     
     def github_update_file(self, filepath, content, message, max_retries=3):
         """Githubのファイルを更新（リトライ機能付き）"""
-        if not self.use_github_backup:
+        if not self.github_token or not self.github_repo:
             print(f"[BOARD] ⚠️ Skipping GitHub backup (disabled): {filepath}")
             return False
         
@@ -169,7 +194,6 @@ class BoardModule:
                     continue
                 elif response.status_code == 404:
                     print(f"[BOARD] ❌ Repository not found (404): {self.github_repo}")
-                    print(f"[BOARD] Please check GITHUB_REPO environment variable")
                     return False
                 elif response.status_code == 401:
                     print(f"[BOARD] ❌ Authentication failed (401): Invalid GITHUB_TOKEN")
@@ -192,6 +216,102 @@ class BoardModule:
         print(f"[BOARD] ❌ GitHub backup failed after {max_retries} attempts")
         return False
     
+    # 🔧 新機能: スマートバックアップスレッド
+    def start_smart_backup(self):
+        """アクティビティ検知型バックアップスレッドを開始"""
+        def smart_backup_loop():
+            print(f"[BOARD] 🧠 Smart backup thread started (interval: {self.backup_interval_seconds}s)")
+            
+            while True:
+                try:
+                    # 30分待機
+                    time.sleep(self.backup_interval_seconds)
+                    
+                    # アクティビティチェック
+                    with self.activity_lock:
+                        time_since_activity = (datetime.now() - self.last_activity_time).total_seconds()
+                        has_changes = self.has_pending_changes
+                    
+                    # 🔧 判定ロジック
+                    if time_since_activity > self.backup_interval_seconds:
+                        # 30分間アクティビティなし
+                        print(f"[BOARD] 💤 No activity for {int(time_since_activity // 60)} minutes - Skipping backup")
+                    elif not has_changes:
+                        # アクティビティはあるが変更なし（読み取りのみ）
+                        print(f"[BOARD] 👀 Activity detected but no changes - Skipping backup")
+                    else:
+                        # アクティビティあり＋未保存の変更あり
+                        print(f"[BOARD] ⏰ Executing smart backup (activity: {int(time_since_activity)}s ago)...")
+                        success = self.execute_github_backup()
+                        
+                        if success:
+                            with self.activity_lock:
+                                self.has_pending_changes = False
+                    
+                except Exception as e:
+                    print(f"[BOARD] ❌ Error in smart backup thread: {e}")
+                    # エラーが発生してもスレッドは継続
+                    time.sleep(60)  # 1分待ってから再開
+        
+        # デーモンスレッドとして起動（メインプロセス終了時に自動終了）
+        self.backup_thread = threading.Thread(target=smart_backup_loop, daemon=True)
+        self.backup_thread.start()
+        print("[BOARD] ✅ Smart backup thread initialized")
+    
+    def execute_github_backup(self):
+        """GitHubへのバックアップを実行"""
+        if not self.github_token or not self.github_repo:
+            print("[BOARD] Skipping backup (GitHub not configured)")
+            return False
+        
+        try:
+            backup_time = datetime.now()
+            
+            # posts.json をバックアップ
+            posts_content = json.dumps({
+                'posts': self.posts,
+                'next_post_id': self.next_post_id
+            }, ensure_ascii=False, indent=2)
+            
+            success = self.github_update_file(
+                'board_data/posts.json',
+                posts_content,
+                f'Smart backup: {len(self.posts)} posts at {backup_time.strftime("%Y-%m-%d %H:%M")}'
+            )
+            
+            if success:
+                # 他のファイルもバックアップ
+                self.github_update_file(
+                    'board_data/users.json',
+                    json.dumps(self.users, ensure_ascii=False, indent=2),
+                    f'Smart backup: {len(self.users)} users'
+                )
+                
+                self.github_update_file(
+                    'board_data/reports.json',
+                    json.dumps({str(k): v for k, v in self.reports.items()}, ensure_ascii=False, indent=2),
+                    f'Smart backup: {len(self.reports)} reports'
+                )
+                
+                self.github_update_file(
+                    'board_data/bans.json',
+                    json.dumps({device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()}, ensure_ascii=False, indent=2),
+                    f'Smart backup: {len(self.banned_devices)} bans'
+                )
+                
+                self.last_backup_time = backup_time
+                print(f"[BOARD] ✅ Smart backup completed at {backup_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                return True
+            else:
+                print("[BOARD] ⚠️ Smart backup failed")
+                return False
+                
+        except Exception as e:
+            print(f"[BOARD] ❌ Backup execution error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
     def load_data(self):
         """保存されたデータを読み込み（Github優先、ローカルフォールバック）"""
         try:
@@ -200,7 +320,8 @@ class BoardModule:
             
             loaded_from_github = False
             
-            if self.use_github_backup:
+            # 起動時のみGitHubから読み込み
+            if self.github_token and self.github_repo:
                 print("[BOARD] 🔍 Trying to load from GitHub...")
                 
                 sha, content = self.github_get_file('board_data/posts.json')
@@ -288,10 +409,9 @@ class BoardModule:
             traceback.print_exc()
     
     def save_data(self):
-        """データをローカルとGithubの両方に保存"""
+        """データをローカルに保存（GitHubバックアップはスマートバックアップが実行）"""
         try:
-            print("[BOARD] 💾 Saving data...")
-            
+            # ローカル保存のみ実行
             with open(self.posts_file, 'w', encoding='utf-8') as f:
                 json.dump({'posts': self.posts, 'next_post_id': self.next_post_id}, f, ensure_ascii=False, indent=2)
             
@@ -307,23 +427,8 @@ class BoardModule:
             with open(self.rate_limit_file, 'w', encoding='utf-8') as f:
                 json.dump({device_id: [ts.isoformat() for ts in timestamps] for device_id, timestamps in self.post_count.items()}, f, ensure_ascii=False, indent=2)
             
-            print("[BOARD] ✅ Local data saved")
-            
-            if self.use_github_backup:
-                print("[BOARD] 🔄 Starting GitHub backup...")
-                
-                posts_content = json.dumps({'posts': self.posts, 'next_post_id': self.next_post_id}, ensure_ascii=False, indent=2)
-                success = self.github_update_file('board_data/posts.json', posts_content, f'Auto backup: {len(self.posts)} posts')
-                
-                if success:
-                    self.github_update_file('board_data/users.json', json.dumps(self.users, ensure_ascii=False, indent=2), f'Auto backup: {len(self.users)} users')
-                    self.github_update_file('board_data/reports.json', json.dumps({str(k): v for k, v in self.reports.items()}, ensure_ascii=False, indent=2), f'Auto backup: {len(self.reports)} reports')
-                    self.github_update_file('board_data/bans.json', json.dumps({device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()}, ensure_ascii=False, indent=2), f'Auto backup: {len(self.banned_devices)} bans')
-                    print("[BOARD] ✅ GitHub backup completed")
-                else:
-                    print("[BOARD] ⚠️ GitHub backup failed (local data saved)")
-            else:
-                print("[BOARD] ⏭️ GitHub backup skipped (not configured)")
+            # 🔧 スマートバックアップ: 投稿時のGitHubバックアップは実行しない
+            # アクティビティ検知型バックアップスレッドが自動的に実行
             
         except Exception as e:
             print(f"[BOARD] ❌ Error saving data: {e}")
@@ -431,12 +536,14 @@ class BoardModule:
         safe_username = self.sanitize_text(username)
         self.users[device_id] = safe_username
         
+        self.mark_changes_pending()  # 🔧 変更をマーク
         self.save_data()
         print(f"[BOARD] 👤 New user registered: {safe_username}")
         return True, "名前を登録しました。"
     
     def get_username(self, device_id):
         """ユーザー名取得"""
+        self.record_activity()  # 🔧 アクティビティ記録（読み取りのみ）
         return self.users.get(device_id, None)
     
     def create_post(self, content, device_id, parent_id=None):
@@ -488,6 +595,7 @@ class BoardModule:
         self.post_count[device_id].append(datetime.now())
         
         self.clean_old_posts()
+        self.mark_changes_pending()  # 🔧 変更をマーク
         self.save_data()
         
         print(f"[BOARD] 📝 New post: ID={post['id']}, User={post['username']}, Suspicious={is_suspicious}")
@@ -526,11 +634,13 @@ class BoardModule:
             self.banned_devices[author_device_id] = datetime.now() + timedelta(hours=24)
             print(f"[BOARD] ⛔ User banned (24h): {author_device_id[:8]}...")
         
+        self.mark_changes_pending()  # 🔧 変更をマーク
         self.save_data()
         return True, f"通報しました。"
     
     def get_posts(self, device_id):
         """投稿一覧取得"""
+        self.record_activity()  # 🔧 アクティビティ記録（読み取りのみ）
         self.clean_old_posts()
         
         filtered_posts = []
@@ -548,8 +658,6 @@ class BoardModule:
             
             post_data['is_own'] = post_data['device_id'] == device_id
             del post_data['device_id']
-            
-            # 🔒 通報回数を非表示化（内部でのみカウント）
             del post_data['report_count']
             
             filtered_posts.append(post_data)
@@ -559,7 +667,7 @@ class BoardModule:
         return filtered_posts
 
 # ==========================================
-# 🚨 重要：グローバルインスタンスの初期化
+# グローバルインスタンスの初期化
 # ==========================================
 board = BoardModule()
 
@@ -626,8 +734,7 @@ def board_report_post():
     data = request.json
     post_id = data.get('post_id')
     
-    success, message = board.report_post(post_id, device_id)
-    
+    success, message = board.report_post(post_id, device_id)  
     return jsonify({
         'success': success,
         'message': message
