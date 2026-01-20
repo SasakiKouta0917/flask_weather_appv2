@@ -1,6 +1,6 @@
 """
-掲示板API - スマートバックアップ版
-2025年1月 - アクティビティ検知型30分バックアップ対応
+掲示板API - 遅延バックアップ版（推奨仕様）
+2025年1月 - 10分遅延 + 30分強制バックアップ対応
 """
 
 from flask import jsonify, request
@@ -32,28 +32,26 @@ class BoardModule:
         self.github_api_base = 'https://api.github.com'
         self.github_branch = 'main'
         
-        # 🔧 新機能: スマートバックアップ設定
-        self.auto_backup_enabled = False  # 投稿時の即座バックアップは無効
-        self.scheduled_backup_enabled = bool(self.github_token and self.github_repo)
-        self.backup_interval_seconds = 1800  # 30分 = 1800秒
-        self.last_backup_time = None
-        self.backup_thread = None
-        
-        # 🔧 新機能: アクティビティ追跡
-        self.last_activity_time = datetime.now()  # 最後のユーザーアクション時刻
-        self.activity_lock = threading.Lock()  # スレッドセーフな更新
-        self.has_pending_changes = False  # 未バックアップの変更があるか
+        # 🔧 新機能: 遅延バックアップ設定
+        self.backup_enabled = bool(self.github_token and self.github_repo)
+        self.backup_delay_seconds = 600  # 10分 = 600秒
+        self.max_backup_delay_seconds = 1800  # 30分 = 1800秒（強制バックアップ）
+        self.backup_timer = None
+        self.first_change_time = None  # 最初の変更時刻
+        self.timer_lock = threading.Lock()
         
         # 初期化ログ
         print("[BOARD] ==========================================")
-        print("[BOARD] BoardModule Initialization (Smart Backup)")
+        print("[BOARD] BoardModule Initialization (Delayed Backup)")
         print(f"[BOARD] GITHUB_TOKEN: {'SET (' + self.github_token[:8] + '...)' if self.github_token else 'NOT SET'}")
         print(f"[BOARD] GITHUB_REPO: {self.github_repo if self.github_repo else 'NOT SET'}")
         
-        if self.scheduled_backup_enabled:
-            print(f"[BOARD] ✅ Smart backup ENABLED: Every {self.backup_interval_seconds // 60} minutes (if active)")
+        if self.backup_enabled:
+            print(f"[BOARD] ✅ Delayed backup ENABLED:")
+            print(f"[BOARD]    - Normal delay: {self.backup_delay_seconds}s (10 minutes)")
+            print(f"[BOARD]    - Max delay: {self.max_backup_delay_seconds}s (30 minutes forced)")
         else:
-            print("[BOARD] ⚠️ Smart backup DISABLED")
+            print("[BOARD] ⚠️ Backup DISABLED")
             if not self.github_token:
                 print("[BOARD]   → GITHUB_TOKEN is not set")
             if not self.github_repo:
@@ -61,7 +59,6 @@ class BoardModule:
         
         print("[BOARD] ==========================================")
         
-        # ディレクトリが存在しない場合は作成
         self.data_dir.mkdir(exist_ok=True)
         
         # データ構造
@@ -74,23 +71,6 @@ class BoardModule:
         
         # データを読み込み
         self.load_data()
-        
-        # 🔧 新機能: スマートバックアップスレッド開始
-        if self.scheduled_backup_enabled:
-            self.start_smart_backup()
-    
-    # 🔧 新機能: アクティビティ記録
-    def record_activity(self):
-        """ユーザーアクティビティを記録"""
-        with self.activity_lock:
-            self.last_activity_time = datetime.now()
-            print(f"[BOARD] 👤 Activity recorded at {self.last_activity_time.strftime('%H:%M:%S')}")
-    
-    def mark_changes_pending(self):
-        """未保存の変更をマーク"""
-        with self.activity_lock:
-            self.has_pending_changes = True
-            self.last_activity_time = datetime.now()
     
     def _get_default_branch(self):
         """リポジトリのデフォルトブランチを取得"""
@@ -216,55 +196,57 @@ class BoardModule:
         print(f"[BOARD] ❌ GitHub backup failed after {max_retries} attempts")
         return False
     
-    # 🔧 新機能: スマートバックアップスレッド
-    def start_smart_backup(self):
-        """アクティビティ検知型バックアップスレッドを開始"""
-        def smart_backup_loop():
-            print(f"[BOARD] 🧠 Smart backup thread started (interval: {self.backup_interval_seconds}s)")
-            
-            while True:
-                try:
-                    # 30分待機
-                    time.sleep(self.backup_interval_seconds)
-                    
-                    # アクティビティチェック
-                    with self.activity_lock:
-                        time_since_activity = (datetime.now() - self.last_activity_time).total_seconds()
-                        has_changes = self.has_pending_changes
-                    
-                    # 🔧 判定ロジック
-                    if time_since_activity > self.backup_interval_seconds:
-                        # 30分間アクティビティなし
-                        print(f"[BOARD] 💤 No activity for {int(time_since_activity // 60)} minutes - Skipping backup")
-                    elif not has_changes:
-                        # アクティビティはあるが変更なし（読み取りのみ）
-                        print(f"[BOARD] 👀 Activity detected but no changes - Skipping backup")
-                    else:
-                        # アクティビティあり＋未保存の変更あり
-                        print(f"[BOARD] ⏰ Executing smart backup (activity: {int(time_since_activity)}s ago)...")
-                        success = self.execute_github_backup()
-                        
-                        if success:
-                            with self.activity_lock:
-                                self.has_pending_changes = False
-                    
-                except Exception as e:
-                    print(f"[BOARD] ❌ Error in smart backup thread: {e}")
-                    # エラーが発生してもスレッドは継続
-                    time.sleep(60)  # 1分待ってから再開
+    # 🔧 新機能: 遅延バックアップタイマー
+    def schedule_backup(self):
+        """バックアップをスケジュール（10分遅延 + 30分強制）"""
+        if not self.backup_enabled:
+            return
         
-        # デーモンスレッドとして起動（メインプロセス終了時に自動終了）
-        self.backup_thread = threading.Thread(target=smart_backup_loop, daemon=True)
-        self.backup_thread.start()
-        print("[BOARD] ✅ Smart backup thread initialized")
+        with self.timer_lock:
+            # 既存のタイマーをキャンセル
+            if self.backup_timer is not None:
+                self.backup_timer.cancel()
+                print("[BOARD] ⏱️ Previous backup timer cancelled")
+            
+            # 最初の変更時刻を記録（まだ記録されていない場合）
+            if self.first_change_time is None:
+                self.first_change_time = datetime.now()
+                print(f"[BOARD] 🕐 First change recorded at {self.first_change_time.strftime('%H:%M:%S')}")
+            
+            # 経過時間を計算
+            elapsed = (datetime.now() - self.first_change_time).total_seconds()
+            
+            # 強制バックアップまでの残り時間
+            time_until_forced = self.max_backup_delay_seconds - elapsed
+            
+            if time_until_forced <= 0:
+                # すでに30分経過 → 即座にバックアップ
+                print(f"[BOARD] ⚡ Max delay reached ({self.max_backup_delay_seconds}s), executing backup now")
+                threading.Thread(target=self.execute_backup, daemon=True).start()
+            elif time_until_forced < self.backup_delay_seconds:
+                # 強制期限が通常の10分より近い → 強制期限でバックアップ
+                delay = time_until_forced
+                print(f"[BOARD] ⏰ Scheduling forced backup in {int(delay)}s (max delay limit)")
+                self.backup_timer = threading.Timer(delay, self.execute_backup)
+                self.backup_timer.daemon = True
+                self.backup_timer.start()
+            else:
+                # 通常の10分遅延
+                print(f"[BOARD] ⏰ Scheduling backup in {self.backup_delay_seconds}s (10 minutes)")
+                print(f"[BOARD]    - Forced backup at {(self.first_change_time + timedelta(seconds=self.max_backup_delay_seconds)).strftime('%H:%M:%S')} if not triggered")
+                self.backup_timer = threading.Timer(self.backup_delay_seconds, self.execute_backup)
+                self.backup_timer.daemon = True
+                self.backup_timer.start()
     
-    def execute_github_backup(self):
+    def execute_backup(self):
         """GitHubへのバックアップを実行"""
-        if not self.github_token or not self.github_repo:
+        if not self.backup_enabled:
             print("[BOARD] Skipping backup (GitHub not configured)")
-            return False
+            return
         
         try:
+            print("[BOARD] ==========================================")
+            print("[BOARD] 🚀 Executing GitHub Backup")
             backup_time = datetime.now()
             
             # posts.json をバックアップ
@@ -276,7 +258,7 @@ class BoardModule:
             success = self.github_update_file(
                 'board_data/posts.json',
                 posts_content,
-                f'Smart backup: {len(self.posts)} posts at {backup_time.strftime("%Y-%m-%d %H:%M")}'
+                f'Auto backup: {len(self.posts)} posts at {backup_time.strftime("%Y-%m-%d %H:%M")}'
             )
             
             if success:
@@ -284,33 +266,37 @@ class BoardModule:
                 self.github_update_file(
                     'board_data/users.json',
                     json.dumps(self.users, ensure_ascii=False, indent=2),
-                    f'Smart backup: {len(self.users)} users'
+                    f'Auto backup: {len(self.users)} users'
                 )
                 
                 self.github_update_file(
                     'board_data/reports.json',
                     json.dumps({str(k): v for k, v in self.reports.items()}, ensure_ascii=False, indent=2),
-                    f'Smart backup: {len(self.reports)} reports'
+                    f'Auto backup: {len(self.reports)} reports'
                 )
                 
                 self.github_update_file(
                     'board_data/bans.json',
                     json.dumps({device_id: ts.isoformat() for device_id, ts in self.banned_devices.items()}, ensure_ascii=False, indent=2),
-                    f'Smart backup: {len(self.banned_devices)} bans'
+                    f'Auto backup: {len(self.banned_devices)} bans'
                 )
                 
-                self.last_backup_time = backup_time
-                print(f"[BOARD] ✅ Smart backup completed at {backup_time.strftime('%Y-%m-%d %H:%M:%S')}")
-                return True
+                print(f"[BOARD] ✅ Backup completed at {backup_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print("[BOARD] 🔄 Render will auto-deploy from GitHub")
+                
+                # タイマーと最初の変更時刻をリセット
+                with self.timer_lock:
+                    self.backup_timer = None
+                    self.first_change_time = None
             else:
-                print("[BOARD] ⚠️ Smart backup failed")
-                return False
+                print("[BOARD] ⚠️ Backup failed")
+            
+            print("[BOARD] ==========================================")
                 
         except Exception as e:
             print(f"[BOARD] ❌ Backup execution error: {e}")
             import traceback
             traceback.print_exc()
-            return False
     
     def load_data(self):
         """保存されたデータを読み込み（Github優先、ローカルフォールバック）"""
@@ -409,9 +395,8 @@ class BoardModule:
             traceback.print_exc()
     
     def save_data(self):
-        """データをローカルに保存（GitHubバックアップはスマートバックアップが実行）"""
+        """データをローカルに保存"""
         try:
-            # ローカル保存のみ実行
             with open(self.posts_file, 'w', encoding='utf-8') as f:
                 json.dump({'posts': self.posts, 'next_post_id': self.next_post_id}, f, ensure_ascii=False, indent=2)
             
@@ -426,9 +411,6 @@ class BoardModule:
             
             with open(self.rate_limit_file, 'w', encoding='utf-8') as f:
                 json.dump({device_id: [ts.isoformat() for ts in timestamps] for device_id, timestamps in self.post_count.items()}, f, ensure_ascii=False, indent=2)
-            
-            # 🔧 スマートバックアップ: 投稿時のGitHubバックアップは実行しない
-            # アクティビティ検知型バックアップスレッドが自動的に実行
             
         except Exception as e:
             print(f"[BOARD] ❌ Error saving data: {e}")
@@ -536,14 +518,14 @@ class BoardModule:
         safe_username = self.sanitize_text(username)
         self.users[device_id] = safe_username
         
-        self.mark_changes_pending()  # 🔧 変更をマーク
         self.save_data()
+        self.schedule_backup()  # 🔧 バックアップスケジュール
+        
         print(f"[BOARD] 👤 New user registered: {safe_username}")
         return True, "名前を登録しました。"
     
     def get_username(self, device_id):
         """ユーザー名取得"""
-        self.record_activity()  # 🔧 アクティビティ記録（読み取りのみ）
         return self.users.get(device_id, None)
     
     def create_post(self, content, device_id, parent_id=None):
@@ -592,11 +574,15 @@ class BoardModule:
         
         self.posts.append(post)
         self.next_post_id += 1
+        
+        # post_count初期化を確実に
+        if device_id not in self.post_count:
+            self.post_count[device_id] = []
         self.post_count[device_id].append(datetime.now())
         
         self.clean_old_posts()
-        self.mark_changes_pending()  # 🔧 変更をマーク
         self.save_data()
+        self.schedule_backup()  # 🔧 バックアップスケジュール
         
         print(f"[BOARD] 📝 New post: ID={post['id']}, User={post['username']}, Suspicious={is_suspicious}")
         
@@ -634,13 +620,13 @@ class BoardModule:
             self.banned_devices[author_device_id] = datetime.now() + timedelta(hours=24)
             print(f"[BOARD] ⛔ User banned (24h): {author_device_id[:8]}...")
         
-        self.mark_changes_pending()  # 🔧 変更をマーク
         self.save_data()
+        self.schedule_backup()  # 🔧 バックアップスケジュール
+        
         return True, f"通報しました。"
     
     def get_posts(self, device_id):
         """投稿一覧取得"""
-        self.record_activity()  # 🔧 アクティビティ記録（読み取りのみ）
         self.clean_old_posts()
         
         filtered_posts = []
@@ -734,7 +720,8 @@ def board_report_post():
     data = request.json
     post_id = data.get('post_id')
     
-    success, message = board.report_post(post_id, device_id)  
+    success, message = board.report_post(post_id, device_id)
+    
     return jsonify({
         'success': success,
         'message': message
