@@ -726,3 +726,4 @@ def board_report_post():
         'success': success,
         'message': message
     })
+    
