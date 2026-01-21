@@ -4,10 +4,16 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:10000 --timeout 120
+    # 🔧 修正: タイムアウト180秒 + ワーカー2に変更
+    startCommand: gunicorn app:app --bind 0.0.0.0:10000 --timeout 180 --workers 2
     envVars:
-      # 🔧 修正: Gemini APIを使用するため、GOOGLE_API_KEYに変更
       - key: GOOGLE_API_KEY
+        sync: false
+      # 🔧 掲示板のGitHubバックアップ機能を使う場合のみ設定
+      # 使わない場合は下記2行をコメントアウトまたは削除してください
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
         sync: false
       - key: PORT
         value: 10000
