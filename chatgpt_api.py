@@ -40,7 +40,7 @@ def suggest_outfit(weather, options):
     precipitation = weather.get("precipitation", 0)
     pressure = weather.get("pressure", "不明")
     
-    # 🔧 新機能: 時系列データの取得
+    # 時系列データの取得
     hourly_forecast = weather.get("hourly_forecast", [])
     
     # オプション情報の展開
@@ -58,7 +58,7 @@ def suggest_outfit(weather, options):
     }
     gender_str = gender_map.get(gender, "指定なし(ユニセックス)")
 
-    # 🔧 新機能: 時系列天候情報を整形
+    # 時系列天候情報を整形
     hourly_info = ""
     if hourly_forecast and len(hourly_forecast) > 0:
         hourly_info = "\n# 今後12時間の天候推移\n"
@@ -276,7 +276,7 @@ def suggest_outfit(weather, options):
             "temperature": 0.7,
             "topP": 0.8,
             "topK": 40,
-            "maxOutputTokens": 1536,
+            "maxOutputTokens": 3072,  # 🔧 修正: 1536 → 3072
             "responseMimeType": "application/json"
         },
         "safetySettings": [
@@ -308,7 +308,7 @@ def suggest_outfit(weather, options):
             endpoint,
             headers=headers,
             json=payload,
-            timeout=60
+            timeout=180  # 🔧 修正: 60秒 → 180秒
         )
         
         print(f"[INFO] Response status: {response.status_code}")
@@ -506,7 +506,7 @@ def suggest_outfit(weather, options):
         }
 
     except requests.exceptions.Timeout:
-        print("[ERROR] Request timeout (60s)")
+        print("[ERROR] Request timeout (180s)")
         return {
             "type": "error",
             "suggestions": {
