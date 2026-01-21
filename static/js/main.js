@@ -570,12 +570,13 @@ const ChartModule = {
 };
 
 // ==========================================
-// AI Module
+// AI Module（修正版 - キュー対応）
 // ==========================================
 const AIModule = {
     countdownTimer: null,
     countdownInterval: null,
     errorCountdownInterval: null,
+    queuePollingInterval: null,  // 🆕 キュー状態監視用
 
     getDummyData: () => {
         return {
@@ -590,6 +591,49 @@ const AIModule = {
             return `${minutes}分${secs}秒`;
         }
         return `${secs}秒`;
+    },
+
+    // 🆕 キュー状態をポーリング
+    startQueuePolling: () => {
+        if (AIModule.queuePollingInterval) {
+            clearInterval(AIModule.queuePollingInterval);
+        }
+
+        AIModule.queuePollingInterval = setInterval(async () => {
+            try {
+                const response = await fetch("/api/ai_queue_status");
+                if (!response.ok) return;
+
+                const status = await response.json();
+                AIModule.updateQueueDisplay(status);
+            } catch (error) {
+                console.error("Queue polling error:", error);
+            }
+        }, 10000); // 10秒ごと
+    },
+
+    stopQueuePolling: () => {
+        if (AIModule.queuePollingInterval) {
+            clearInterval(AIModule.queuePollingInterval);
+            AIModule.queuePollingInterval = null;
+        }
+    },
+
+    // 🆕 キュー状態の表示更新
+    updateQueueDisplay: (status) => {
+        const btn = document.getElementById('ai-suggest-btn');
+        if (!btn || !btn.disabled) return;
+
+        const { active, queue } = status;
+        
+        // ボタンテキストが「処理中」の場合のみ更新
+        if (btn.innerHTML.includes('処理中') || btn.innerHTML.includes('待機中')) {
+            if (queue > 0) {
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 処理中 ${active}人、待機中 ${queue}人`;
+            } else if (active > 0) {
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 処理中 ${active}人`;
+            }
+        }
     },
 
     suggestOutfit: async () => {
@@ -620,8 +664,11 @@ const AIModule = {
         }
 
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 取得中...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 処理中...';
         ThemeModule.triggerButtonAnim(btn);
+
+        // 🆕 キュー状態のポーリング開始
+        AIModule.startQueuePolling();
 
         try {
             const response = await fetch("/api/suggest_outfit", {
@@ -637,6 +684,20 @@ const AIModule = {
                 })
             });
 
+            // 🆕 503エラー（キュー満杯）の処理
+            if (response.status === 503) {
+                const errorData = await response.json();
+                alert(`⚠️ 混雑中\n\n${errorData.message}`);
+                
+                AIModule.renderQueueFullError(errorData.message, errorData.status);
+                btn.innerHTML = '<i class="fa-solid fa-robot"></i> AI服装提案を取得';
+                btn.disabled = false;
+                
+                AIModule.stopQueuePolling();
+                return;
+            }
+
+            // 既存の429エラー処理
             if (response.status === 429) {
                 const errorData = await response.json();
                 const remainingTime = errorData.remaining_time || 0;
@@ -651,6 +712,7 @@ const AIModule = {
                 if (resetBtn) resetBtn.classList.remove('hidden');
                 
                 AIModule.startCountdown(remainingTime, btn);
+                AIModule.stopQueuePolling();
                 return;
             }
 
@@ -679,6 +741,7 @@ const AIModule = {
 
         } finally {
             btn.disabled = false;
+            AIModule.stopQueuePolling();  // 🆕 ポーリング停止
         }
     },
 
@@ -727,6 +790,33 @@ const AIModule = {
             clearInterval(AIModule.countdownInterval);
             AIModule.countdownInterval = null;
         }
+    },
+
+    // 🆕 キュー満杯エラー表示
+    renderQueueFullError: (message, status) => {
+        const resultArea = document.getElementById('ai-result-area');
+        
+        resultArea.innerHTML = `
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg p-6 shadow-sm fade-in-up">
+                <h4 class="font-bold text-yellow-700 dark:text-yellow-400 mb-3 border-b border-yellow-200 dark:border-yellow-700 pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-users"></i> 混雑中
+                </h4>
+                <p class="text-gray-700 dark:text-slate-200 text-sm md:text-base leading-relaxed mb-4">${message}</p>
+                <div class="bg-white dark:bg-slate-800 rounded p-3">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500 dark:text-slate-400">処理中</span>
+                        <span class="font-bold text-blue-600 dark:text-blue-400">${status.active}人</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm mt-2">
+                        <span class="text-gray-500 dark:text-slate-400">待機中</span>
+                        <span class="font-bold text-orange-600 dark:text-orange-400">${status.queue}人</span>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-slate-400 mt-4">
+                    💡 ヒント: 30秒ほど待ってから再試行してください。
+                </p>
+            </div>
+        `;
     },
 
     renderRateLimitError: (message, remainingTime) => {
@@ -880,6 +970,7 @@ const AIModule = {
         if (resetBtn) resetBtn.classList.add('hidden');
         
         AIModule.stopCountdown();
+        AIModule.stopQueuePolling();  // 🆕 ポーリング停止
         
         if (AIModule.errorCountdownInterval) {
             clearInterval(AIModule.errorCountdownInterval);
