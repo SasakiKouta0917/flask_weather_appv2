@@ -1,4 +1,135 @@
 // ==========================================
+// 🆕 デバイスID生成モジュール（ハイブリッド方式）
+// ==========================================
+const DeviceIDModule = {
+    deviceId: null,
+    
+    // Canvas Fingerprintを生成
+    getCanvasFingerprint: () => {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // テキストレンダリング
+            ctx.textBaseline = 'top';
+            ctx.font = '14px "Arial"';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('Weather App Device ID', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('Weather App Device ID', 4, 17);
+            
+            // 図形描画
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.fillStyle = 'rgb(255,0,255)';
+            ctx.beginPath();
+            ctx.arc(50, 50, 50, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = 'rgb(0,255,255)';
+            ctx.beginPath();
+            ctx.arc(100, 50, 50, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.fill();
+            
+            return canvas.toDataURL();
+        } catch (e) {
+            console.warn('[DEVICE ID] Canvas fingerprint failed:', e);
+            return 'canvas_unavailable';
+        }
+    },
+    
+    // localStorage UUIDを取得または生成
+    getLocalStorageUUID: () => {
+        const STORAGE_KEY = 'weatherapp_device_uuid';
+        
+        try {
+            let uuid = localStorage.getItem(STORAGE_KEY);
+            
+            if (!uuid) {
+                // UUIDv4を生成
+                uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+                
+                localStorage.setItem(STORAGE_KEY, uuid);
+                console.log('[DEVICE ID] New UUID generated:', uuid);
+            }
+            
+            return uuid;
+        } catch (e) {
+            console.warn('[DEVICE ID] localStorage unavailable:', e);
+            // フォールバック: セッションストレージ
+            try {
+                let uuid = sessionStorage.getItem(STORAGE_KEY);
+                if (!uuid) {
+                    uuid = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    sessionStorage.setItem(STORAGE_KEY, uuid);
+                }
+                return uuid;
+            } catch (e2) {
+                // 完全フォールバック: 時刻ベース
+                return 'fallback_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            }
+        }
+    },
+    
+    // SHA-256ハッシュ生成
+    hashString: async (str) => {
+        try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(str);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+            console.warn('[DEVICE ID] Crypto API unavailable, using fallback hash');
+            // フォールバック: 簡易ハッシュ
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        }
+    },
+    
+    // ハイブリッドデバイスIDを生成
+    generateDeviceID: async () => {
+        if (DeviceIDModule.deviceId) {
+            return DeviceIDModule.deviceId;
+        }
+        
+        console.log('[DEVICE ID] Generating hybrid device ID...');
+        
+        const canvasFingerprint = DeviceIDModule.getCanvasFingerprint();
+        const localUUID = DeviceIDModule.getLocalStorageUUID();
+        
+        // 両方を組み合わせてハッシュ化
+        const combined = `${canvasFingerprint}:${localUUID}`;
+        const deviceId = await DeviceIDModule.hashString(combined);
+        
+        DeviceIDModule.deviceId = deviceId;
+        
+        console.log('[DEVICE ID] Generated:', deviceId.substring(0, 16) + '...');
+        console.log('[DEVICE ID] Canvas:', canvasFingerprint.substring(0, 50) + '...');
+        console.log('[DEVICE ID] UUID:', localUUID);
+        
+        return deviceId;
+    },
+    
+    // 初期化
+    init: async () => {
+        await DeviceIDModule.generateDeviceID();
+    }
+};
+
+// ==========================================
 // Global State & Config
 // ==========================================
 const CONFIG = {
@@ -178,7 +309,7 @@ const TimeModule = {
 };
 
 // ==========================================
-// 1. Map Module
+// Map Module
 // ==========================================
 const MapModule = {
     rainLayer: null,
@@ -281,7 +412,7 @@ const MapModule = {
 };
 
 // ==========================================
-// Weather Module（修正版）
+// Weather Module
 // ==========================================
 const WeatherModule = {
     fetchData: async (lat, lng) => {
@@ -327,7 +458,6 @@ const WeatherModule = {
 
         const weatherDesc = CONFIG.wmoCodes[current.weather_code] || `不明(${current.weather_code})`;
 
-        // 🔧 新機能: 時系列データの整形
         const now = new Date();
         now.setMinutes(0, 0, 0);
         let startIndex = hourly.time.findIndex(t => new Date(t).getTime() >= now.getTime());
@@ -349,7 +479,6 @@ const WeatherModule = {
             });
         }
 
-        // 🔧 修正: currentWeatherDataに時系列データを追加
         currentWeatherData = {
             location: locationName,
             temp: current.temperature_2m,
@@ -359,10 +488,9 @@ const WeatherModule = {
             temp_max: daily.temperature_2m_max[0],
             temp_min: daily.temperature_2m_min[0],
             pressure: current.surface_pressure,
-            hourly_forecast: hourlyForecast  // 🔧 新規追加
+            hourly_forecast: hourlyForecast
         };
 
-        // 既存のUI更新処理
         document.getElementById('location-name').innerText = locationName;
         document.getElementById('current-temp').innerText = `${current.temperature_2m}℃`;
         document.getElementById('current-humidity').innerText = `${current.relative_humidity_2m}%`;
@@ -410,12 +538,10 @@ const WeatherModule = {
         WeatherModule.renderWeeklyForecast(daily);
         ChartModule.render(hourly);
         
-        // 🔧 新機能: 時系列データの確認ログ
         console.log('[WEATHER] Hourly forecast prepared:', hourlyForecast.length, 'hours');
     },
 
     renderWeeklyForecast: (daily) => {
-        // 既存のコードと同じ（変更なし）
         const container = document.getElementById('weekly-forecast-container');
         if (!container) return;
         let html = '';
@@ -463,7 +589,7 @@ const WeatherModule = {
 };
 
 // ==========================================
-// 3. Chart Module
+// Chart Module
 // ==========================================
 const ChartModule = {
     render: (hourly) => {
@@ -570,13 +696,13 @@ const ChartModule = {
 };
 
 // ==========================================
-// AI Module（修正版 - キュー対応）
+// AI Module（修正版 - デバイスID対応）
 // ==========================================
 const AIModule = {
     countdownTimer: null,
     countdownInterval: null,
     errorCountdownInterval: null,
-    queuePollingInterval: null,  // 🆕 キュー状態監視用
+    queuePollingInterval: null,
 
     getDummyData: () => {
         return {
@@ -593,7 +719,6 @@ const AIModule = {
         return `${secs}秒`;
     },
 
-    // 🆕 キュー状態をポーリング
     startQueuePolling: () => {
         if (AIModule.queuePollingInterval) {
             clearInterval(AIModule.queuePollingInterval);
@@ -609,7 +734,7 @@ const AIModule = {
             } catch (error) {
                 console.error("Queue polling error:", error);
             }
-        }, 10000); // 10秒ごと
+        }, 10000);
     },
 
     stopQueuePolling: () => {
@@ -619,14 +744,12 @@ const AIModule = {
         }
     },
 
-    // 🆕 キュー状態の表示更新
     updateQueueDisplay: (status) => {
         const btn = document.getElementById('ai-suggest-btn');
         if (!btn || !btn.disabled) return;
 
         const { active, queue } = status;
         
-        // ボタンテキストが「処理中」の場合のみ更新
         if (btn.innerHTML.includes('処理中') || btn.innerHTML.includes('待機中')) {
             if (queue > 0) {
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 処理中 ${active}人、待機中 ${queue}人`;
@@ -663,11 +786,13 @@ const AIModule = {
             return;
         }
 
+        // 🔧 デバイスIDを取得
+        const deviceId = await DeviceIDModule.generateDeviceID();
+
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 処理中...';
         ThemeModule.triggerButtonAnim(btn);
 
-        // 🆕 キュー状態のポーリング開始
         AIModule.startQueuePolling();
 
         try {
@@ -675,6 +800,7 @@ const AIModule = {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    device_id: deviceId,  // 🔧 デバイスIDを送信
                     weather_data: currentWeatherData,
                     mode: mode,
                     scene: finalScene,
@@ -684,7 +810,6 @@ const AIModule = {
                 })
             });
 
-            // 🆕 503エラー（キュー満杯）の処理
             if (response.status === 503) {
                 const errorData = await response.json();
                 alert(`⚠️ 混雑中\n\n${errorData.message}`);
@@ -697,7 +822,6 @@ const AIModule = {
                 return;
             }
 
-            // 既存の429エラー処理
             if (response.status === 429) {
                 const errorData = await response.json();
                 const remainingTime = errorData.remaining_time || 0;
@@ -741,7 +865,7 @@ const AIModule = {
 
         } finally {
             btn.disabled = false;
-            AIModule.stopQueuePolling();  // 🆕 ポーリング停止
+            AIModule.stopQueuePolling();
         }
     },
 
@@ -792,7 +916,6 @@ const AIModule = {
         }
     },
 
-    // 🆕 キュー満杯エラー表示
     renderQueueFullError: (message, status) => {
         const resultArea = document.getElementById('ai-result-area');
         
@@ -970,7 +1093,7 @@ const AIModule = {
         if (resetBtn) resetBtn.classList.add('hidden');
         
         AIModule.stopCountdown();
-        AIModule.stopQueuePolling();  // 🆕 ポーリング停止
+        AIModule.stopQueuePolling();
         
         if (AIModule.errorCountdownInterval) {
             clearInterval(AIModule.errorCountdownInterval);
@@ -1097,7 +1220,7 @@ const ThemeModule = {
 };
 
 // ==========================================
-// Board Module（掲示板機能・完全修正版）
+// Board Module（掲示板機能・デバイスID対応版）
 // ==========================================
 
 const BoardModule = {
@@ -1190,7 +1313,13 @@ const BoardModule = {
     
     loadUsername: async () => {
         try {
-            const response = await fetch('/api/board/get_username');
+            const deviceId = await DeviceIDModule.generateDeviceID();
+            
+            const response = await fetch('/api/board/get_username', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId })
+            });
             const data = await response.json();
             
             if (data.username) {
@@ -1213,6 +1342,8 @@ const BoardModule = {
             return;
         }
         
+        const deviceId = await DeviceIDModule.generateDeviceID();
+        
         const btn = document.getElementById('board-register-btn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -1221,7 +1352,10 @@ const BoardModule = {
             const response = await fetch('/api/board/register_name', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username })
+                body: JSON.stringify({ 
+                    username,
+                    device_id: deviceId
+                })
             });
             
             const data = await response.json();
@@ -1249,6 +1383,8 @@ const BoardModule = {
         
         if (!content) return;
         
+        const deviceId = await DeviceIDModule.generateDeviceID();
+        
         const btn = document.getElementById('board-submit-btn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 送信中...';
@@ -1257,7 +1393,10 @@ const BoardModule = {
             const response = await fetch('/api/board/create_post', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
+                body: JSON.stringify({ 
+                    content,
+                    device_id: deviceId
+                })
             });
             
             const data = await response.json();
@@ -1290,6 +1429,8 @@ const BoardModule = {
             return;
         }
         
+        const deviceId = await DeviceIDModule.generateDeviceID();
+        
         const btn = document.getElementById('board-reply-submit-btn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 送信中...';
@@ -1300,7 +1441,8 @@ const BoardModule = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     content,
-                    parent_id: BoardModule.replyToPostId
+                    parent_id: BoardModule.replyToPostId,
+                    device_id: deviceId
                 })
             });
             
@@ -1341,7 +1483,13 @@ const BoardModule = {
     
     loadPosts: async (silent = false) => {
         try {
-            const response = await fetch('/api/board/get_posts');
+            const deviceId = await DeviceIDModule.generateDeviceID();
+            
+            const response = await fetch('/api/board/get_posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId })
+            });
             const data = await response.json();
             
             BoardModule.renderPosts(data.posts);
@@ -1448,7 +1596,6 @@ const BoardModule = {
         
         return `
             <div class="bg-white dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden transition hover:shadow-md mb-3">
-                <!-- 親投稿 -->
                 <div class="p-3">
                     <div class="flex items-start justify-between mb-2">
                         <div class="flex items-center gap-2">
@@ -1478,7 +1625,6 @@ const BoardModule = {
                     </div>
                 </div>
                 
-                <!-- 返信一覧（デフォルト非表示） -->
                 ${replies.length > 0 ? `
                     <div class="replies-container hidden border-t border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/30 p-3 space-y-2" data-post-id="${post.id}">
                         ${repliesHtml}
@@ -1489,7 +1635,6 @@ const BoardModule = {
     },
     
     attachPostEventListeners: () => {
-        // 返信ボタン
         document.querySelectorAll('.reply-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const postId = parseInt(e.currentTarget.dataset.postId);
@@ -1498,7 +1643,6 @@ const BoardModule = {
             });
         });
         
-        // 通報ボタン
         document.querySelectorAll('.report-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const postId = parseInt(e.currentTarget.dataset.postId);
@@ -1506,15 +1650,13 @@ const BoardModule = {
             });
         });
         
-        // 内容を見るボタン
         document.querySelectorAll('.show-content-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const postId = parseInt(e.currentTarget.dataset.postId);
-                BoardModule.showHiddenContent(postId);
+                await BoardModule.showHiddenContent(postId);
             });
         });
         
-        // 返信表示トグルボタン
         document.querySelectorAll('.toggle-replies-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const postId = parseInt(e.currentTarget.dataset.postId);
@@ -1539,7 +1681,13 @@ const BoardModule = {
     
     showHiddenContent: async (postId) => {
         try {
-            const response = await fetch('/api/board/get_posts');
+            const deviceId = await DeviceIDModule.generateDeviceID();
+            
+            const response = await fetch('/api/board/get_posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId })
+            });
             const data = await response.json();
             
             const post = data.posts.find(p => p.id === postId);
@@ -1562,10 +1710,15 @@ const BoardModule = {
         }
         
         try {
+            const deviceId = await DeviceIDModule.generateDeviceID();
+            
             const response = await fetch('/api/board/report_post', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ post_id: postId })
+                body: JSON.stringify({ 
+                    post_id: postId,
+                    device_id: deviceId
+                })
             });
             
             const data = await response.json();
@@ -1584,9 +1737,14 @@ const BoardModule = {
 };
 
 // ==========================================
-// DOMContentLoaded（既存要素すべて保持）
+// DOMContentLoaded（デバイスID初期化を最優先）
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // 最優先: デバイスIDを初期化
+    await DeviceIDModule.init();
+    console.log('[INIT] Device ID initialized successfully');
+    
+    // その他のモジュール初期化
     MapModule.init();
     ThemeModule.init();
     FavoriteModule.init();
@@ -1623,11 +1781,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ==========================================
     // 折りたたみボタン機能（スマホ専用）
-    // ==========================================
-    
-    // 天候推移の折りたたみ
     const toggleChartBtn = document.getElementById('toggle-chart-btn');
     const chartContent = document.getElementById('chart-content');
 
@@ -1638,7 +1792,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 週間予報の折りたたみ
     const toggleForecastBtn = document.getElementById('toggle-forecast-btn');
     const forecastContent = document.getElementById('forecast-content');
 
@@ -1649,9 +1802,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ==========================================
-    // 🆕 掲示板の初期化（スマホのみ）
-    // ==========================================
+    // 掲示板の初期化（スマホのみ）
     if (window.innerWidth < 768) {
         BoardModule.init();
     }
