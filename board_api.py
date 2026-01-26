@@ -1,6 +1,7 @@
 """
 掲示板API - 遅延バックアップ版（推奨仕様）
 2025年1月 - 10分遅延 + 30分強制バックアップ対応
+デバイスID対応版（2026年1月）
 """
 
 from flask import jsonify, request
@@ -32,7 +33,7 @@ class BoardModule:
         self.github_api_base = 'https://api.github.com'
         self.github_branch = 'main'
         
-        # 🔧 新機能: 遅延バックアップ設定
+        # 遅延バックアップ設定
         self.backup_enabled = bool(self.github_token and self.github_repo)
         self.backup_delay_seconds = 600  # 10分 = 600秒
         self.max_backup_delay_seconds = 1800  # 30分 = 1800秒（強制バックアップ）
@@ -42,7 +43,7 @@ class BoardModule:
         
         # 初期化ログ
         print("[BOARD] ==========================================")
-        print("[BOARD] BoardModule Initialization (Delayed Backup)")
+        print("[BOARD] BoardModule Initialization (Delayed Backup + Device ID)")
         print(f"[BOARD] GITHUB_TOKEN: {'SET (' + self.github_token[:8] + '...)' if self.github_token else 'NOT SET'}")
         print(f"[BOARD] GITHUB_REPO: {self.github_repo if self.github_repo else 'NOT SET'}")
         
@@ -57,6 +58,7 @@ class BoardModule:
             if not self.github_repo:
                 print("[BOARD]   → GITHUB_REPO is not set")
         
+        print("[BOARD] 🔧 Device ID mode: Hybrid (Canvas + localStorage UUID)")
         print("[BOARD] ==========================================")
         
         self.data_dir.mkdir(exist_ok=True)
@@ -196,7 +198,6 @@ class BoardModule:
         print(f"[BOARD] ❌ GitHub backup failed after {max_retries} attempts")
         return False
     
-    # 🔧 新機能: 遅延バックアップタイマー
     def schedule_backup(self):
         """バックアップをスケジュール（10分遅延 + 30分強制）"""
         if not self.backup_enabled:
@@ -417,15 +418,6 @@ class BoardModule:
             import traceback
             traceback.print_exc()
 
-    def get_device_id(self):
-        """デバイスIDを生成（IPアドレス + User-Agentのハッシュ）"""
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        if ip:
-            ip = ip.split(',')[0].strip()
-        user_agent = request.headers.get('User-Agent', '')
-        device_string = f"{ip}:{user_agent}"
-        return hashlib.sha256(device_string.encode()).hexdigest()
-    
     def sanitize_text(self, text):
         """XSS対策：HTMLエスケープ処理"""
         return html.escape(text.strip())
@@ -519,9 +511,9 @@ class BoardModule:
         self.users[device_id] = safe_username
         
         self.save_data()
-        self.schedule_backup()  # 🔧 バックアップスケジュール
+        self.schedule_backup()
         
-        print(f"[BOARD] 👤 New user registered: {safe_username}")
+        print(f"[BOARD] 👤 New user registered: {safe_username} (device: {device_id[:16]}...)")
         return True, "名前を登録しました。"
     
     def get_username(self, device_id):
@@ -582,9 +574,9 @@ class BoardModule:
         
         self.clean_old_posts()
         self.save_data()
-        self.schedule_backup()  # 🔧 バックアップスケジュール
+        self.schedule_backup()
         
-        print(f"[BOARD] 📝 New post: ID={post['id']}, User={post['username']}, Suspicious={is_suspicious}")
+        print(f"[BOARD] 📝 New post: ID={post['id']}, User={post['username']}, Device={device_id[:16]}..., Suspicious={is_suspicious}")
         
         return True, post
     
@@ -618,10 +610,10 @@ class BoardModule:
         
         if len(author_reported_posts) >= 1:
             self.banned_devices[author_device_id] = datetime.now() + timedelta(hours=24)
-            print(f"[BOARD] ⛔ User banned (24h): {author_device_id[:8]}...")
+            print(f"[BOARD] ⛔ User banned (24h): {author_device_id[:16]}...")
         
         self.save_data()
-        self.schedule_backup()  # 🔧 バックアップスケジュール
+        self.schedule_backup()
         
         return True, f"通報しました。"
     
@@ -658,14 +650,20 @@ class BoardModule:
 board = BoardModule()
 
 # ==========================================
-# APIエンドポイント関数群
+# APIエンドポイント関数群（デバイスID対応）
 # ==========================================
 
 def board_register_name():
     """名前登録API"""
-    device_id = board.get_device_id()
-    data = request.json
+    data = request.get_json()
     username = data.get('username', '').strip()
+    device_id = data.get('device_id')
+    
+    if not device_id:
+        return jsonify({
+            'success': False,
+            'message': 'デバイスIDが送信されていません。ページを再読み込みしてください。'
+        }), 400
     
     success, message = board.register_username(username, device_id)
     
@@ -677,7 +675,14 @@ def board_register_name():
 
 def board_get_username():
     """現在のユーザー名取得API"""
-    device_id = board.get_device_id()
+    data = request.get_json()
+    device_id = data.get('device_id')
+    
+    if not device_id:
+        return jsonify({
+            'username': None
+        })
+    
     username = board.get_username(device_id)
     
     return jsonify({
@@ -686,11 +691,16 @@ def board_get_username():
 
 def board_create_post():
     """投稿作成API"""
-    device_id = board.get_device_id()
-    data = request.json
-    
+    data = request.get_json()
     content = data.get('content', '')
     parent_id = data.get('parent_id', None)
+    device_id = data.get('device_id')
+    
+    if not device_id:
+        return jsonify({
+            'success': False,
+            'message': 'デバイスIDが送信されていません。ページを再読み込みしてください。'
+        }), 400
     
     success, result = board.create_post(content, device_id, parent_id)
     
@@ -707,7 +717,14 @@ def board_create_post():
 
 def board_get_posts():
     """投稿一覧取得API"""
-    device_id = board.get_device_id()
+    data = request.get_json()
+    device_id = data.get('device_id')
+    
+    if not device_id:
+        return jsonify({
+            'posts': []
+        })
+    
     posts = board.get_posts(device_id)
     
     return jsonify({
@@ -716,9 +733,15 @@ def board_get_posts():
 
 def board_report_post():
     """通報API"""
-    device_id = board.get_device_id()
-    data = request.json
+    data = request.get_json()
     post_id = data.get('post_id')
+    device_id = data.get('device_id')
+    
+    if not device_id:
+        return jsonify({
+            'success': False,
+            'message': 'デバイスIDが送信されていません。ページを再読み込みしてください。'
+        }), 400
     
     success, message = board.report_post(post_id, device_id)
     
@@ -726,4 +749,3 @@ def board_report_post():
         'success': success,
         'message': message
     })
-    
