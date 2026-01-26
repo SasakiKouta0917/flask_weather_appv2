@@ -1,49 +1,16 @@
 {
   "posts": [
     {
-      "id": 1,
-      "content": "テキストがリポジトリにある一時キャッシュからGitHub APIを通して保存されているかのテスト。",
-      "username": "Ama-10",
-      "device_id": "49d4a45ed3e5800ff279a22ed1a68985a98c47984a09fffacfdd7ae98c1e937b",
-      "timestamp": "2026-01-17T18:42:28.902402",
-      "parent_id": null,
-      "is_suspicious": false,
-      "is_hidden": false,
-      "report_count": 1
-    },
-    {
-      "id": 2,
-      "content": "返信もテスト。",
-      "username": "Mon2tr",
-      "device_id": "7e3ddacf4f60bbfa18103c72b2339a946f6e5136d19a9ebe9a120b5ff7a2b0b8",
-      "timestamp": "2026-01-17T18:44:22.333773",
-      "parent_id": 1,
-      "is_suspicious": false,
-      "is_hidden": false,
-      "report_count": 0
-    },
-    {
-      "id": 3,
-      "content": "テスト",
-      "username": "テスト",
-      "device_id": "9ca302ee4bd6c025c1d574c9c378036a1b5ac309b48830100381293d5d829e8f",
-      "timestamp": "2026-01-20T07:07:32.690243",
-      "parent_id": null,
-      "is_suspicious": false,
-      "is_hidden": false,
-      "report_count": 0
-    },
-    {
-      "id": 4,
-      "content": "テスト",
-      "username": "テスト(再)",
-      "device_id": "9858c41df8a03fe0e3f89b6d3a4b9c369d915eb089bc3f8673a42f1cdcba17df",
-      "timestamp": "2026-01-20T09:08:50.410557",
+      "id": 5,
+      "content": "こんにちは",
+      "username": "佐々木",
+      "device_id": "07edfe6017c1d222a559610bd7b088dfadefda21698ae1fbad2b9198c19b3b85",
+      "timestamp": "2026-01-26T08:07:47.187487",
       "parent_id": null,
       "is_suspicious": false,
       "is_hidden": false,
       "report_count": 0
     }
   ],
-  "next_post_id": 5
+  "next_post_id": 6
 }
