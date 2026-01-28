@@ -1220,7 +1220,7 @@ const ThemeModule = {
 };
 
 // ==========================================
-// Board Module（掲示板機能・デバイスID対応版）
+// Board Module（掲示板機能・Visibility API対応版）
 // ==========================================
 
 const BoardModule = {
@@ -1233,9 +1233,46 @@ const BoardModule = {
         BoardModule.loadUsername();
         BoardModule.loadPosts();
         
+        // 🆕 Visibility APIで自動更新を制御（タブが非アクティブな時は停止）
+        BoardModule.startAutoRefresh();
+        
+        // 🆕 タブの表示/非表示を監視
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // タブが非アクティブになったら自動更新を停止
+                BoardModule.stopAutoRefresh();
+                console.log('[BOARD] Auto-refresh stopped (tab hidden)');
+            } else {
+                // タブがアクティブになったら自動更新を再開
+                BoardModule.startAutoRefresh();
+                BoardModule.loadPosts(true); // 即座に最新情報を取得
+                console.log('[BOARD] Auto-refresh restarted (tab visible)');
+            }
+        });
+    },
+    
+    // 🆕 自動更新を開始
+    startAutoRefresh: () => {
+        // 既に動作中なら何もしない
+        if (BoardModule.autoRefreshInterval) return;
+        
+        // 60秒ごとに自動更新（30秒→60秒に延長）
         BoardModule.autoRefreshInterval = setInterval(() => {
-            BoardModule.loadPosts(true);
-        }, 30000);
+            // 念のため再度チェック（タブがアクティブな時のみ更新）
+            if (!document.hidden) {
+                BoardModule.loadPosts(true);
+            }
+        }, 60000); // 🔧 30000 → 60000（60秒）
+        
+        console.log('[BOARD] Auto-refresh started (60s interval)');
+    },
+    
+    // 🆕 自動更新を停止
+    stopAutoRefresh: () => {
+        if (BoardModule.autoRefreshInterval) {
+            clearInterval(BoardModule.autoRefreshInterval);
+            BoardModule.autoRefreshInterval = null;
+        }
     },
     
     setupEventListeners: () => {
