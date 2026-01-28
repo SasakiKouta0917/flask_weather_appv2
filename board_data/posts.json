@@ -32,7 +32,18 @@
       "is_suspicious": true,
       "is_hidden": false,
       "report_count": 0
+    },
+    {
+      "id": 8,
+      "content": "テスト",
+      "username": "最終確認",
+      "device_id": "2176ec9ad418a0596cd45c43dda26f2cfec3fe951400555de452eb7f6b8f0e89",
+      "timestamp": "2026-01-28T15:26:04.160232",
+      "parent_id": null,
+      "is_suspicious": false,
+      "is_hidden": false,
+      "report_count": 0
     }
   ],
-  "next_post_id": 8
+  "next_post_id": 9
 }
