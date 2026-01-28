@@ -10,7 +10,29 @@
       "is_suspicious": false,
       "is_hidden": false,
       "report_count": 0
+    },
+    {
+      "id": 6,
+      "content": "こんにちは",
+      "username": "翔",
+      "device_id": "b58803c26a92a98ad089be392557f8d7fd0adac67df18888b1ef5bec26e0effd",
+      "timestamp": "2026-01-28T07:09:51.223791",
+      "parent_id": null,
+      "is_suspicious": false,
+      "is_hidden": false,
+      "report_count": 0
+    },
+    {
+      "id": 7,
+      "content": "https://flask-weather-app-c7ja.onrender.com/",
+      "username": "髙橋",
+      "device_id": "e9de0057df6c045769b203dd584525928e921b7874f8278d4f8b8414cc29861d",
+      "timestamp": "2026-01-28T07:09:58.763830",
+      "parent_id": null,
+      "is_suspicious": true,
+      "is_hidden": false,
+      "report_count": 0
     }
   ],
-  "next_post_id": 6
+  "next_post_id": 8
 }
